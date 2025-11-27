@@ -12,6 +12,9 @@ import SignupPage from "../features/auth/pages/SignupPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import { LayoutProvider } from "../context/LayoutContext";
 import { AuthProvider } from "../context/AuthContext";
+import SoloLayout from "@/features/solo/SoloLayout";
+import SoloLeaderboardPage from "@/features/solo/pages/SoloLeaderboardPage";
+import SoloPortfolioPage from "../features/solo/pages/SoloPortfolioPage";
 
 export default function AppRouter() {
   const router = createBrowserRouter([
@@ -26,8 +29,15 @@ export default function AppRouter() {
       children: [
         { path: "/", element: <Home /> },
         { path: "/discover", element: <DiscoverPage /> },
+        {
+          path: "/solo",
+          element: <SoloLayout />,
+          children: [
+            { index: true, element: <SoloPortfolioPage /> },
+            { path: "global-leaderboard", element: <SoloLeaderboardPage /> },
+          ],
+        },
         // Future routes (uncomment when pages are created):
-        // { path: '/solo', element: <SoloPage /> },
         // { path: '/leagues', element: <LeaguesPage /> },
         // { path: '/leagues/:id', element: <LeagueDetailPage /> },
         {

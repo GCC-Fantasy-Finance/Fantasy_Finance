@@ -55,7 +55,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return null;
     }
 
-    console.log("Profile data:", data);
     return data as Profile | null;
   };
 

@@ -23,13 +23,19 @@ export default function SubNav({ items, rightContent }: SubNavProps) {
           <li key={item.path}>
             <Link
               to={item.path}
-              className={`block py-3 border-b-2 transition-colors ${
-                isActive(item.path)
-                  ? "border-green-700 font-medium text-green-700"
-                  : "border-transparent hover:border-gray-300"
+              aria-current={isActive(item.path) ? "page" : undefined}
+              className={`relative block py-3 transition-colors group ${
+                isActive(item.path) ? "font-medium text-green-700" : ""
               }`}
             >
-              {item.name}
+              <span className="pointer-events-none">{item.name}</span>
+              <span
+                className={`absolute -left-0.5 -right-0.5 h-[2.5px] ${
+                  isActive(item.path)
+                    ? "bg-green-700"
+                    : "bg-transparent group-hover:bg-gray-300"
+                } bottom-0`}
+              />
             </Link>
           </li>
         ))}
