@@ -1,0 +1,16 @@
+name: Run Supabase Refresh Stock
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # Runs every 15 minutes
+  workflow_dispatch:        # Allows manual run
+
+jobs:
+  call-function:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Supabase Edge Function
+        run: |
+          curl -X POST \
+            -H "X-CRON-SECRET: ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.SUPABASE_FUNCTION_URL }}"
