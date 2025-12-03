@@ -1,7 +1,6 @@
 import { useAuth } from "@/context/AuthContext";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { User, Pencil, Trash2, User2 } from "lucide-react";
+import { Pencil, Trash2, User2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
