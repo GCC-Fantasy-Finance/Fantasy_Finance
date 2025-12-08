@@ -8,7 +8,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { signIn, user, loading: authLoading } = useAuth();
+  const { signIn, user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 

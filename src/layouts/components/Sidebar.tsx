@@ -4,8 +4,6 @@ import { useAuth } from "../../context/AuthContext";
 import {
   Compass,
   Home,
-  Mountain,
-  PersonStanding,
   PlusCircle,
   User2,
   UserPlus,
@@ -46,7 +44,7 @@ export default function Sidebar() {
       {/* Logo/Brand */}
       <div className="flex items-center p-4">
         <img
-          src="/public/ff_favicon.png"
+          src="/ff_favicon.png"
           alt="Fantasy Finance Logo"
           className="w-9 h-9 mr-2"
         />
@@ -110,8 +108,16 @@ export default function Sidebar() {
           to="/profile"
           className="flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors"
         >
-          <div className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center bg-gray-300">
-            <User2 className="w-5 h-5 text-gray-500" />
+          <div className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center bg-gray-300 overflow-hidden">
+            {profile?.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt="Profile"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <User2 className="w-5 h-5 text-gray-500" />
+            )}
           </div>
           <span className="text-sm truncate min-w-0">
             {profile?.username || "Username"}
