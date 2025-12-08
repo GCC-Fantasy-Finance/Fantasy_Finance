@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import {
   Compass,
@@ -9,6 +10,8 @@ import {
   UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import CreateLeagueModal from "@/components/ui/CreateLeagueModal";
+import JoinLeagueModal from "@/components/ui/JoinLeagueModal";
 
 type NavItem = {
   name: string;
@@ -19,6 +22,8 @@ type NavItem = {
 export default function Sidebar() {
   const location = useLocation();
   const { profile } = useAuth();
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isJoinOpen, setIsJoinOpen] = useState(false);
 
   const navItems: NavItem[] = [
     { name: "Home", path: "/", icon: Home },
@@ -83,13 +88,21 @@ export default function Sidebar() {
         <h3 className="px-4 text-xs font-semibold text-gray-500">LEAGUES</h3>
 
         <div className="flex gap-2 px-4 mt-2">
-          <Button size="xs" variant="secondary" className="flex-1">
+          <Button
+            size="xs"
+            variant="secondary"
+            className="flex-1"
+            onClick={() => setIsCreateOpen(true)}
+          >
             <PlusCircle /> Create
           </Button>
-          <Button size="xs" variant="secondary" className="flex-1">
+          <Button size="xs" variant="secondary" className="flex-1" onClick={() => setIsJoinOpen(true)}>
             <UserPlus /> Join
           </Button>
         </div>
+
+        <CreateLeagueModal open={isCreateOpen} onClose={() => setIsCreateOpen(false)} />
+        <JoinLeagueModal open={isJoinOpen} onClose={() => setIsJoinOpen(false)} />
       </nav>
 
       {/* User Profile at Bottom */}

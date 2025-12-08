@@ -10,6 +10,7 @@ import FriendsPage from "../features/profile/pages/FriendsPage";
 import LoginPage from "../features/auth/pages/LoginPage";
 import SignupPage from "../features/auth/pages/SignupPage";
 import NotFoundPage from "../pages/NotFoundPage";
+import LeagueDetailPage from "@/features/leagues/pages/LeagueDetailPage";
 import { LayoutProvider } from "../context/LayoutContext";
 import { AuthProvider } from "../context/AuthContext";
 import SoloLayout from "@/features/solo/SoloLayout";
@@ -37,9 +38,8 @@ export default function AppRouter() {
             { path: "global-leaderboard", element: <SoloLeaderboardPage /> },
           ],
         },
-        // Future routes (uncomment when pages are created):
-        // { path: '/leagues', element: <LeaguesPage /> },
-        // { path: '/leagues/:id', element: <LeagueDetailPage /> },
+        // League routes
+        { path: "/leagues/:id", element: <LeagueDetailPage /> },
         {
           path: "/profile",
           element: <ProfileLayout />,
