@@ -143,7 +143,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
         setCreatedDraftId(null);
 
         
-
+ 
         const portfolioPayload = {
           league_id: leagueId,
           user_id: user.id,
@@ -323,7 +323,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
 
             <label className="inline-flex items-center gap-2">
               <input type="checkbox" checked={hasDraft} onChange={(e) => setHasDraft(e.target.checked)} />
-              Has draft
+              Has drafting
             </label>
           </div>
 
