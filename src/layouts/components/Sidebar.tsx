@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CreateLeagueModal from "@/components/ui/CreateLeagueModal";
+import JoinLeagueModal from "@/components/ui/JoinLeagueModal";
 
 type NavItem = {
   name: string;
@@ -22,6 +23,7 @@ export default function Sidebar() {
   const location = useLocation();
   const { profile } = useAuth();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isJoinOpen, setIsJoinOpen] = useState(false);
 
   const navItems: NavItem[] = [
     { name: "Home", path: "/", icon: Home },
@@ -94,12 +96,13 @@ export default function Sidebar() {
           >
             <PlusCircle /> Create
           </Button>
-          <Button size="xs" variant="secondary" className="flex-1">
+          <Button size="xs" variant="secondary" className="flex-1" onClick={() => setIsJoinOpen(true)}>
             <UserPlus /> Join
           </Button>
         </div>
 
         <CreateLeagueModal open={isCreateOpen} onClose={() => setIsCreateOpen(false)} />
+        <JoinLeagueModal open={isJoinOpen} onClose={() => setIsJoinOpen(false)} />
       </nav>
 
       {/* User Profile at Bottom */}
