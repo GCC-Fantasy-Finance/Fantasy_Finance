@@ -1,6 +1,7 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
 import AuthLayout from "../layouts/AuthLayout";
+import DraftLayout from '../layouts/DraftLayout';
 import ProtectedRoute from "./ProtectedRoute";
 import Home from "../features/home/pages/HomePage";
 import DiscoverPage from "../features/discover/pages/DiscoverPage";
@@ -15,6 +16,7 @@ import { AuthProvider } from "../context/AuthContext";
 import SoloLayout from "@/features/solo/SoloLayout";
 import SoloLeaderboardPage from "@/features/solo/pages/SoloLeaderboardPage";
 import SoloPortfolioPage from "../features/solo/pages/SoloPortfolioPage";
+import DraftPage from '../features/draft/pages/DraftPage';
 
 export default function AppRouter() {
   const router = createBrowserRouter([
@@ -48,6 +50,19 @@ export default function AppRouter() {
             { path: "friends", element: <FriendsPage /> },
           ],
         },
+      ],
+    },
+    {
+      // Draft room route with its own layout (doesnt have main header/sidebar)
+      element: (
+        <LayoutProvider>
+          <ProtectedRoute>
+            <DraftLayout />
+          </ProtectedRoute>
+        </LayoutProvider>
+      ),
+      children: [
+        { path: "/draft", element: <DraftPage /> },
       ],
     },
     {
