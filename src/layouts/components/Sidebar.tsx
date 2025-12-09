@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import {
   Compass,
@@ -12,6 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import CreateLeagueModal from "@/components/ui/CreateLeagueModal";
 import JoinLeagueModal from "@/components/ui/JoinLeagueModal";
+import { supabase } from "@/lib/supabase";
+
 
 type NavItem = {
   name: string;
@@ -23,13 +25,73 @@ export default function Sidebar() {
   const location = useLocation();
   const { profile } = useAuth();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [isJoinOpen, setIsJoinOpen] = useState(false);
+  const [leagues, setLeagues] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const navItems: NavItem[] = [
     { name: "Home", path: "/", icon: Home },
     { name: "Discover", path: "/discover", icon: Compass },
     { name: "Solo", path: "/solo", icon: UserRound },
   ];
+
+  
+
+  async function fetchLeagues() {
+  console.log("PROFILE:", profile);
+
+  if (!profile) {
+    console.log("No profile yet");
+    return [];
+  }
+
+  // STEP 1 — Get user’s portfolios (excluding solo)
+  const { data: portfolios, error: portfoliosError } = await supabase
+    .from("Portfolios")
+    .select("league_id")
+    .eq("user_id", profile.id)
+    .eq("is_solo", false);
+
+  console.log("PORTFOLIOS:", portfolios);
+  console.log("PORTFOLIOS ERROR:", portfoliosError);
+
+  if (portfoliosError || !portfolios) return [];
+
+  const leagues: any[] = [];
+
+  // STEP 2 — Fetch each league by ID (super reliable)
+  for (const p of portfolios) {
+    console.log("Fetching league:", p.league_id);
+
+    const { data: league, error: leagueError } = await supabase
+      .from("Leagues")
+      .select("*")
+      .eq("league_id", p.league_id)
+      .maybeSingle();
+
+    console.log("LEAGUE RESULT:", league);
+    console.log("LEAGUE ERROR:", leagueError);
+
+    if (!leagueError && league) {
+      leagues.push(league);
+    }
+  }
+
+  console.log("FINAL LEAGUES:", leagues);
+  return leagues;
+}
+
+
+
+
+
+  useEffect(() => {
+    fetchLeagues()
+      .then((data) => setLeagues(data))
+      .finally(() => setLoading(false));
+  }, [profile]);
+  
 
   const isActive = (path: string) => {
     if (path === "/") {
@@ -40,6 +102,9 @@ export default function Sidebar() {
       location.pathname === path || location.pathname.startsWith(path + "/")
     );
   };
+
+  
+  
 
   return (
     <aside className="w-50 h-screen bg-gray-100 border-r border-gray-300 flex flex-col">
@@ -100,6 +165,31 @@ export default function Sidebar() {
             <UserPlus /> Join
           </Button>
         </div>
+
+        {/* Links to League pages */}
+        <div className="px-2 mt-2">
+          {loading ? (
+            <p className="text-xs text-gray-500 px-2 py-1">Loading...</p>
+          ) : leagues.length === 0 ? (
+            <p className="text-xs text-gray-400 px-2 py-1">No leagues yet</p>
+          ) : (
+            <ul className="space-y-1">
+  {leagues.map((league) => (
+    <li key={league.league_id}>
+      <Link
+        to={`/league/${league.league_id}`}
+        className="block px-4 py-2 rounded hover:bg-gray-200 text-sm"
+      >
+        {league.name}
+      </Link>
+    </li>
+  ))}
+</ul>
+
+          )}
+        </div>
+
+        
 
         <CreateLeagueModal open={isCreateOpen} onClose={() => setIsCreateOpen(false)} />
         <JoinLeagueModal open={isJoinOpen} onClose={() => setIsJoinOpen(false)} />
