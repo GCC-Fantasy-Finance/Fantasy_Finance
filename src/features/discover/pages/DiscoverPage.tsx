@@ -30,6 +30,7 @@ function Discover() {
         stockId: Number(stock.stock_id ?? 0),
         price: Number(stock.current_price ?? 0),
         quantity: 1,
+        isSolo: true,
       });
 
       if (!result.success) {
@@ -38,7 +39,7 @@ function Discover() {
         return;
       }
 
-      toast.success("Bought 1 share — portfolio updated and holding/transaction created.");
+      toast.success("Bought 1 share to Solo — portfolio updated.");
     } catch (err) {
       console.error("Unexpected buy error:", err);
       toast.error("Unexpected error while buying. See console.");
