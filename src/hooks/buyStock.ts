@@ -17,15 +17,40 @@ export async function buyStock(params: {
   stockId: number;
   price: number;
   quantity?: number;
+  portfolioId?: number; // optional explicit target portfolio
+  isSolo?: boolean; // optional filter when locating/creating portfolio
 }): Promise<BuyResult> {
-  const { userId, stockId, price, quantity = 1 } = params;
+  const { userId, stockId, price, quantity = 1, portfolioId: inputPortfolioId, isSolo } = params;
 
-  // 1) find or create portfolio for user
-  const { data: existingPortfolio, error: pErr } = await supabase
-    .from("Portfolios")
-    .select("portfolio_id, reserve_value, total_value")
-    .eq("user_id", userId)
-    .maybeSingle();
+  // 1) determine target portfolio: use provided `portfolioId` or look up by user with optional `isSolo` filter
+  let existingPortfolio: { portfolio_id: number; reserve_value?: number; total_value?: number } | null = null;
+  let pErr: any = null;
+
+  if (inputPortfolioId) {
+    const { data, error } = await supabase
+      .from("Portfolios")
+      .select("portfolio_id, reserve_value, total_value, user_id, is_solo")
+      .eq("portfolio_id", inputPortfolioId)
+      .maybeSingle();
+    existingPortfolio = data as any;
+    pErr = error;
+    if (existingPortfolio && existingPortfolio.user_id !== userId) {
+      return { success: false, message: "Portfolio does not belong to user" };
+    }
+  } else {
+    let query = supabase
+      .from("Portfolios")
+      .select("portfolio_id, reserve_value, total_value, created_at, is_solo" as any)
+      .eq("user_id", userId);
+
+    if (typeof isSolo === "boolean") {
+      query = query.eq("is_solo", isSolo);
+    }
+
+    const { data, error } = await query.order("created_at", { ascending: false }).limit(1).maybeSingle();
+    existingPortfolio = data as any;
+    pErr = error;
+  }
 
   if (pErr) {
     return { success: false, message: "Error fetching portfolio: " + pErr.message };
@@ -35,9 +60,13 @@ export async function buyStock(params: {
   let reserve = Number(existingPortfolio?.reserve_value ?? 0);
 
   if (!portfolioId) {
+    // prepare insert payload; include `is_solo` only if specified
+    const payload: Record<string, any> = { user_id: userId };
+    if (typeof isSolo === "boolean") payload.is_solo = isSolo;
+
     const { data: newP, error: insertPError } = await supabase
       .from("Portfolios")
-      .insert({ user_id: userId })
+      .insert(payload)
       .select("portfolio_id, reserve_value, total_value")
       .maybeSingle();
 
