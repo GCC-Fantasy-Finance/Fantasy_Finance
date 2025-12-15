@@ -1,9 +1,15 @@
 import { useDraft } from "../../context/DraftContext";
 
-const DRAFT_ROUNDS = 3; // TODO: get from db
-
 const DraftResultsPanel = () => {
-  const { users, currentPick, round, direction, draftStarted, draftEnded } = useDraft();
+  const { 
+    users, 
+    currentPick, 
+    round, 
+    direction, 
+    draftStarted, 
+    draftEnded,
+    draftRounds 
+  } = useDraft();
 
   return (
     <div style={{ display: "flex", height: "100%" }}>
@@ -32,7 +38,8 @@ const DraftResultsPanel = () => {
           >
             {user.user_id}
           </div>
-          {Array.from({ length: DRAFT_ROUNDS }).map((_, idx) => {
+
+          {Array.from({ length: draftRounds }).map((_, idx) => {
             let isCurrent = false;
             let isPast = false;
 
@@ -40,10 +47,7 @@ const DraftResultsPanel = () => {
               isPast = true;
             } else if (draftStarted) {
               if (idx === round - 1) {
-                if (
-                  (direction === "forward" && userIdx === currentPick) ||
-                  (direction === "backward" && userIdx === currentPick)
-                ) {
+                if (userIdx === currentPick) {
                   isCurrent = true;
                 } else if (
                   (direction === "forward" && userIdx < currentPick) ||
@@ -70,7 +74,7 @@ const DraftResultsPanel = () => {
             if (isCurrent) {
               background = "#2563eb";
               color = "#fff";
-              border = `2px solid ${"#2563eb"}`;
+              border = "2px solid #2563eb";
               text = "";
             }
 

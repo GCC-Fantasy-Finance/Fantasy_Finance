@@ -17,7 +17,7 @@ const DraftHeader = () => {
         )}
         
         
-        {!draftStarted && (
+        {!draftStarted && !draftEnded && (
           <Button style={{ marginLeft: "1rem" }} onClick={startDraft} size="sm">
             Start Draft
           </Button>
