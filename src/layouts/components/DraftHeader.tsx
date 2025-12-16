@@ -11,7 +11,9 @@ const DraftHeader = () => {
       <div style={{ display: "flex", alignItems: "center" }}>
         {draftStarted && !draftEnded && (
           <div>
-            <span>Round: {round} | Current: {currentUser?.user_id}</span>
+            <span>
+              Round: {round} | Current Pick: {currentUser?.Profiles?.username ?? "Name not found"}
+            </span>
             <DraftTimer />
           </div>
         )}

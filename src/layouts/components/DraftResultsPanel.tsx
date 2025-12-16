@@ -36,7 +36,7 @@ const DraftResultsPanel = () => {
               textAlign: "center",
             }}
           >
-            {user.user_id}
+            {user?.Profiles?.username ?? "Name not found"}
           </div>
 
           {Array.from({ length: draftRounds }).map((_, idx) => {

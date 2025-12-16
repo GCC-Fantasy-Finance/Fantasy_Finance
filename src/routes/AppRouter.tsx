@@ -3,6 +3,7 @@ import MainLayout from "../layouts/MainLayout";
 import AuthLayout from "../layouts/AuthLayout";
 import DraftLayout from '../layouts/DraftLayout';
 import ProtectedRoute from "./ProtectedRoute";
+import LeagueGuardRoute from "./LeagueGuardRoute"
 import Home from "../features/home/pages/HomePage";
 import DiscoverPage from "../features/discover/pages/DiscoverPage";
 import ProfileLayout from "../features/profile/ProfileLayout";
@@ -57,13 +58,16 @@ export default function AppRouter() {
       element: (
         <LayoutProvider>
           <ProtectedRoute>
-            <DraftLayout />
+            <LeagueGuardRoute>
+              <DraftLayout />
+            </LeagueGuardRoute>
           </ProtectedRoute>
         </LayoutProvider>
       ),
       children: [
-        { path: "/draft", element: <DraftPage /> },
+        { path: "/draft/:leagueId", element: <DraftPage /> },
       ],
+
     },
     {
       element: <AuthLayout />,

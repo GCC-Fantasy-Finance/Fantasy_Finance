@@ -1,18 +1,15 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { getPortfoliosByLeague } from "../lib/portfolios";
+import { getDraftByLeague, startDraft as startDraftApi, advanceDraft } from "../lib/drafts";
 import { supabase } from "@/lib/supabase";
 
 type Portfolio = {
   portfolio_id: string;
   user_id: string;
   reserve_value: number;
+  Profiles?: {
+    username: string;
+  };
 };
 
 type DraftContextType = {
@@ -32,8 +29,9 @@ type DraftContextType = {
 
 const DraftContext = createContext<DraftContextType | undefined>(undefined);
 
-export const DraftProvider = ({ children }: { children: ReactNode }) => {
-  const leagueId = 6;
+export const DraftProvider = ({ leagueId, children }: { leagueId: number; children: ReactNode }) => {
+  if (!Number.isFinite(leagueId)) throw new Error("DraftProvider requires a valid leagueId");
+
   const PICK_SECONDS = 60;
 
   const [users, setUsers] = useState<Portfolio[]>([]);
@@ -41,51 +39,29 @@ export const DraftProvider = ({ children }: { children: ReactNode }) => {
 
   const [currentPick, setCurrentPick] = useState(0);
   const [round, setRound] = useState(1);
-  const [direction, setDirection] = useState<"forward" | "backward">(
-    "forward"
-  );
+  const [direction, setDirection] = useState<"forward" | "backward">("forward");
   const [timer, setTimer] = useState(PICK_SECONDS);
   const [draftStarted, setDraftStarted] = useState(false);
   const [draftEnded, setDraftEnded] = useState(false);
   const [draftRounds, setDraftRounds] = useState(0);
 
-  /* ================================
-     Keep users ref in sync
-     ================================ */
-  useEffect(() => {
-    usersRef.current = users;
-  }, [users]);
-
-  /* ================================
-     Initial load
-     ================================ */
+  // Load initial data
   useEffect(() => {
     const load = async () => {
       const userData = await getPortfoliosByLeague(leagueId);
       setUsers(userData ?? []);
       usersRef.current = userData ?? [];
 
-      const { data, error } = await supabase
-        .from("Drafts")
-        .select("*")
-        .eq("league_id", leagueId)
-        .single();
-
-      if (error || !data) {
-        console.error("Failed to load draft:", error);
-        return;
-      }
-
-      hydrateFromDraftRow(data);
+      const draftData = await getDraftByLeague(leagueId);
+      if (draftData) hydrateFromDraftRow(draftData);
     };
-
     load();
-  }, []);
+  }, [leagueId]);
 
-  /* ================================
-     Realtime sync (authoritative)
-     ================================ */
+  // Realtime updates
   useEffect(() => {
+    if (!leagueId) return;
+
     const channel = supabase
       .channel("draft-sync")
       .on(
@@ -96,27 +72,26 @@ export const DraftProvider = ({ children }: { children: ReactNode }) => {
           table: "Drafts",
           filter: `league_id=eq.${leagueId}`,
         },
-        (payload) => {
-          hydrateFromDraftRow(payload.new, payload.commit_timestamp);
-        }
+        (payload) => hydrateFromDraftRow(payload.new, payload.commit_timestamp)
       )
-      .subscribe((status) => console.log("Draft realtime status:", status));
+      .subscribe((status) => {
+        console.log("Draft realtime status:", status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [leagueId]);
 
-  /* ================================
-     Local UI countdown + auto advance
-     ================================ */
+
+
+  // Countdown timer
   useEffect(() => {
     if (!draftStarted || draftEnded) return;
 
     const interval = setInterval(async () => {
       setTimer((t) => {
         if (t <= 1) {
-          // Timer reached 0: advance pick
           advancePick().catch(console.error);
           return PICK_SECONDS;
         }
@@ -127,9 +102,6 @@ export const DraftProvider = ({ children }: { children: ReactNode }) => {
     return () => clearInterval(interval);
   }, [draftStarted, draftEnded, currentPick, round, direction]);
 
-  /* ================================
-     Helpers
-     ================================ */
   const hydrateFromDraftRow = (d: any, commitTs?: string) => {
     setDraftStarted(d.is_started);
     setDraftEnded(d.is_ended);
@@ -137,9 +109,7 @@ export const DraftProvider = ({ children }: { children: ReactNode }) => {
     setRound(d.current_round);
     setDirection(d.is_snaking_forward ? "forward" : "backward");
 
-    const idx = usersRef.current.findIndex(
-      (u) => u.portfolio_id === d.current_portfolio_id
-    );
+    const idx = usersRef.current.findIndex((u) => u.portfolio_id === d.current_portfolio_id);
     setCurrentPick(idx >= 0 ? idx : 0);
 
     if (d.timer_start_time) {
@@ -150,78 +120,20 @@ export const DraftProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  /* ================================
-     Actions
-     ================================ */
+  // Actions
   const startDraft = async () => {
     const users = usersRef.current;
     if (!users.length) return;
-
-    const { error } = await supabase
-      .from("Drafts")
-      .update({
-        is_started: true,
-        is_ended: false,
-        current_round: 1,
-        current_pick: 0,
-        is_snaking_forward: true,
-        current_portfolio_id: users[0].portfolio_id,
-        timer_start_time: new Date().toISOString(),
-      })
-      .eq("league_id", leagueId);
-
-    if (error) console.error("startDraft failed:", error);
+    await startDraftApi(leagueId, users[0].portfolio_id);
   };
 
   const advancePick = async () => {
-    const users = usersRef.current;
-    if (!users.length) return;
-
-    let nextPick = currentPick;
-    let nextRound = round;
-    let nextDirection = direction;
-
-    if (direction === "forward") {
-      nextPick++;
-      if (nextPick >= users.length) {
-        nextPick = users.length - 1;
-        nextDirection = "backward";
-        nextRound++;
-      }
-    } else {
-      nextPick--;
-      if (nextPick < 0) {
-        nextPick = 0;
-        nextDirection = "forward";
-        nextRound++;
-      }
-    }
-
-    if (nextRound > draftRounds) {
-      await supabase
-        .from("Drafts")
-        .update({
-          is_ended: true,
-          current_round: nextRound,
-          current_pick: nextPick,
-          current_portfolio_id: null,
-        })
-        .eq("league_id", leagueId);
-      return;
-    }
-
-    const { error } = await supabase
-      .from("Drafts")
-      .update({
-        current_round: nextRound,
-        current_pick: nextPick,
-        current_portfolio_id: users[nextPick].portfolio_id,
-        is_snaking_forward: nextDirection === "forward",
-        timer_start_time: new Date().toISOString(),
-      })
-      .eq("league_id", leagueId);
-
-    if (error) console.error("advancePick failed:", error);
+    const result = await advanceDraft(leagueId, usersRef.current, currentPick, round, direction, draftRounds);
+    setCurrentPick(result.nextPick);
+    setRound(result.nextRound);
+    setDirection(result.nextDirection);
+    setDraftEnded(result.isDraftEnded);
+    if (!result.isDraftEnded) setTimer(PICK_SECONDS);
   };
 
   const resetTimer = () => setTimer(PICK_SECONDS);

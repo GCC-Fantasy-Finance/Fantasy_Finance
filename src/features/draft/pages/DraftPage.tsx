@@ -4,8 +4,20 @@ import DraftSearchPanel from "../../../layouts/components/DraftSearchPanel";
 import DraftQueuePanel from "../../../layouts/components/DraftQueuePanel";
 import { DraftProvider } from "../../../context/DraftContext";
 import { useRef, useState } from "react";
+import { useParams } from "react-router-dom";
 
 const DraftPage = () => {
+  const { leagueId } = useParams<{ leagueId: string }>();
+
+  if (!leagueId) {
+    return <div>Invalid league</div>;
+  }
+
+  const parsedLeagueId = Number(leagueId);
+  if (Number.isNaN(parsedLeagueId)) {
+    return <div>Invalid league ID</div>;
+  }
+  
   const [topHeight, setTopHeight] = useState(50); // percent
   const draggingVert = useRef(false);
 
@@ -60,7 +72,8 @@ const DraftPage = () => {
   }
 
   return (
-    <DraftProvider>
+    <DraftProvider leagueId={parsedLeagueId}>
+
       <div
         id="draft-container"
         style={{

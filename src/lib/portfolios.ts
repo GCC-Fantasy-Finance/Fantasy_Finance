@@ -4,12 +4,16 @@ import { supabase } from "../lib/supabase";
 export async function getPortfoliosByLeague(leagueId: number) {
   const { data, error } = await supabase
     .from("Portfolios")
-    .select("*")
+    .select("*, Profiles(username)")
     .eq("league_id", leagueId);
 
-  if (error) throw error;
-  return data;
+  if (error) {
+    console.error(error);
+    return [];
+  }
+  return data; // Portfolio object with the user's username included
 }
+
 
 // get all portfolios of a user
 export async function getPortfoliosByUser(UserId: number) {
