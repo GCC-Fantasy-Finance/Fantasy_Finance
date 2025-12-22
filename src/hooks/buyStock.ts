@@ -21,7 +21,7 @@ export async function buyStock(params: {
   isSolo?: boolean; // optional filter when locating/creating portfolio
 }): Promise<BuyResult> {
   const { userId, stockId, price, quantity = 1, portfolioId: inputPortfolioId, isSolo } = params;
-
+  console.log("buy " + isSolo)
   // 1) determine target portfolio: use provided `portfolioId` or look up by user with optional `isSolo` filter
   let existingPortfolio: { portfolio_id: number; reserve_value?: number; user_id: string, total_value?: number } | null = null;
   let pErr: any = null;
@@ -159,8 +159,9 @@ export async function buyStock(params: {
       portfolio_id: portfolioId,
       stock_id: stockId,
       quantity,
-      price,
-      type: "buy",
+      price_per_share: price,
+      transaction_type: "buy",
+      transaction_total: quantity * price
     })
     .select("transaction_id")
     .maybeSingle();
