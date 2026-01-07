@@ -1,19 +1,36 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { getPortfoliosByLeague } from "../lib/portfolios";
-import { getDraftByLeague, startDraft as startDraftApi, advanceDraft } from "../lib/drafts";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { supabase } from "@/lib/supabase";
 
-type Portfolio = {
-  portfolio_id: string;
-  user_id: string;
-  reserve_value: number;
-  Profiles?: {
-    username: string;
-  };
-};
+import { getPortfoliosByLeague } from "../lib/portfolios";
+import {
+  getDraftByLeague,
+  startDraft as startDraftApi,
+  advanceDraft,
+  type Portfolio,
+} from "../lib/drafts";
+import { insertDraftPick } from "../lib/draftpicks";
+import {
+  addWishlistItem,
+  getWishlistByPortfolio,
+  type WishlistItem,
+} from "../lib/wishlists";
+import { getLeagueById, type LeagueRow } from "../lib/leagues";
 
+/* ================================
+   Types
+================================ */
 type DraftContextType = {
   users: Portfolio[];
+  leagueId: number;
+
+  // Draft state
   currentPick: number;
   round: number;
   direction: "forward" | "backward";
@@ -21,49 +38,126 @@ type DraftContextType = {
   draftStarted: boolean;
   draftEnded: boolean;
   draftRounds: number;
-  currentUser: Portfolio | undefined;
+
+  // Identity
+  activePortfolio: Portfolio | undefined;
+  myPortfolio: Portfolio | undefined;
+  isOwner: boolean;
+
+  // Queue
+  queuedItems: WishlistItem[];
+
+  // Actions
   startDraft: () => Promise<void>;
-  advancePick: () => Promise<void>;
-  resetTimer: () => void;
+  makePick: (stockId: number) => Promise<void>;
+  queueStock: (stockId: number) => Promise<void>;
 };
 
 const DraftContext = createContext<DraftContextType | undefined>(undefined);
 
-export const DraftProvider = ({ leagueId, children }: { leagueId: number; children: ReactNode }) => {
-  if (!Number.isFinite(leagueId)) throw new Error("DraftProvider requires a valid leagueId");
+/* ================================
+   Provider
+================================ */
+export const DraftProvider = ({
+  leagueId,
+  children,
+}: {
+  leagueId: number;
+  children: ReactNode;
+}) => {
+  if (!Number.isFinite(leagueId)) {
+    throw new Error("DraftProvider requires a valid leagueId");
+  }
 
   const PICK_SECONDS = 60;
 
   const [users, setUsers] = useState<Portfolio[]>([]);
   const usersRef = useRef<Portfolio[]>([]);
 
+  // Draft state
   const [currentPick, setCurrentPick] = useState(0);
   const [round, setRound] = useState(1);
-  const [direction, setDirection] = useState<"forward" | "backward">("forward");
+  const [direction, setDirection] =
+    useState<"forward" | "backward">("forward");
   const [timer, setTimer] = useState(PICK_SECONDS);
   const [draftStarted, setDraftStarted] = useState(false);
   const [draftEnded, setDraftEnded] = useState(false);
   const [draftRounds, setDraftRounds] = useState(0);
 
-  // Load initial data
+  // Identity
+  const activePortfolio = users[currentPick];
+  const [myPortfolio, setMyPortfolio] = useState<Portfolio | undefined>();
+  const [league, setLeague] = useState<LeagueRow | null>(null);
+
+  const isOwner =
+    !!league &&
+    !!myPortfolio &&
+    league.owner_id === myPortfolio.user_id;
+
+  // Queue (only for this user)
+  const [queuedItems, setQueuedItems] = useState<WishlistItem[]>([]);
+
+  /* ================================
+     Load league + draft + users
+  ================================ */
   useEffect(() => {
     const load = async () => {
-      const userData = await getPortfoliosByLeague(leagueId);
+      const [userData, draftData, leagueData] = await Promise.all([
+        getPortfoliosByLeague(leagueId),
+        getDraftByLeague(leagueId),
+        getLeagueById(leagueId),
+      ]);
+
       setUsers(userData ?? []);
       usersRef.current = userData ?? [];
 
-      const draftData = await getDraftByLeague(leagueId);
       if (draftData) hydrateFromDraftRow(draftData);
+      if (leagueData) setLeague(leagueData);
     };
+
     load();
   }, [leagueId]);
 
-  // Realtime updates
+  /* ================================
+     Resolve my portfolio
+  ================================ */
+  useEffect(() => {
+    const resolveMyPortfolio = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const mine = usersRef.current.find((p) => p.user_id === user.id);
+      setMyPortfolio(mine);
+    };
+
+    if (usersRef.current.length) resolveMyPortfolio();
+  }, [users]);
+
+  /* ================================
+     Load my queue
+  ================================ */
+  useEffect(() => {
+    if (!myPortfolio?.portfolio_id) return;
+
+    const loadQueue = async () => {
+      const data = await getWishlistByPortfolio(myPortfolio.portfolio_id);
+      setQueuedItems(data ?? []);
+    };
+
+    loadQueue();
+  }, [myPortfolio?.portfolio_id]);
+
+  /* ================================
+     Realtime draft sync
+  ================================ */
   useEffect(() => {
     if (!leagueId) return;
 
+    // 1. Create the channel
     const channel = supabase
-      .channel("draft-sync")
+      .channel(`draft-sync-${leagueId}`) // give it a unique name per league
       .on(
         "postgres_changes",
         {
@@ -72,36 +166,60 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
           table: "Drafts",
           filter: `league_id=eq.${leagueId}`,
         },
-        (payload) => hydrateFromDraftRow(payload.new, payload.commit_timestamp)
+        (payload) => {
+          hydrateFromDraftRow(payload.new, payload.commit_timestamp);
+        }
       )
-      .subscribe((status) => {
-        console.log("Draft realtime status:", status);
-      });
+      .subscribe(); // subscribe immediately, returns RealtimeChannel
 
+    // 2. Cleanup when component unmounts
     return () => {
       supabase.removeChannel(channel);
     };
   }, [leagueId]);
 
 
-
-  // Countdown timer
+  /* ================================
+     Draft timer
+  ================================ */
   useEffect(() => {
     if (!draftStarted || draftEnded) return;
+    if (timer <= 0) return;
 
-    const interval = setInterval(async () => {
-      setTimer((t) => {
-        if (t <= 1) {
-          advancePick().catch(console.error);
-          return PICK_SECONDS;
-        }
-        return t - 1;
-      });
+    const interval = setInterval(() => {
+      setTimer((t) => Math.max(t - 1, 0));
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [draftStarted, draftEnded, currentPick, round, direction]);
+  }, [draftStarted, draftEnded, timer]);
 
+  /* ================================
+     Auto-draft when timer hits 0
+  ================================ */
+  useEffect(() => {
+    if (!draftStarted || draftEnded) return;
+    if (timer !== 0) return;
+
+    const isMyTurn =
+      activePortfolio?.portfolio_id === myPortfolio?.portfolio_id;
+
+    if (!isMyTurn) return;
+
+    const stockId = queuedItems.length > 0 ? queuedItems[0].stock_id : 1;
+
+    makePick(stockId);
+  }, [
+    timer,
+    draftStarted,
+    draftEnded,
+    activePortfolio?.portfolio_id,
+    myPortfolio?.portfolio_id,
+    queuedItems,
+  ]);
+
+  /* ================================
+     Hydrate from draft row
+  ================================ */
   const hydrateFromDraftRow = (d: any, commitTs?: string) => {
     setDraftStarted(d.is_started);
     setDraftEnded(d.is_ended);
@@ -109,7 +227,9 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     setRound(d.current_round);
     setDirection(d.is_snaking_forward ? "forward" : "backward");
 
-    const idx = usersRef.current.findIndex((u) => u.portfolio_id === d.current_portfolio_id);
+    const idx = usersRef.current.findIndex(
+      (u) => u.portfolio_id === d.current_portfolio_id
+    );
     setCurrentPick(idx >= 0 ? idx : 0);
 
     if (d.timer_start_time) {
@@ -120,30 +240,81 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     }
   };
 
-  // Actions
+  /* ================================
+     Actions
+  ================================ */
   const startDraft = async () => {
+    if (!isOwner) {
+      console.warn("Only league owner can start draft");
+      return;
+    }
+
     const users = usersRef.current;
     if (!users.length) return;
+
     await startDraftApi(leagueId, users[0].portfolio_id);
   };
 
-  const advancePick = async () => {
-    const result = await advanceDraft(leagueId, usersRef.current, currentPick, round, direction, draftRounds);
+  const queueStock = async (stockId: number) => {
+    if (!myPortfolio?.portfolio_id) return;
+    if (queuedItems.some((i) => i.stock_id === stockId)) return;
+
+    const optimisticItem: WishlistItem = {
+      portfolio_id: myPortfolio.portfolio_id,
+      stock_id: stockId,
+    };
+
+    setQueuedItems((prev) => [...prev, optimisticItem]);
+
+    try {
+      await addWishlistItem({
+        portfolio_id: myPortfolio.portfolio_id,
+        stock_id: stockId,
+      });
+    } catch (err) {
+      console.error("Failed to queue stock:", err);
+      setQueuedItems((prev) => prev.filter((i) => i.stock_id !== stockId));
+    }
+  };
+
+  const makePick = async (stockId: number) => {
+    const currentPortfolio = usersRef.current[currentPick];
+    if (!currentPortfolio) return;
+
+    await insertDraftPick(
+      leagueId,
+      currentPortfolio.portfolio_id,
+      2,
+      stockId,
+      round,
+      currentPick
+    );
+
+    const result = await advanceDraft(
+      leagueId,
+      usersRef.current,
+      currentPick,
+      round,
+      direction,
+      draftRounds
+    );
+
     setCurrentPick(result.nextPick);
     setRound(result.nextRound);
     setDirection(result.nextDirection);
     setDraftEnded(result.isDraftEnded);
+
     if (!result.isDraftEnded) setTimer(PICK_SECONDS);
   };
 
-  const resetTimer = () => setTimer(PICK_SECONDS);
-
-  const currentUser = users[currentPick];
-
+  /* ================================
+     Provider
+  ================================ */
   return (
     <DraftContext.Provider
       value={{
         users,
+        leagueId,
         currentPick,
         round,
         direction,
@@ -151,10 +322,13 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
         draftStarted,
         draftEnded,
         draftRounds,
-        currentUser,
+        activePortfolio,
+        myPortfolio,
+        isOwner,
+        queuedItems,
         startDraft,
-        advancePick,
-        resetTimer,
+        makePick,
+        queueStock,
       }}
     >
       {children}
@@ -162,6 +336,9 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
   );
 };
 
+/* ================================
+   Hook
+================================ */
 export const useDraft = () => {
   const ctx = useContext(DraftContext);
   if (!ctx) throw new Error("useDraft must be used within DraftProvider");

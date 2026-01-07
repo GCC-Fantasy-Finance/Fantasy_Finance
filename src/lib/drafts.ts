@@ -15,6 +15,7 @@ export type DraftRow = {
 export type Portfolio = {
   portfolio_id: string;
   user_id: string;
+  league_id: number,
   reserve_value: number;
   Profiles?: {
     username: string;

@@ -80,12 +80,13 @@ const DraftPage = () => {
           height: "100vh",
           display: "flex",
           flexDirection: "column",
+          overflow: "hidden",
           userSelect: draggingVert.current || draggingHorz.current ? "none" : "auto",
         }}
       >
         <DraftHeader />
 
-        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
           <div
             style={{
               height: `calc(${topHeight}% - 2px)`,
@@ -120,7 +121,9 @@ const DraftPage = () => {
                 width: `calc(${leftWidth}% - 2px)`,
                 minWidth: 80,
                 borderRight: "1px solid #eee",
-                overflow: "auto",
+                overflow: "hidden",
+                height: "100%",
+                minHeight: 0,
               }}
             >
               <DraftSearchPanel />
