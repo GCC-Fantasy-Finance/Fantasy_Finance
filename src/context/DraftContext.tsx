@@ -69,7 +69,7 @@ export const DraftProvider = ({
     throw new Error("DraftProvider requires a valid leagueId");
   }
 
-  const PICK_SECONDS = 60;
+  const PICK_SECONDS = 10;
 
   const [users, setUsers] = useState<Portfolio[]>([]);
   const usersRef = useRef<Portfolio[]>([]);
@@ -178,7 +178,6 @@ export const DraftProvider = ({
     };
   }, [leagueId]);
 
-
   /* ================================
      Draft timer
   ================================ */
@@ -195,6 +194,7 @@ export const DraftProvider = ({
 
   /* ================================
      Auto-draft when timer hits 0
+     This logic is moved to supabase
   ================================ */
   useEffect(() => {
     if (!draftStarted || draftEnded) return;

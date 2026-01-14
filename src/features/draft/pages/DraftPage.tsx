@@ -18,7 +18,7 @@ const DraftPage = () => {
     return <div>Invalid league ID</div>;
   }
   
-  const [topHeight, setTopHeight] = useState(50); // percent
+  const [topHeight, setTopHeight] = useState(35); // percent
   const draggingVert = useRef(false);
 
   const [leftWidth, setLeftWidth] = useState(66.66); // percent
