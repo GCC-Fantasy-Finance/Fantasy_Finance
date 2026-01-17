@@ -74,6 +74,7 @@
   --sidebar-accent-foreground: oklch(0.15 0.02 145);
   --sidebar-border: oklch(0.92 0.02 145);
   --sidebar-ring: oklch(0.5 0.2 145);
+  --chat-user-bubble: #cff0da; /* Light green for chat user messages */
 }
 
 .dark {
@@ -115,8 +116,38 @@
     @apply border-border outline-ring/50;
   }
   body {
-    font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont,
-      "Segoe UI", sans-serif;
+    font-family:
+      "Inter",
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      sans-serif;
     @apply bg-background text-foreground;
   }
+}
+
+/* Chatbot thin, subtle scrollbar */
+.chatbot-scroll {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: #e5e7eb transparent; /* thumb, track */
+}
+
+.chatbot-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.chatbot-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chatbot-scroll::-webkit-scrollbar-thumb {
+  background-color: #e5e7eb; /* gray-200 */
+  border-radius: 9999px;
+}
+
+/* Chat user bubble background color */
+.bg-chat-user-bubble {
+  background-color: var(--chat-user-bubble);
 }
