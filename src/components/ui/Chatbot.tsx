@@ -115,7 +115,7 @@ export default function Chatbot({
         const { data: conversation, error: convError } =
           await createConversation(
             user.id,
-            messageText.substring(0, 50) // Use first 50 chars as title
+            messageText.substring(0, 50), // Use first 50 chars as title
           );
 
         if (convError || !conversation) {
@@ -131,7 +131,7 @@ export default function Chatbot({
       const { error: userMsgError } = await addMessage(
         currentConversationId,
         messageText,
-        false
+        false,
       );
 
       if (userMsgError) {
@@ -154,7 +154,7 @@ export default function Chatbot({
         const { error: aiMsgError } = await addMessage(
           currentConversationId!,
           aiResponseText,
-          true
+          true,
         );
 
         if (aiMsgError) {
@@ -210,7 +210,7 @@ export default function Chatbot({
     setLoadingHistory(true);
 
     const { data, error } = await getConversationMessages(
-      conversation.conversation_id
+      conversation.conversation_id,
     );
 
     if (error) {
@@ -442,7 +442,7 @@ export default function Chatbot({
   // Pinned mode - full height sidebar on the right
   if (isPinned) {
     return (
-      <div className="h-full w-96 bg-white border-l border-gray-300 flex flex-col">
+      <div className="h-full bg-white border-l border-gray-300 flex flex-col w-64 lg:w-80 xl:w-[400px]">
         {renderHeader()}
 
         {/* Messages area */}
@@ -465,7 +465,7 @@ export default function Chatbot({
       {state !== "closed" && (
         <div
           className={`absolute bottom-18 right-0 bg-white rounded-lg shadow-2xl border border-gray-300 transition-all duration-300 ${
-            state === "small" ? "w-80 h-32" : "w-96"
+            state === "small" ? "w-80 h-32" : "w-96 flex flex-col"
           }`}
           style={{
             height: state === "expanded" ? "calc(100vh - 120px)" : undefined,
@@ -479,9 +479,6 @@ export default function Chatbot({
             <div
               className="flex-1 overflow-auto p-4 pr-2 chatbot-scroll"
               ref={floatingMessagesRef}
-              style={{
-                height: "calc(100% - 140px)",
-              }}
             >
               {viewMode === "history" ? renderHistory() : renderMessages()}
             </div>
@@ -490,7 +487,7 @@ export default function Chatbot({
           {/* Input area - only show in chat mode */}
           {viewMode === "chat" &&
             renderInput(
-              `${state === "expanded" ? "absolute bottom-0 left-0 right-0 border-t" : ""} p-4 border-gray-300 bg-white rounded-b-lg`
+              `${state === "expanded" ? "border-t" : ""} p-4 border-gray-300 bg-white rounded-b-lg`,
             )}
         </div>
       )}
