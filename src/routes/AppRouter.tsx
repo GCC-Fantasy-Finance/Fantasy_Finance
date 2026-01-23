@@ -45,7 +45,7 @@ export default function AppRouter() {
           ],
         },
         // League routes
-        { path: "/leagues/:id", element: <LeagueDetailPage /> },
+        { path: "/league/:id", element: <LeagueDetailPage /> },
         {
           path: "/profile",
           element: <ProfileLayout />,

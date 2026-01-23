@@ -119,7 +119,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
         has_drafting: hasDraft,
         sectors: sectorsInput
           ? sectorsInput.split(",").map((s) => s.trim()).filter(Boolean)
-          : null,
+          : ["Any"],
         created_at: new Date().toISOString(),
       };
 
@@ -143,13 +143,21 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
           is_solo: false,
         };
 
-        const { data: portfolioData } = await supabase
+        const { data: portfolioData, error: portfolioError } = await supabase
           .from("Portfolios")
           .insert([portfolioPayload])
           .select()
           .single();
 
+        if (portfolioError) {
+          throw new Error("Failed to create portfolio: " + portfolioError.message);
+        }
+
         const portfolioId = portfolioData?.portfolio_id;
+
+        if (!portfolioId) {
+          throw new Error("Portfolio creation did not return an id.");
+        }
 
         const draftPayload = {
           league_id: leagueId,
