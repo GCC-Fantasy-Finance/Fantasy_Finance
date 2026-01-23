@@ -1,26 +1,9 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode, } from "react";
 import { supabase } from "@/lib/supabase";
-
 import { getPortfoliosByLeague } from "../lib/portfolios";
-import {
-  getDraftByLeague,
-  startDraft as startDraftApi,
-  advanceDraft,
-  type Portfolio,
-} from "../lib/drafts";
+import { getDraftByLeague, startDraft as startDraftApi, advanceDraft, type Portfolio, } from "../lib/drafts";
 import { insertDraftPick } from "../lib/draftpicks";
-import {
-  addWishlistItem,
-  getWishlistByPortfolio,
-  type WishlistItem,
-} from "../lib/wishlists";
+import { addWishlistItem, getWishlistByPortfolio, type WishlistItem, } from "../lib/wishlists";
 import { getLeagueById, type LeagueRow } from "../lib/leagues";
 
 /* ================================
@@ -29,6 +12,9 @@ import { getLeagueById, type LeagueRow } from "../lib/leagues";
 type DraftContextType = {
   users: Portfolio[];
   leagueId: number;
+
+  // League
+  name: string | null;
 
   // Draft state
   currentPick: number;
@@ -155,9 +141,8 @@ export const DraftProvider = ({
   useEffect(() => {
     if (!leagueId) return;
 
-    // 1. Create the channel
     const channel = supabase
-      .channel(`draft-sync-${leagueId}`) // give it a unique name per league
+      .channel(`draft-sync-${leagueId}`)
       .on(
         "postgres_changes",
         {
@@ -170,9 +155,8 @@ export const DraftProvider = ({
           hydrateFromDraftRow(payload.new, payload.commit_timestamp);
         }
       )
-      .subscribe(); // subscribe immediately, returns RealtimeChannel
+      .subscribe();
 
-    // 2. Cleanup when component unmounts
     return () => {
       supabase.removeChannel(channel);
     };
@@ -191,31 +175,6 @@ export const DraftProvider = ({
 
     return () => clearInterval(interval);
   }, [draftStarted, draftEnded, timer]);
-
-  /* ================================
-     Auto-draft when timer hits 0
-     This logic is moved to supabase
-  ================================ */
-  useEffect(() => {
-    if (!draftStarted || draftEnded) return;
-    if (timer !== 0) return;
-
-    const isMyTurn =
-      activePortfolio?.portfolio_id === myPortfolio?.portfolio_id;
-
-    if (!isMyTurn) return;
-
-    const stockId = queuedItems.length > 0 ? queuedItems[0].stock_id : 1;
-
-    makePick(stockId);
-  }, [
-    timer,
-    draftStarted,
-    draftEnded,
-    activePortfolio?.portfolio_id,
-    myPortfolio?.portfolio_id,
-    queuedItems,
-  ]);
 
   /* ================================
      Hydrate from draft row
@@ -315,6 +274,7 @@ export const DraftProvider = ({
       value={{
         users,
         leagueId,
+        name: league?.name ?? null,
         currentPick,
         round,
         direction,
