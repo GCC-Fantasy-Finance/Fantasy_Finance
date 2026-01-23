@@ -1,14 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import {
-  X,
-  MessageCircle,
-  Send,
-  Pin,
-  History,
-  ArrowLeft,
-  Plus,
-  Stars,
-} from "lucide-react";
+import { X, Send, Pin, History, ArrowLeft, Plus, Stars } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { Button } from "./button";
 import { Input } from "./input";
 import { useAuth } from "@/context/AuthContext";
@@ -17,6 +9,7 @@ import {
   addMessage,
   getUserConversations,
   getConversationMessages,
+  callOpenAI,
   type ChatConversation,
   type ChatMessage,
 } from "@/lib/chat";
@@ -49,6 +42,7 @@ export default function Chatbot({
   const [viewMode, setViewMode] = useState<ViewMode>("chat");
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [loadingAI, setLoadingAI] = useState(false);
   const chatbotRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const floatingMessagesRef = useRef<HTMLDivElement>(null);
@@ -138,31 +132,46 @@ export default function Chatbot({
         console.error("Failed to save user message:", userMsgError);
       }
 
-      // Simulate AI response
-      setTimeout(async () => {
-        const aiResponseText =
-          "ok asd asd as dasd as das das das das das dsdasdasdasd as  dasdasd asd asd as da das das dasdasd asd a sdas d";
-        const aiMessage: Message = {
+      // Call OpenAI via edge function
+      setLoadingAI(true);
+      const { response: aiResponseText, error: aiError } =
+        await callOpenAI(messageText);
+      setLoadingAI(false);
+
+      if (aiError || !aiResponseText) {
+        console.error("Failed to get AI response:", aiError);
+        // Show error message to user
+        const errorMessage: Message = {
           id: (Date.now() + 1).toString(),
-          text: aiResponseText,
+          text: "Sorry, I encountered an error. Please try again.",
           sender: "ai",
           timestamp: new Date(),
         };
-        setMessages((prev) => [...prev, aiMessage]);
+        setMessages((prev) => [...prev, errorMessage]);
+        return;
+      }
 
-        // Save AI message to database
-        const { error: aiMsgError } = await addMessage(
-          currentConversationId!,
-          aiResponseText,
-          true,
-        );
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: aiResponseText,
+        sender: "ai",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, aiMessage]);
 
-        if (aiMsgError) {
-          console.error("Failed to save AI message:", aiMsgError);
-        }
-      }, 500);
+      // Save AI message to database
+      const { error: aiMsgError } = await addMessage(
+        currentConversationId,
+        aiResponseText,
+        true,
+      );
+
+      if (aiMsgError) {
+        console.error("Failed to save AI message:", aiMsgError);
+      }
     } catch (error) {
       console.error("Error handling message:", error);
+      setLoadingAI(false);
     }
   };
 
@@ -365,7 +374,7 @@ export default function Chatbot({
         />
         <Button
           onClick={handleSend}
-          disabled={!message.trim()}
+          disabled={!message.trim() || loadingAI}
           className="w-9 h-9"
         >
           <Send className="h-4 w-4" />
@@ -428,12 +437,66 @@ export default function Chatbot({
                 <p className="text-sm">{msg.text}</p>
               </div>
             ) : (
-              <div className="">
-                <p className="text-sm text-gray-800">{msg.text}</p>
+              <div className="text-sm text-gray-800">
+                <ReactMarkdown
+                  components={{
+                    p: (props) => <p className="mb-2" {...props} />,
+                    ul: (props) => (
+                      <ul className="list-disc list-inside mb-2" {...props} />
+                    ),
+                    ol: (props) => (
+                      <ol
+                        className="list-decimal list-inside mb-2"
+                        {...props}
+                      />
+                    ),
+                    li: (props) => <li className="mb-1" {...props} />,
+                    code: (props) => (
+                      <code
+                        className="bg-gray-100 px-1.5 py-0.5 rounded text-xs font-mono"
+                        {...props}
+                      />
+                    ),
+                    pre: (props) => (
+                      <pre
+                        className="bg-gray-100 p-2 rounded overflow-x-auto mb-2"
+                        {...props}
+                      />
+                    ),
+                    blockquote: (props) => (
+                      <blockquote
+                        className="border-l-4 border-gray-300 pl-3 italic mb-2"
+                        {...props}
+                      />
+                    ),
+                    strong: (props) => (
+                      <strong className="font-semibold" {...props} />
+                    ),
+                    em: (props) => <em className="italic" {...props} />,
+                    h1: (props) => (
+                      <h1 className="text-lg font-bold mb-2" {...props} />
+                    ),
+                    h2: (props) => (
+                      <h2 className="text-base font-bold mb-2" {...props} />
+                    ),
+                    h3: (props) => (
+                      <h3 className="text-sm font-bold mb-2" {...props} />
+                    ),
+                  }}
+                >
+                  {msg.text}
+                </ReactMarkdown>
               </div>
             )}
           </div>
         ))}
+        {loadingAI && (
+          <div className="flex justify-start">
+            <div className="text-sm text-gray-500">
+              <span className="animate-pulse">AI is thinking...</span>
+            </div>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
     );

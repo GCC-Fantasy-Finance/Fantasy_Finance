@@ -20,7 +20,7 @@ export interface ChatMessage {
  */
 export async function createConversation(
   userId: string,
-  title: string = "New Conversation"
+  title: string = "New Conversation",
 ): Promise<{ data: ChatConversation | null; error: Error | null }> {
   try {
     const { data, error } = await supabase
@@ -47,7 +47,7 @@ export async function createConversation(
 export async function addMessage(
   conversationId: number,
   messageText: string,
-  isAiMessage: boolean
+  isAiMessage: boolean,
 ): Promise<{ data: ChatMessage | null; error: Error | null }> {
   try {
     const { data, error } = await supabase
@@ -73,7 +73,7 @@ export async function addMessage(
  * Get all messages for a conversation
  */
 export async function getConversationMessages(
-  conversationId: number
+  conversationId: number,
 ): Promise<{ data: ChatMessage[] | null; error: Error | null }> {
   try {
     const { data, error } = await supabase
@@ -95,7 +95,7 @@ export async function getConversationMessages(
  * Get all conversations for a user
  */
 export async function getUserConversations(
-  userId: string
+  userId: string,
 ): Promise<{ data: ChatConversation[] | null; error: Error | null }> {
   try {
     const { data, error } = await supabase
@@ -118,7 +118,7 @@ export async function getUserConversations(
  */
 export async function updateConversationTitle(
   conversationId: number,
-  title: string
+  title: string,
 ): Promise<{ error: Error | null }> {
   try {
     const { error } = await supabase
@@ -132,5 +132,34 @@ export async function updateConversationTitle(
   } catch (error) {
     console.error("Error updating conversation title:", error);
     return { error: error as Error };
+  }
+}
+
+/**
+ * Call OpenAI via Supabase edge function
+ */
+export async function callOpenAI(
+  query: string,
+): Promise<{ response: string | null; error: Error | null }> {
+  try {
+    console.log("Calling OpenAI edge function with query:", query);
+    const { data, error } = await supabase.functions.invoke("openai-proxy", {
+      body: { query },
+    });
+    console.log("Edge function response:", { data, error });
+
+    if (error) throw error;
+
+    // Extract the content from the OpenAI response
+    const aiMessage = data?.choices?.[0]?.message?.content;
+
+    if (!aiMessage) {
+      throw new Error("No response content from OpenAI");
+    }
+
+    return { response: aiMessage, error: null };
+  } catch (error) {
+    console.error("Error calling OpenAI:", error);
+    return { response: null, error: error as Error };
   }
 }
