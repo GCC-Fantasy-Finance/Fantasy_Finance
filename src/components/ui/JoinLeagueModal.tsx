@@ -76,6 +76,8 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
 
       if (supaError) throw supaError;
 
+      window.location.reload();
+
       onClose(); // reset will trigger from useEffect
     } catch (err: any) {
       console.error("Error joining league:", err);

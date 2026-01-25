@@ -174,6 +174,8 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
 
         await supabase.from("Drafts").insert([draftPayload]);
 
+        window.location.reload();
+
         onClose(); // modal resets automatically because of the effect above
       } else {
         setError("League creation did not return an id.");
