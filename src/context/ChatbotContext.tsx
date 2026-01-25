@@ -6,6 +6,10 @@ interface ChatbotContextType {
   setIsPinned: (pinned: boolean) => void;
   isDisabled: boolean;
   setIsDisabled: (disabled: boolean) => void;
+  chatbotState: "closed" | "small" | "expanded";
+  setChatbotState: (state: "closed" | "small" | "expanded") => void;
+  lastConversationId: number | null;
+  setLastConversationId: (id: number | null) => void;
 }
 
 const ChatbotContext = createContext<ChatbotContextType | undefined>(undefined);
@@ -13,6 +17,12 @@ const ChatbotContext = createContext<ChatbotContextType | undefined>(undefined);
 export function ChatbotProvider({ children }: { children: ReactNode }) {
   const [isPinned, setIsPinned] = useState(false);
   const [isDisabled, setIsDisabled] = useState(false);
+  const [chatbotState, setChatbotState] = useState<
+    "closed" | "small" | "expanded"
+  >("closed");
+  const [lastConversationId, setLastConversationId] = useState<number | null>(
+    null,
+  );
 
   return (
     <ChatbotContext.Provider
@@ -21,6 +31,10 @@ export function ChatbotProvider({ children }: { children: ReactNode }) {
         setIsPinned,
         isDisabled,
         setIsDisabled,
+        chatbotState,
+        setChatbotState,
+        lastConversationId,
+        setLastConversationId,
       }}
     >
       {children}

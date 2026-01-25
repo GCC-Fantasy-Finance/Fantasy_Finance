@@ -1,15 +1,22 @@
-import { useState, useRef, useEffect } from "react";
+import {
+  useState,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+} from "react";
 import { X, Send, Pin, History, ArrowLeft, Plus, Stars } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "./button";
 import { Input } from "./input";
 import { useAuth } from "@/context/AuthContext";
+import { useChatbot } from "@/context/ChatbotContext";
 import {
   createConversation,
   addMessage,
   getUserConversations,
   getConversationMessages,
-  callOpenAI,
+  callOpenAIStream,
   type ChatConversation,
   type ChatMessage,
 } from "@/lib/chat";
@@ -35,7 +42,11 @@ export default function Chatbot({
   isPinned = false,
   onPinnedChange,
 }: ChatbotProps) {
-  const [state, setState] = useState<ChatbotState>("closed");
+  const {
+    chatbotState: state,
+    setChatbotState: setState,
+    setLastConversationId,
+  } = useChatbot();
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversationId, setConversationId] = useState<number | null>(null);
@@ -43,17 +54,142 @@ export default function Chatbot({
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [loadingAI, setLoadingAI] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const chatbotRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const floatingMessagesRef = useRef<HTMLDivElement>(null);
   const pinnedMessagesRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const lastUserMessageRef = useRef<HTMLDivElement>(null);
+  const lastAiMessageRef = useRef<HTMLDivElement>(null);
+  const [spacerHeight, setSpacerHeight] = useState(0);
   const [savedScrollRatio, setSavedScrollRatio] = useState<number | null>(null);
+  const [sidebarWidth, setSidebarWidth] = useState<number | null>(null);
+  const [isResizing, setIsResizing] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  const prevStreamingRef = useRef(false);
   const { user } = useAuth();
 
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (conversationId) {
+      setLastConversationId(conversationId);
+    }
+  }, [conversationId, setLastConversationId]);
+
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  const resize = useCallback(
+    (mouseMoveEvent: MouseEvent) => {
+      if (isResizing && sidebarRef.current) {
+        const sidebarRect = sidebarRef.current.getBoundingClientRect();
+        // Sidebar is on the right, so width increases as we move mouse left.
+        // We use the right edge of the window (or rect) as the anchor.
+        // newWidth = RightEdge - MouseX
+        const newWidth = sidebarRect.right - mouseMoveEvent.clientX;
+        setSidebarWidth(newWidth);
+      }
+    },
+    [isResizing],
+  );
+
+  useEffect(() => {
+    if (isResizing) {
+      window.addEventListener("mousemove", resize);
+      window.addEventListener("mouseup", stopResizing);
+    }
+
+    return () => {
+      window.removeEventListener("mousemove", resize);
+      window.removeEventListener("mouseup", stopResizing);
+    };
+  }, [isResizing, resize, stopResizing]);
+
+  // Handle dynamic spacer calculation
+  useLayoutEffect(() => {
+    const calculateSpacer = () => {
+      const container =
+        floatingMessagesRef.current || pinnedMessagesRef.current;
+      const lastUser = lastUserMessageRef.current;
+      const lastAi = lastAiMessageRef.current; // This will track the growing AI message
+
+      // If we don't have the elements, no spacer needed
+      if (!container || !lastUser) {
+        setSpacerHeight(0);
+        return;
+      }
+
+      // Calculate heights
+      const containerHeight = container.clientHeight;
+      const userHeight = lastUser.offsetHeight;
+      const aiHeight = lastAi?.offsetHeight || 0;
+
+      // Calculate the gap (space-y-4 is 1rem/16px)
+      // We want to account for the gap between the user message and the AI message
+      const gap = 16;
+
+      // Calculate occupied height: User Msg + Gap + AI Msg + (potential bottom padding/gap)
+      const contentHeight = userHeight + (lastAi ? gap : 0) + aiHeight;
+
+      // The spacer should fill the rest of the screen so the User message is at top
+      // spacer = container - content
+      // We add a buffer to ensure there's enough scroll space to honor the scroll-margin
+      const neededSpacer = Math.max(0, containerHeight - contentHeight + 40);
+
+      setSpacerHeight(neededSpacer);
+    };
+
+    calculateSpacer();
+
+    const resizeObserver = new ResizeObserver(() => {
+      calculateSpacer();
+    });
+
+    if (floatingMessagesRef.current)
+      resizeObserver.observe(floatingMessagesRef.current);
+    if (pinnedMessagesRef.current)
+      resizeObserver.observe(pinnedMessagesRef.current);
+    if (lastAiMessageRef.current)
+      resizeObserver.observe(lastAiMessageRef.current);
+
+    return () => resizeObserver.disconnect();
+  }, [messages, state, isPinned, viewMode]);
+
+  // Scroll to user message when streaming starts
+  useEffect(() => {
+    if (isStreaming && lastUserMessageRef.current) {
+      lastUserMessageRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  }, [isStreaming]);
+
+  // Auto-scroll to bottom when messages change (but not during or after streaming)
+  useEffect(() => {
+    const wasStreaming = prevStreamingRef.current;
+    prevStreamingRef.current = isStreaming;
+
+    // Only auto-scroll if we're not streaming and we didn't just finish streaming
+    // And only if we are not in the "hold at top" mode which implies...
+    // Actually, if we just sent a message, isStreaming handles it.
+    // If we load history, maybe we want to scroll to bottom?
+    if (!isStreaming && !wasStreaming && messages.length > 0) {
+      // If it's a new message just added by user (but before streaming starts), handled by scrollIntoView in handleSend?
+      // Let's rely on standard behavior for history load
+      if (viewMode === "history") {
+        // Do nothing or scroll top? History usually scroll top
+      } else {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+  }, [messages, isStreaming, viewMode]);
 
   // Handle click outside to close
   useEffect(() => {
@@ -71,6 +207,13 @@ export default function Chatbot({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [state, isPinned]);
+
+  // Auto-focus input when small window opens
+  useEffect(() => {
+    if (state === "small" && viewMode === "chat") {
+      setTimeout(() => inputRef.current?.focus(), 0);
+    }
+  }, [state, viewMode]);
 
   const handleToggle = () => {
     if (state === "closed") {
@@ -132,17 +275,80 @@ export default function Chatbot({
         console.error("Failed to save user message:", userMsgError);
       }
 
-      // Call OpenAI via edge function
-      setLoadingAI(true);
-      const { response: aiResponseText, error: aiError } =
-        await callOpenAI(messageText);
-      setLoadingAI(false);
+      // Create placeholder AI message for streaming
+      const aiMessageId = (Date.now() + 1).toString();
+      const aiMessage: Message = {
+        id: aiMessageId,
+        text: "",
+        sender: "ai",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, aiMessage]);
 
-      if (aiError || !aiResponseText) {
-        console.error("Failed to get AI response:", aiError);
+      // Prepare messages for OpenAI context
+      // Convert existing messages to OpenAI format
+      const historyMessages = messages.map((msg) => ({
+        role: msg.sender === "ai" ? "assistant" : "user",
+        content: msg.text,
+      }));
+
+      // Define your system prompt / instructions here
+      const systemPrompt = {
+        role: "system",
+        content: `You are a knowledgeable assistant for a stock trading game. You enjoy helping users learn about the stock market and make informed decisions on stock trading.
+        Current Date: ${new Date().toLocaleDateString()}
+        
+        Rules:
+        1. If you don't know or can't get the answer, say you don't know.
+        2. Be concise, explain things simply.`,
+      };
+
+      // Add the new user message AND the system prompt at the start
+      const apiMessages = [
+        systemPrompt,
+        ...historyMessages,
+        { role: "user", content: messageText },
+      ];
+
+      // Call OpenAI with streaming
+      setLoadingAI(true);
+      setIsStreaming(true);
+      let fullResponse = "";
+      let hasReceivedChunk = false;
+
+      const { error: streamError } = await callOpenAIStream(
+        apiMessages,
+        (chunk) => {
+          fullResponse += chunk;
+          // Stop loading indicator and scroll to response on first chunk
+          if (!hasReceivedChunk) {
+            hasReceivedChunk = true;
+            setLoadingAI(false);
+            // Scroll to show the user message and start of AI response
+            setTimeout(() => {
+              lastUserMessageRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              });
+            }, 0);
+          }
+          // Update the AI message with the accumulated response
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === aiMessageId ? { ...msg, text: fullResponse } : msg,
+            ),
+          );
+        },
+      );
+
+      setLoadingAI(false);
+      setIsStreaming(false);
+
+      if (streamError) {
+        console.error("Failed to get AI response:", streamError);
         // Show error message to user
         const errorMessage: Message = {
-          id: (Date.now() + 1).toString(),
+          id: (Date.now() + 2).toString(),
           text: "Sorry, I encountered an error. Please try again.",
           sender: "ai",
           timestamp: new Date(),
@@ -151,18 +357,10 @@ export default function Chatbot({
         return;
       }
 
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: aiResponseText,
-        sender: "ai",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, aiMessage]);
-
       // Save AI message to database
       const { error: aiMsgError } = await addMessage(
         currentConversationId,
-        aiResponseText,
+        fullResponse,
         true,
       );
 
@@ -270,7 +468,7 @@ export default function Chatbot({
   // Render header (shared between pinned and floating modes)
   const renderHeader = (showPinButton = false) => (
     <div className="flex items-center justify-between h-14 px-4 border-b border-gray-300">
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 ">
         <Button
           disabled={viewMode === "chat"}
           variant="ghost"
@@ -295,7 +493,7 @@ export default function Chatbot({
         {viewMode === "chat" && (
           <>
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={handleShowHistory}
               className={`h-8 ${state === "small" ? "px-2" : "w-8 p-0"}`}
@@ -305,7 +503,7 @@ export default function Chatbot({
             </Button>
             {conversationId && (
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
                 onClick={handleNewChat}
                 className="h-8 px-2"
@@ -318,7 +516,7 @@ export default function Chatbot({
             )}
             {showPinButton && (
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
                 onClick={handlePin}
                 className="h-8 w-8 p-0"
@@ -330,7 +528,7 @@ export default function Chatbot({
         )}
         {viewMode === "history" && (
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={handleNewChat}
             className="h-8 px-2"
@@ -343,7 +541,7 @@ export default function Chatbot({
         )}
         {state !== "small" && (
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={handleClose}
             className="h-8 w-8 p-0"
@@ -360,6 +558,7 @@ export default function Chatbot({
     <div className={className}>
       <div className="flex gap-2 items-center h-9">
         <Input
+          ref={inputRef}
           type="text"
           placeholder="Type your message..."
           value={message}
@@ -425,71 +624,92 @@ export default function Chatbot({
       return <p className="text-gray-500 text-sm">Start a conversation...</p>;
     }
 
+    // Identify last user and AI messages for refs
+    let lastUserIdx = -1;
+    let lastAiIdx = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].sender === "user" && lastUserIdx === -1) lastUserIdx = i;
+      if (messages[i].sender === "ai" && lastAiIdx === -1) lastAiIdx = i;
+      if (lastUserIdx !== -1 && lastAiIdx !== -1) break;
+    }
+
     return (
       <div className="space-y-4">
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
-          >
-            {msg.sender === "user" ? (
-              <div className="bg-chat-user-bubble text-black rounded-2xl px-4 py-2 max-w-[80%]">
-                <p className="text-sm">{msg.text}</p>
-              </div>
-            ) : (
-              <div className="text-sm text-gray-800">
-                <ReactMarkdown
-                  components={{
-                    p: (props) => <p className="mb-2" {...props} />,
-                    ul: (props) => (
-                      <ul className="list-disc list-inside mb-2" {...props} />
-                    ),
-                    ol: (props) => (
-                      <ol
-                        className="list-decimal list-inside mb-2"
-                        {...props}
-                      />
-                    ),
-                    li: (props) => <li className="mb-1" {...props} />,
-                    code: (props) => (
-                      <code
-                        className="bg-gray-100 px-1.5 py-0.5 rounded text-xs font-mono"
-                        {...props}
-                      />
-                    ),
-                    pre: (props) => (
-                      <pre
-                        className="bg-gray-100 p-2 rounded overflow-x-auto mb-2"
-                        {...props}
-                      />
-                    ),
-                    blockquote: (props) => (
-                      <blockquote
-                        className="border-l-4 border-gray-300 pl-3 italic mb-2"
-                        {...props}
-                      />
-                    ),
-                    strong: (props) => (
-                      <strong className="font-semibold" {...props} />
-                    ),
-                    em: (props) => <em className="italic" {...props} />,
-                    h1: (props) => (
-                      <h1 className="text-lg font-bold mb-2" {...props} />
-                    ),
-                    h2: (props) => (
-                      <h2 className="text-base font-bold mb-2" {...props} />
-                    ),
-                    h3: (props) => (
-                      <h3 className="text-sm font-bold mb-2" {...props} />
-                    ),
-                  }}
-                >
-                  {msg.text}
-                </ReactMarkdown>
-              </div>
-            )}
-          </div>
-        ))}
+        {messages.map((msg, index) => {
+          const isLastUser = index === lastUserIdx;
+          const isLastAi = index === lastAiIdx;
+
+          return (
+            <div
+              key={msg.id}
+              ref={
+                isLastUser
+                  ? lastUserMessageRef
+                  : isLastAi
+                    ? lastAiMessageRef
+                    : null
+              }
+              className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"} scroll-mt-4`}
+            >
+              {msg.sender === "user" ? (
+                <div className="bg-chat-user-bubble text-black rounded-2xl px-4 py-2 max-w-[80%]">
+                  <p className="text-sm">{msg.text}</p>
+                </div>
+              ) : (
+                <div className="text-sm text-gray-800">
+                  <ReactMarkdown
+                    components={{
+                      p: (props) => <p className="mb-2" {...props} />,
+                      ul: (props) => (
+                        <ul className="list-disc list-inside mb-2" {...props} />
+                      ),
+                      ol: (props) => (
+                        <ol
+                          className="list-decimal list-inside mb-2"
+                          {...props}
+                        />
+                      ),
+                      li: (props) => <li className="mb-1" {...props} />,
+                      code: (props) => (
+                        <code
+                          className="bg-gray-100 px-1.5 py-0.5 rounded text-xs font-mono"
+                          {...props}
+                        />
+                      ),
+                      pre: (props) => (
+                        <pre
+                          className="bg-gray-100 p-2 rounded overflow-x-auto mb-2"
+                          {...props}
+                        />
+                      ),
+                      blockquote: (props) => (
+                        <blockquote
+                          className="border-l-4 border-gray-300 pl-3 italic mb-2"
+                          {...props}
+                        />
+                      ),
+                      strong: (props) => (
+                        <strong className="font-semibold" {...props} />
+                      ),
+                      em: (props) => <em className="italic" {...props} />,
+                      h1: (props) => (
+                        <h1 className="text-lg font-bold mb-2" {...props} />
+                      ),
+                      h2: (props) => (
+                        <h2 className="text-base font-bold mb-2" {...props} />
+                      ),
+                      h3: (props) => (
+                        <h3 className="text-sm font-bold mb-2" {...props} />
+                      ),
+                    }}
+                  >
+                    {msg.text}
+                  </ReactMarkdown>
+                </div>
+              )}
+            </div>
+          );
+        })}
         {loadingAI && (
           <div className="flex justify-start">
             <div className="text-sm text-gray-500">
@@ -497,6 +717,13 @@ export default function Chatbot({
             </div>
           </div>
         )}
+        <div
+          style={{
+            height: spacerHeight,
+            minHeight: 0,
+            transition: "height 0.1s ease-out",
+          }}
+        />
         <div ref={messagesEndRef} />
       </div>
     );
@@ -505,7 +732,21 @@ export default function Chatbot({
   // Pinned mode - full height sidebar on the right
   if (isPinned) {
     return (
-      <div className="h-full bg-white border-l border-gray-300 flex flex-col w-64 lg:w-80 xl:w-[400px]">
+      <div
+        ref={sidebarRef}
+        className={`relative h-full bg-white border-l border-gray-300 flex flex-col ${
+          sidebarWidth ? "" : "w-64 lg:w-80 xl:w-[400px]"
+        } min-w-64 lg:min-w-80 xl:min-w-[400px] max-w-[90vw] md:max-w-[600px] xl:max-w-[800px]`}
+        style={sidebarWidth ? { width: sidebarWidth } : undefined}
+      >
+        {/* Resize Handle */}
+        <div
+          className="absolute -left-px top-0 bottom-0 w-4 cursor-col-resize z-50 -translate-x-1/2 flex justify-center group"
+          onMouseDown={startResizing}
+        >
+          {/* Visual indicator on hover */}
+          <div className="w-px h-full bg-transparent group-hover:bg-gray-400 transition-colors" />
+        </div>
         {renderHeader()}
 
         {/* Messages area */}

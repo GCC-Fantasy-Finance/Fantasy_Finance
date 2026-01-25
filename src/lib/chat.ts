@@ -163,3 +163,105 @@ export async function callOpenAI(
     return { response: null, error: error as Error };
   }
 }
+
+/**
+ * Call OpenAI via Supabase edge function with streaming
+ * Calls the provided callback with chunks of text as they arrive
+ */
+export async function callOpenAIStream(
+  messages: { role: string; content: string }[],
+  onChunk: (chunk: string) => void,
+): Promise<{ error: Error | null }> {
+  try {
+    console.log(
+      "Calling OpenAI edge function with streaming messages:",
+      messages,
+    );
+
+    // Get the session token for authentication
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
+    if (!token) {
+      throw new Error("No authentication token available");
+    }
+
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/openai-proxy`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ messages, stream: true }),
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error("Response body is not readable");
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      buffer += chunk;
+
+      // Process complete lines (SSE format)
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || ""; // Keep incomplete line in buffer
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          try {
+            const jsonStr = line.slice(6);
+            if (jsonStr === "[DONE]") {
+              continue;
+            }
+            const json = JSON.parse(jsonStr);
+            const content = json.choices?.[0]?.delta?.content;
+            if (content) {
+              onChunk(content);
+            }
+          } catch (e) {
+            console.error("Error parsing SSE line:", e);
+          }
+        }
+      }
+    }
+
+    // Process any remaining buffer
+    if (buffer.trim().startsWith("data: ")) {
+      try {
+        const jsonStr = buffer.slice(6);
+        if (jsonStr !== "[DONE]") {
+          const json = JSON.parse(jsonStr);
+          const content = json.choices?.[0]?.delta?.content;
+          if (content) {
+            onChunk(content);
+          }
+        }
+      } catch (e) {
+        console.error("Error parsing final SSE line:", e);
+      }
+    }
+
+    return { error: null };
+  } catch (error) {
+    console.error("Error calling OpenAI stream:", error);
+    return { error: error as Error };
+  }
+}
