@@ -1,20 +1,19 @@
 const { createClient } = require('@supabase/supabase-js');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
-// Helper to get all portfolios for a league, ordered for draft
+// Get all portfolios in a league in draft order
 async function getDraftPortfolios(leagueId) {
   const { data, error } = await supabase
     .from('Portfolios')
     .select('portfolio_id')
     .eq('league_id', leagueId)
-    .order('portfolio_id', { ascending: true }); // Adjust order as needed
+    .order('portfolio_id', { ascending: true }); // replace with your draft order if you have one
   if (error) throw error;
   return data.map((p) => p.portfolio_id);
 }
 
 // Advance draft state after a pick
 async function advanceDraftState(leagueId) {
-  // Get current draft state
   const { data: draft, error: draftError } = await supabase
     .from('Drafts')
     .select('*')
@@ -28,7 +27,6 @@ async function advanceDraftState(leagueId) {
   let nextRound = draft.current_round;
   let isSnakingForward = draft.is_snaking_forward;
 
-  // Handle round and direction changes (snake draft)
   if (nextIdx >= portfolios.length) {
     nextIdx = portfolios.length - 1;
     nextRound += 1;
@@ -62,9 +60,8 @@ async function advanceDraftState(leagueId) {
   };
 }
 
-// Make a draft pick and advance the draft
+// Make a pick
 async function makePick({ leagueId, portfolioId, stockId, round, pickNumber }) {
-  // Insert into Draft Picks
   const { error: pickError } = await supabase
     .from('Draft Picks')
     .insert({
@@ -77,15 +74,12 @@ async function makePick({ leagueId, portfolioId, stockId, round, pickNumber }) {
     });
   if (pickError) throw pickError;
 
-  // Advance draft state
   const newState = await advanceDraftState(leagueId);
-
   return { success: true, newState };
 }
 
-// Autopick logic
+// Autopick for timer expiry
 async function autopick({ leagueId }) {
-  // 1. Get current draft state
   const { data: draft, error: draftError } = await supabase
     .from('Drafts')
     .select('*')
@@ -93,25 +87,23 @@ async function autopick({ leagueId }) {
     .single();
   if (draftError || !draft) throw new Error('Draft not found');
 
-  // 2. Get current portfolio's wishlist
+  if (!draft.current_portfolio_id) {
+    console.log('Draft has no current_portfolio_id yet, skipping autopick.');
+    return { skipped: true };
+  }
+
   const { data: wishlist } = await supabase
     .from('Wishlist Items')
     .select('stock_id')
     .eq('portfolio_id', draft.current_portfolio_id);
 
-  let stockId = null;
+  let stockId;
   if (wishlist && wishlist.length > 0) {
     stockId = wishlist[0].stock_id;
   } else {
-    // 3. If wishlist empty, pick a random stock
-    const { data: stocks } = await supabase
-      .from('Stocks')
-      .select('stock_id');
-    if (!stocks || stocks.length === 0) throw new Error('No stocks available');
-    stockId = stocks[Math.floor(Math.random() * stocks.length)].stock_id;
+    stockId = 1; // default stock if wishlist empty
   }
 
-  // 4. Call makePick with autopicked stock
   return await makePick({
     leagueId,
     portfolioId: draft.current_portfolio_id,
