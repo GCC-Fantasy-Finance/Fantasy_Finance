@@ -181,25 +181,9 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
   }, [timerStartTime]);
 
   const startDraft = async () => {
-    if (usersRef.current.length === 0) return;
-
-    // First drafter in order
-    const firstPortfolioId = usersRef.current[0].portfolio_id;
-
-    const { error } = await supabase
-      .from("Drafts")
-      .update({
-        is_started: true,
-        timer_start_time: new Date().toISOString(),
-        current_portfolio_id: firstPortfolioId, // 🔥 THIS WAS MISSING
-        current_round: 1,
-        is_snaking_forward: true,
-      })
-      .eq("league_id", leagueId);
-
-    if (error) {
-      console.error("Failed to start draft:", error);
-    }
+    await fetch(`${SERVER_URL}/draft/${leagueId}/start`, {
+      method: "POST",
+    });
   };
 
 
