@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import StockDetailsModal from "@/components/ui/StockDetailsModal";
 
 interface StockRow {
   stock_id?: number;
@@ -17,6 +18,8 @@ export default function Header({ title }: HeaderProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<StockRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedStock, setSelectedStock] = useState<StockRow | null>(null);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     if (query.length < 1) {
@@ -70,7 +73,16 @@ export default function Header({ title }: HeaderProps) {
                 <div className="p-2 text-sm text-gray-500">Searching...</div>
               )}
               {!loading && results.map((stock) => (
-                <div key={stock.stock_id} className="p-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0">
+                <div 
+                  key={stock.stock_id} 
+                  onClick={() => {
+                    setSelectedStock(stock);
+                    setShowModal(true);
+                    setQuery("");
+                    setResults([]);
+                  }}
+                  className="p-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                >
                   <div className="font-medium">{stock.name}</div>
                   <div className="text-sm text-gray-600">{stock.stock_symbol} - ${stock.current_price?.toFixed(2)}</div>
                 </div>
@@ -82,6 +94,13 @@ export default function Header({ title }: HeaderProps) {
           )}
         </div>
       </div>
+
+      {/* Stock Details Modal */}
+      <StockDetailsModal
+        open={showModal}
+        stock={selectedStock}
+        onClose={() => setShowModal(false)}
+      />
     </header>
   );
 }
