@@ -4,7 +4,6 @@ import { Button } from "../../components/ui/button";
 import { useAuth } from "../../context/AuthContext";
 import { Search } from "lucide-react";
 import { supabase } from "../../lib/supabase";
-import { removeWishlistItem } from "../../lib/wishlists";
 
 type Stock = {
   stock_id: number;
@@ -18,12 +17,12 @@ const DraftSearchPanel = () => {
   const {
     makePick,
     queueStock,
+    removeFromQueue, // ✅ use context method
     activePortfolio,
     draftStarted,
     draftEnded,
     queuedItems,
     myPortfolio,
-    // Optionally: add a function to refresh the queue after removal
   } = useDraft();
 
   const { user } = useAuth();
@@ -31,14 +30,12 @@ const DraftSearchPanel = () => {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [removing, setRemoving] = useState<number | null>(null);
-  const [localQueuedItems, setLocalQueuedItems] = useState(queuedItems);
 
   const isMyPick =
     !!user &&
     !!activePortfolio &&
     activePortfolio.user_id === user.id;
-  
+
   const canDraft =
     activePortfolio &&
     myPortfolio &&
@@ -60,34 +57,9 @@ const DraftSearchPanel = () => {
     fetchStocks();
   }, []);
 
-  // Keep localQueuedItems in sync with context unless we're removing
-  useEffect(() => {
-    if (removing === null) {
-      setLocalQueuedItems(queuedItems);
-    }
-  }, [queuedItems, removing]);
-
   const isQueued = (stockId: number) =>
-    localQueuedItems.some((i) => i.stock_id === stockId);
+    queuedItems.some((i) => i.stock_id === stockId);
 
-  // Remove from queue handler
-  const handleRemove = async (stockId: number) => {
-    if (!myPortfolio?.portfolio_id) return;
-    setRemoving(stockId);
-    // Optimistically update local state
-    setLocalQueuedItems((prev) => prev.filter((i) => i.stock_id !== stockId));
-    try {
-      await removeWishlistItem(myPortfolio.portfolio_id, stockId);
-      // The context will update from the backend shortly
-    } catch (err) {
-      console.error("Failed to remove from queue:", err);
-      // Revert optimistic update if error
-      setLocalQueuedItems(queuedItems);
-    }
-    setRemoving(null);
-  };
-
-  // list of stocks that is displayed
   const filteredStocks = stocks.filter(
     (stock) =>
       stock.stock_symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -122,14 +94,13 @@ const DraftSearchPanel = () => {
         </div>
 
         {loading && (
-          <div className="p-2 text-sm text-gray-500">
-            Loading stocks…
-          </div>
+          <div className="p-2 text-sm text-gray-500">Loading stocks…</div>
         )}
 
         {!loading &&
           filteredStocks.map((stock) => {
             const queued = isQueued(stock.stock_id);
+
             return (
               <div
                 key={stock.stock_id}
@@ -140,10 +111,9 @@ const DraftSearchPanel = () => {
                   <Button
                     size="sm"
                     variant="destructive"
-                    disabled={removing === stock.stock_id}
-                    onClick={() => handleRemove(stock.stock_id)}
+                    onClick={() => removeFromQueue(stock.stock_id)} // ✅ context handles everything
                   >
-                    {removing === stock.stock_id ? "Removing..." : "Remove"}
+                    Remove
                   </Button>
                 ) : (
                   <Button
