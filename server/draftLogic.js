@@ -205,14 +205,10 @@ async function autopick({ leagueId }) {
   if (wishlist && wishlist.length > 0) {
     stockId = wishlist[0].stock_id;
   } else {
-    // fallback stock if queue empty
-    const { data: stock } = await supabase
-      .from('Stocks')
-      .select('stock_id')
-      .limit(1)
-      .single();
-    stockId = stock.stock_id;
+    console.log('Wishlist empty, selecting best available undrafted stock');
+    stockId = await getFirstUndraftedStock(leagueId);
   }
+
 
   return await makePick({
     leagueId,
@@ -221,6 +217,38 @@ async function autopick({ leagueId }) {
     round: draft.current_round ?? 1,
     pickNumber: draft.current_pick ?? 0,
   });
+}
+
+// Get first stock not yet drafted in this league
+async function getFirstUndraftedStock(leagueId) {
+  // 1. Get all stock_ids already picked in this draft
+  const { data: picked, error: pickedError } = await supabase
+    .from('Draft Picks')
+    .select('stock_id')
+    .eq('draft_id', leagueId);
+
+  if (pickedError) throw pickedError;
+
+  const pickedIds = picked.map(p => p.stock_id);
+
+  // 2. Find a stock NOT in that list
+  let query = supabase
+    .from('Stocks')
+    .select('stock_id')
+    .order('stock_id', { ascending: true })
+    .limit(1);
+
+  if (pickedIds.length > 0) {
+    query = query.not('stock_id', 'in', `(${pickedIds.join(',')})`);
+  }
+
+  const { data: stock, error: stockError } = await query.single();
+
+  if (stockError || !stock) {
+    throw new Error('No undrafted stocks remaining');
+  }
+
+  return stock.stock_id;
 }
 
 module.exports = { makePick, autopick };

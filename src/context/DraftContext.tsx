@@ -90,51 +90,6 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     };
   }, [leagueId]);
 
-  // --- Picks realtime ---
-  // useEffect(() => {
-  //   const channel = supabase
-  //     .channel(`draftpicks-${leagueId}`)
-  //     .on(
-  //       "postgres_changes",
-  //       { event: "*", schema: "public", table: "Draft Picks", filter: `draft_id=eq.${leagueId}` },
-  //       async () => {
-  //         const { data } = await supabase
-  //           .from("Draft Picks")
-  //           .select("*")
-  //           .eq("draft_id", leagueId)
-  //           .order("pick_number");
-  //         setDraftPicks(data ?? []);
-  //       }
-  //     )
-  //     .subscribe();
-
-  //   return () => {
-  //     supabase.removeChannel(channel);
-  //   };
-  // }, [leagueId]);
-
-  // --- Refresh my queue whenever draft picks change (stock drafted by anyone) ---
-  // useEffect(() => {
-  //   if (!myPortfolio?.portfolio_id) return;
-  //   console.log("refreshing queue");
-  //   const refreshQueue = async () => {
-  //     const updated = await getWishlistByPortfolio(myPortfolio.portfolio_id);
-  //     setQueuedItems(updated ?? []);
-  //   };
-
-  //   refreshQueue();
-  // }, [draftPicks, myPortfolio?.portfolio_id]);
-
-  // --- Function to refresh queue ---
-  // const refreshQueue = async () => {
-  //   console.log("enter refresh");
-  //   if (!myPortfolio?.portfolio_id) return;
-  //   console.log(queuedItems);
-  //   const updated = await getWishlistByPortfolio(myPortfolio.portfolio_id);
-  //   setQueuedItems(updated ?? []);
-  //   console.log(queuedItems);
-  // };
-
   useEffect(() => {
     if (!myPortfolio?.portfolio_id) return;
 
@@ -143,7 +98,7 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
       const updated = await getWishlistByPortfolio(myPortfolio.portfolio_id);
       setQueuedItems(updated ?? []);
     };
-    
+
     refreshQueue();
   }, [
     myPortfolio?.portfolio_id,

@@ -38,7 +38,7 @@ function startOrResetDraftTimer(leagueId) {
 
     try {
       const result = await autopick({ leagueId });
-      console.log('Autopick result:', result);
+      console.log('Autopick success:', result.success);
 
       // STOP if draft is finished
       if (result?.ended || result?.newState?.is_ended) {
