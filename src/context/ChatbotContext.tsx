@@ -10,6 +10,8 @@ interface ChatbotContextType {
   setChatbotState: (state: "closed" | "small" | "expanded") => void;
   lastConversationId: number | null;
   setLastConversationId: (id: number | null) => void;
+  initialMessage: string | null;
+  setInitialMessage: (message: string | null) => void;
 }
 
 const ChatbotContext = createContext<ChatbotContextType | undefined>(undefined);
@@ -23,6 +25,7 @@ export function ChatbotProvider({ children }: { children: ReactNode }) {
   const [lastConversationId, setLastConversationId] = useState<number | null>(
     null,
   );
+  const [initialMessage, setInitialMessage] = useState<string | null>(null);
 
   return (
     <ChatbotContext.Provider
@@ -35,6 +38,8 @@ export function ChatbotProvider({ children }: { children: ReactNode }) {
         setChatbotState,
         lastConversationId,
         setLastConversationId,
+        initialMessage,
+        setInitialMessage,
       }}
     >
       {children}

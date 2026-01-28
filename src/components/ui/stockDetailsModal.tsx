@@ -3,6 +3,7 @@ import ReactDOM from "react-dom";
 import { X } from "lucide-react";
 import { Button } from "./button";
 import { useAuth } from "@/context/AuthContext";
+import { useChatbot } from "@/context/ChatbotContext";
 import { getPortfoliosByUser } from "@/lib/portfolios";
 import { getLeagueById } from "@/lib/leagues";
 import { getPortfolioHoldingsByPortfolioIdAndStockId } from "@/lib/potfolioHoldings";
@@ -29,8 +30,21 @@ type Props = {
   onClose: () => void;
 };
 
+function InfoTooltip({ text }: { text: string }) {
+  return (
+    <span className="relative group ml-1 cursor-help text-gray-400">
+      ⓘ
+      <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 w-48 -translate-x-1/2 rounded bg-black px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
+        {text}
+      </span>
+    </span>
+  );
+}
+
+
 export default function StockDetailsModal({ open, stock, onClose }: Props) {
   const { user } = useAuth();
+  const { setChatbotState, setIsPinned, setInitialMessage, isPinned } = useChatbot();
   const [portfolios, setPortfolios] = useState<PortfolioWithLeague[]>([]);
   const [loading, setLoading] = useState(false);
   const [holdings, setHoldings] = useState<Record<number, number>>({});
@@ -113,7 +127,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
   };
 
   const modal = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${isPinned ? "pr-[350px]" : ""}`}>
       {/* BACKDROP */}
       <div
         className="absolute inset-0 bg-black/40"
@@ -156,17 +170,41 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
             </div>
 
             <div className="flex-1 flex items-center justify-center">
-              <div className="h-[400px] w-full bg-gray-100 rounded-lg flex items-center justify-center">
+              <div className="h-[300px] w-full bg-gray-100 rounded-lg flex items-center justify-center">
                 <div className="text-center text-gray-500">
                   <p className="text-lg font-medium">Price Chart</p>
                   <p className="text-sm">Graph will appear here</p>
                 </div>
               </div>
             </div>
+
+            {/* Ai questions about the stock */}
+            <div>
+              <button
+                className="mt-4 px-4 py-[3px] bg-blue-600 text-white rounded hover:bg-blue-700"
+                onClick={() => {
+                  setInitialMessage(`Is ${stock.name} (${stock.stock_symbol}) a volatile stock?`);
+                  setChatbotState("expanded");
+                  setIsPinned(true);
+                }}
+              >
+                Is this stock volatile?
+              </button>
+              <button
+                className="mt-4 ml-2 px-4 py-[3px] bg-blue-600 text-white rounded hover:bg-blue-700"
+                onClick={() => {
+                  setInitialMessage(`What is the future outlook for ${stock.name} (${stock.stock_symbol})?`);
+                  setChatbotState("expanded");
+                  setIsPinned(true);
+                }}
+              >
+                What is the future outlook for this stock?
+              </button>
+            </div>
           </div>
 
           {/* RIGHT — TRADE + DETAILS */}
-          <div className="w-[850px] flex flex-col border-l border-gray-200 p-6 bg-gray-50">
+          <div className="w-[1000px] flex flex-col border-l border-gray-200 p-6 bg-gray-50">
             <h3 className="text-lg font-semibold mb-4 shrink-0">
               Trade
             </h3>
@@ -230,29 +268,70 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                 Stock Details
               </h4>
               <p className="text-sm text-gray-900">
-                <table className="w-full table-auto">
+                <table className="w-full border-separate border-spacing-y-2">
                   <tbody >
                     
                     <tr>
-                      <td className="pr-4 font-medium">Previous Close:</td>
+                      <td className="pr-4 font-medium">
+                        <span className="relative group cursor-help">
+                          Previous Close
+                          <span className="pointer-events-none absolute left-0 top-full z-20 mt-1 w-56 rounded bg-black px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
+                            The stock’s closing price from the previous trading day.
+                          </span>
+                        </span>
+                      </td>
                       <td className="text-sm">{stock.previous_close}</td>
                     </tr>
+
                     <tr>
-                      <td className="pr-4 font-medium">Day Range:</td>
+                      <td className="pr-4 font-medium">
+                        <span className="relative group cursor-help">
+                          Day Range
+                          <span className="pointer-events-none absolute left-0 top-full z-20 mt-1 w-56 rounded bg-black px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
+                            The lowest and highest prices traded today.
+                          </span>
+                        </span>
+                      </td>
                       <td className="text-sm">{stock.day_range}</td>
                     </tr>
+
                     <tr>
-                      <td className="pr-4 font-medium">52 Week Range:</td>
+                      <td className="pr-4 font-medium">
+                        <span className="relative group cursor-help">
+                          52 Week Range
+                          <span className="pointer-events-none absolute left-0 top-full z-20 mt-1 w-56 rounded bg-black px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
+                            The lowest and highest prices over the past year.
+                          </span>
+                        </span>
+                      </td>
                       <td className="text-sm">{stock.year_range}</td>
                     </tr>
+
                     <tr>
-                      <td className="pr-4 font-medium">Market Cap:</td>
+                      <td className="pr-4 font-medium">
+                        <span className="relative group cursor-help">
+                          Market Cap
+                          <span className="pointer-events-none absolute left-0 top-full z-20 mt-1 w-56 rounded bg-black px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
+                            Total market value of all outstanding shares.
+                          </span>
+                        </span>
+                      </td>
                       <td className="text-sm">{stock.market_cap}</td>
                     </tr>
+
                     <tr>
-                      <td className="pr-4 font-medium">Volume:</td>
+                      <td className="pr-4 font-medium">
+                        <span className="relative group cursor-help">
+                          Volume
+                          <span className="pointer-events-none absolute left-0 top-full z-20 mt-1 w-56 rounded bg-black px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
+                            Number of shares traded today.
+                          </span>
+                        </span>
+                      </td>
                       <td className="text-sm">{stock.volume}</td>
                     </tr>
+
+
                   </tbody>
                 </table>
 

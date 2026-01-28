@@ -102,20 +102,30 @@ function SoloPortfolioPage() {
             <div className="mb-6">
               <div className="rounded-lg border border-gray-300 shadow px-6 py-4 bg-white w-full max-w-sm">
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-8">
-                    <span className="text-sm text-gray-700">NET:</span>
-                    <span className="text-3xl font-semibold tracking-wide">{Number(totals.total_value ?? 0).toFixed(2)}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-8">
-                    <span className="text-sm text-gray-700">INVESTED:</span>
-                    <span className="text-xl font-semibold tracking-wide">
-                      {(Number(totals.total_value ?? 0) - Number(totals.reserve_value ?? 0)).toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-8">
-                    <span className="text-sm text-gray-700">RESERVE:</span>
-                    <span className="text-xl font-semibold tracking-wide">{Number(totals.reserve_value ?? 0).toFixed(2)}</span>
-                  </div>
+                  {(() => {
+                    // Calculate invested value from holdings
+                    const investedValue = holdings.reduce((sum, h) => {
+                      return sum + (Number(h.stock?.current_price ?? 0) * Number(h.quantity ?? 0));
+                    }, 0);
+                    const netValue = investedValue + Number(totals.reserve_value ?? 0);
+
+                    return (
+                      <>
+                        <div className="flex items-center justify-between gap-8">
+                          <span className="text-sm text-gray-700">NET:</span>
+                          <span className="text-3xl font-semibold tracking-wide">{netValue.toFixed(2)}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-8">
+                          <span className="text-sm text-gray-700">INVESTED:</span>
+                          <span className="text-xl font-semibold tracking-wide">{investedValue.toFixed(2)}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-8">
+                          <span className="text-sm text-gray-700">RESERVE:</span>
+                          <span className="text-xl font-semibold tracking-wide">{Number(totals.reserve_value ?? 0).toFixed(2)}</span>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
