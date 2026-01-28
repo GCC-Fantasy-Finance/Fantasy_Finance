@@ -1,5 +1,9 @@
 const { createClient } = require('@supabase/supabase-js');
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY
+);
 
 // Get all portfolios in draft order
 async function getDraftPortfolios(leagueId) {
@@ -11,6 +15,34 @@ async function getDraftPortfolios(leagueId) {
 
   if (error) throw error;
   return data.map(p => p.portfolio_id);
+}
+
+// Remove drafted stock from every wishlist in the league
+async function removeStockFromLeagueWishlists(leagueId, stockId) {
+  const { data: portfolios, error: portfoliosError } = await supabase
+    .from('Portfolios')
+    .select('portfolio_id')
+    .eq('league_id', leagueId);
+
+  if (portfoliosError) {
+    console.error('Failed to fetch league portfolios for wishlist cleanup:', portfoliosError);
+    return;
+  }
+
+  const portfolioIds = portfolios.map(p => p.portfolio_id);
+  if (!portfolioIds.length) return;
+
+  const { error: wishlistError } = await supabase
+    .from('Wishlist Items')
+    .delete()
+    .eq('stock_id', stockId)
+    .in('portfolio_id', portfolioIds);
+
+  if (wishlistError) {
+    console.error('Failed to remove stock from wishlists:', wishlistError);
+  } else {
+    console.log(`Removed stock ${stockId} from all league wishlists`);
+  }
 }
 
 // Advance draft state after a pick
@@ -48,12 +80,12 @@ async function advanceDraftState(leagueId) {
   await supabase
     .from('Drafts')
     .update({
-      current_pick: nextIdx,
-      current_round: nextRound,
-      current_portfolio_id: portfolios[nextIdx],
+      current_pick: isEnded ? null : nextIdx,
+      current_round: isEnded ? draft.current_round : nextRound,
+      current_portfolio_id: isEnded ? null : portfolios[nextIdx],
       is_snaking_forward: isSnakingForward,
       is_ended: isEnded,
-      timer_start_time: new Date().toISOString(),
+      timer_start_time: isEnded ? null : new Date().toISOString(),
     })
     .eq('league_id', leagueId);
 
@@ -75,13 +107,17 @@ async function advanceDraftState(leagueId) {
 async function makePick({ leagueId, portfolioId, stockId, round, pickNumber }) {
   const { data: draft } = await supabase
     .from('Drafts')
-    .select('is_ended')
+    .select('*')
     .eq('league_id', leagueId)
     .single();
 
   if (draft?.is_ended) {
     console.log(`Draft ${leagueId} already ended. Pick ignored.`);
     return { ended: true };
+  }
+
+  if (draft.current_portfolio_id !== portfolioId) {
+    throw new Error('Not this portfolio’s turn');
   }
 
   const { error: pickError } = await supabase
@@ -98,6 +134,23 @@ async function makePick({ leagueId, portfolioId, stockId, round, pickNumber }) {
   if (pickError) throw pickError;
 
   console.log(`Pick made: Portfolio ${portfolioId} drafted Stock ${stockId}`);
+
+  // Add to holdings
+  const { data: stock } = await supabase
+    .from('Stocks')
+    .select('current_price')
+    .eq('stock_id', stockId)
+    .single();
+
+  await supabase.from('Portfolio_Holdings').insert({
+    portfolio_id: portfolioId,
+    stock_id: stockId,
+    quantity: 1,
+    average_buy_price: stock?.current_price ?? 0,
+  });
+
+  // Remove from all wishlists in the league
+  await removeStockFromLeagueWishlists(leagueId, stockId);
 
   const newState = await advanceDraftState(leagueId);
   return { success: true, newState };
@@ -118,14 +171,18 @@ async function autopick({ leagueId }) {
     return { ended: true };
   }
 
-  if (!draft.current_portfolio_id) {
+  let currentPortfolioId = draft.current_portfolio_id;
+
+  if (!currentPortfolioId) {
     const portfolios = await getDraftPortfolios(leagueId);
     if (!portfolios.length) throw new Error('No portfolios found for draft');
+
+    currentPortfolioId = portfolios[0];
 
     await supabase
       .from('Drafts')
       .update({
-        current_portfolio_id: portfolios[0],
+        current_portfolio_id: currentPortfolioId,
         current_pick: 0,
         current_round: 1,
         is_snaking_forward: true,
@@ -133,35 +190,36 @@ async function autopick({ leagueId }) {
       })
       .eq('league_id', leagueId);
 
-    console.log(`Draft ${leagueId} initialized. First pick: Portfolio ${portfolios[0]}`);
-
-    draft.current_portfolio_id = portfolios[0];
-    draft.current_pick = 0;
-    draft.current_round = 1;
+    console.log(`Draft ${leagueId} initialized. First pick: Portfolio ${currentPortfolioId}`);
   }
 
-  console.log(`Timer expired. Autopicking for Portfolio ${draft.current_portfolio_id}`);
-
-  const pickNumber = draft.current_pick ?? 0;
+  console.log(`Timer expired. Autopicking for Portfolio ${currentPortfolioId}`);
 
   const { data: wishlist } = await supabase
     .from('Wishlist Items')
     .select('stock_id')
-    .eq('portfolio_id', draft.current_portfolio_id);
+    .eq('portfolio_id', currentPortfolioId)
+    .order('wishlist_item_id', { ascending: true });
 
   let stockId;
   if (wishlist && wishlist.length > 0) {
     stockId = wishlist[0].stock_id;
   } else {
-    stockId = 1;
+    // fallback stock if queue empty
+    const { data: stock } = await supabase
+      .from('Stocks')
+      .select('stock_id')
+      .limit(1)
+      .single();
+    stockId = stock.stock_id;
   }
 
   return await makePick({
     leagueId,
-    portfolioId: draft.current_portfolio_id,
+    portfolioId: currentPortfolioId,
     stockId,
     round: draft.current_round ?? 1,
-    pickNumber,
+    pickNumber: draft.current_pick ?? 0,
   });
 }
 
