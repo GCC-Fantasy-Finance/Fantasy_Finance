@@ -1,9 +1,9 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
 import AuthLayout from "../layouts/AuthLayout";
-import DraftLayout from '../layouts/DraftLayout';
+import DraftLayout from "../layouts/DraftLayout";
 import ProtectedRoute from "./ProtectedRoute";
-import LeagueGuardRoute from "./LeagueGuardRoute"
+import LeagueGuardRoute from "./LeagueGuardRoute";
 import Home from "../features/home/pages/HomePage";
 import DiscoverPage from "../features/discover/pages/DiscoverPage";
 import ProfileLayout from "../features/profile/ProfileLayout";
@@ -15,19 +15,22 @@ import NotFoundPage from "../pages/NotFoundPage";
 import LeagueDetailPage from "@/features/leagues/pages/LeagueDetailPage";
 import { LayoutProvider } from "../context/LayoutContext";
 import { AuthProvider } from "../context/AuthContext";
+import { ChatbotProvider } from "../context/ChatbotContext";
 import SoloLayout from "@/features/solo/SoloLayout";
 import SoloLeaderboardPage from "@/features/solo/pages/SoloLeaderboardPage";
 import SoloPortfolioPage from "../features/solo/pages/SoloPortfolioPage";
-import DraftPage from '../features/draft/pages/DraftPage';
+import DraftPage from "../features/draft/pages/DraftPage";
 
 export default function AppRouter() {
   const router = createBrowserRouter([
     {
       element: (
         <LayoutProvider>
-          <ProtectedRoute>
-            <MainLayout />
-          </ProtectedRoute>
+          <ChatbotProvider>
+            <ProtectedRoute>
+              <MainLayout />
+            </ProtectedRoute>
+          </ChatbotProvider>
         </LayoutProvider>
       ),
       children: [
@@ -42,7 +45,7 @@ export default function AppRouter() {
           ],
         },
         // League routes
-        { path: "/leagues/:id", element: <LeagueDetailPage /> },
+        { path: "/league/:id", element: <LeagueDetailPage /> },
         {
           path: "/profile",
           element: <ProfileLayout />,
@@ -64,10 +67,7 @@ export default function AppRouter() {
           </ProtectedRoute>
         </LayoutProvider>
       ),
-      children: [
-        { path: "/draft/:leagueId", element: <DraftPage /> },
-      ],
-
+      children: [{ path: "/draft/:leagueId", element: <DraftPage /> }],
     },
     {
       element: <AuthLayout />,

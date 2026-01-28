@@ -2,9 +2,12 @@ import { Outlet } from "react-router-dom";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 import { useLayout } from "../context/LayoutContext";
+import { useChatbot } from "../context/ChatbotContext";
+import Chatbot from "../components/ui/Chatbot";
 
 export default function MainLayout() {
   const { pageTitle } = useLayout();
+  const { isPinned, setIsPinned, isDisabled } = useChatbot();
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -23,6 +26,13 @@ export default function MainLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Chatbot */}
+      <Chatbot
+        disabled={isDisabled}
+        isPinned={isPinned}
+        onPinnedChange={setIsPinned}
+      />
     </div>
   );
 }
