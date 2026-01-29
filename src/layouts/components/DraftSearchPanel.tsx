@@ -17,10 +17,12 @@ const DraftSearchPanel = () => {
   const {
     makePick,
     queueStock,
+    removeFromQueue, // ✅ use context method
     activePortfolio,
     draftStarted,
     draftEnded,
     queuedItems,
+    myPortfolio,
   } = useDraft();
 
   const { user } = useAuth();
@@ -35,6 +37,8 @@ const DraftSearchPanel = () => {
     activePortfolio.user_id === user.id;
 
   const canDraft =
+    activePortfolio &&
+    myPortfolio &&
     draftStarted &&
     !draftEnded &&
     isMyPick;
@@ -56,7 +60,6 @@ const DraftSearchPanel = () => {
   const isQueued = (stockId: number) =>
     queuedItems.some((i) => i.stock_id === stockId);
 
-  // list of stocks that is displayed
   const filteredStocks = stocks.filter(
     (stock) =>
       stock.stock_symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -91,55 +94,62 @@ const DraftSearchPanel = () => {
         </div>
 
         {loading && (
-          <div className="p-2 text-sm text-gray-500">
-            Loading stocks…
-          </div>
+          <div className="p-2 text-sm text-gray-500">Loading stocks…</div>
         )}
 
         {!loading &&
-          filteredStocks.map((stock) => (
-            <div
-              key={stock.stock_id}
-              className="grid grid-cols-[90px_120px_1fr_140px_120px] gap-2 px-3 py-1 items-center border-b hover:bg-gray-100"
-            >
-              {/* Action */}
-              <Button
-                size="sm"
-                disabled={!canDraft && isQueued(stock.stock_id)}
-                onClick={() =>
-                  canDraft
-                    ? makePick(stock.stock_id)
-                    : queueStock(stock.stock_id)
-                }
+          filteredStocks.map((stock) => {
+            const queued = isQueued(stock.stock_id);
+
+            return (
+              <div
+                key={stock.stock_id}
+                className="grid grid-cols-[90px_120px_1fr_140px_120px] gap-2 px-3 py-1 items-center border-b hover:bg-gray-100"
               >
-                {canDraft
-                  ? "Draft"
-                  : isQueued(stock.stock_id)
-                  ? "Queued"
-                  : "Queue"}
-              </Button>
+                {/* Action */}
+                {queued ? (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => removeFromQueue(stock.stock_id)} // ✅ context handles everything
+                  >
+                    Remove
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      canDraft
+                        ? makePick(stock.stock_id)
+                        : queueStock(stock.stock_id)
+                    }
+                  >
+                    {canDraft ? "Draft" : "Queue"}
+                  </Button>
+                )}
 
-              {/* Symbol */}
-              <div className="text-sm font-semibold">
-                {stock.stock_symbol}
-              </div>
+                {/* Symbol */}
+                <div className="text-sm font-semibold">
+                  {stock.stock_symbol}
+                </div>
 
-              {/* Name */}
-              <div className="text-sm text-gray-700 truncate">
-                {stock.name}
-              </div>
+                {/* Name */}
+                <div className="text-sm text-gray-700 truncate">
+                  {stock.name}
+                </div>
 
-              {/* Price */}
-              <div className="text-sm font-mono text-right">
-                ${stock.current_price.toFixed(2)}
-              </div>
+                {/* Price */}
+                <div className="text-sm font-mono text-right">
+                  ${stock.current_price.toFixed(2)}
+                </div>
 
-              {/* Sector */}
-              <div className="text-sm text-gray-500 truncate">
-                {stock.sector}
+                {/* Sector */}
+                <div className="text-sm text-gray-500 truncate">
+                  {stock.sector}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
       </div>
     </div>
   );

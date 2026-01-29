@@ -1,13 +1,13 @@
 import { supabase } from "./supabase";
 
 export type WishlistItem = {
-  wishlist_item_id?: number; // optional because DB generates it
-  portfolio_id: string;
+  wishlist_item_id?: number;
+  portfolio_id: number;
   stock_id: number;
 };
 
 export const getWishlistByPortfolio = async (
-  portfolioId: string
+  portfolioId: number
 ): Promise<WishlistItem[]> => {
   const { data, error } = await supabase
     .from("Wishlist Items")
@@ -22,9 +22,8 @@ export const getWishlistByPortfolio = async (
   return data ?? [];
 };
 
-
 export type WishlistItemInsert = {
-  portfolio_id: string;
+  portfolio_id: number;
   stock_id: number;
 };
 
@@ -42,4 +41,20 @@ export const addWishlistItem = async (
   }
 
   return data;
+};
+
+// Remove a wishlist item by portfolio_id and stock_id
+export const removeWishlistItem = async (
+  portfolio_id: number,
+  stock_id: number
+) => {
+  const { error } = await supabase
+    .from('Wishlist Items')
+    .delete()
+    .eq('portfolio_id', portfolio_id)
+    .eq('stock_id', stock_id);
+
+  if (error) {
+    throw error;
+  }
 };

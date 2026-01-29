@@ -132,9 +132,10 @@ export default function LeagueDetailPage() {
         </section>
 
         {/* Enter Draft Room button */}
-        {draft && !draft.is_ended && (
+        {draft && (
           <Button onClick={() => navigate(`/draft/${id}`)}>
-            Enter Draft Room
+            {!draft.is_ended && ("Enter Draft Room")}
+            {draft.is_ended && ("View Draft Results")}
           </Button>
         )}
       </div>
