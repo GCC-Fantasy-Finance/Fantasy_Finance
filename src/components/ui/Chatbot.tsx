@@ -46,6 +46,8 @@ export default function Chatbot({
     chatbotState: state,
     setChatbotState: setState,
     setLastConversationId,
+    initialMessage,
+    setInitialMessage,
   } = useChatbot();
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -215,6 +217,18 @@ export default function Chatbot({
     }
   }, [state, viewMode]);
 
+  // Auto-send initial message when set from stock details modal
+  useEffect(() => {
+    if (initialMessage && state === "expanded" && !isStreaming) {
+      // Use a small delay to ensure the message state is updated
+      const timer = setTimeout(() => {
+        handleSendWithMessage(initialMessage);
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [initialMessage, state]);
+
   const handleToggle = () => {
     if (state === "closed") {
       // Opening small window - start fresh
@@ -228,22 +242,26 @@ export default function Chatbot({
     }
   };
 
-  const handleSend = async () => {
-    if (!message.trim() || !user) return;
+  const handleSendWithMessage = useCallback(async (messageText: string) => {
+    if (!messageText.trim() || !user) return;
 
-    const messageText = message.trim();
+    const trimmedMessage = messageText.trim();
 
     // Add user message to UI immediately
     const userMessage: Message = {
       id: Date.now().toString(),
-      text: messageText,
+      text: trimmedMessage,
       sender: "user",
       timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
     setState("expanded");
-    setMessage("");
+
+    // Clear the initial message after sending it
+    if (initialMessage) {
+      setInitialMessage(null);
+    }
 
     try {
       // Create conversation if this is the first message
@@ -252,7 +270,7 @@ export default function Chatbot({
         const { data: conversation, error: convError } =
           await createConversation(
             user.id,
-            messageText.substring(0, 50), // Use first 50 chars as title
+            trimmedMessage.substring(0, 50), // Use first 50 chars as title
           );
 
         if (convError || !conversation) {
@@ -267,7 +285,7 @@ export default function Chatbot({
       // Save user message to database
       const { error: userMsgError } = await addMessage(
         currentConversationId,
-        messageText,
+        trimmedMessage,
         false,
       );
 
@@ -307,7 +325,7 @@ export default function Chatbot({
       const apiMessages = [
         systemPrompt,
         ...historyMessages,
-        { role: "user", content: messageText },
+        { role: "user", content: trimmedMessage },
       ];
 
       // Call OpenAI with streaming
@@ -371,6 +389,14 @@ export default function Chatbot({
       console.error("Error handling message:", error);
       setLoadingAI(false);
     }
+  }, [user, conversationId, messages, initialMessage, setInitialMessage]);
+
+  const handleSend = async () => {
+    if (!message.trim() || !user) return;
+
+    const messageText = message.trim();
+    setMessage("");
+    await handleSendWithMessage(messageText);
   };
 
   const handlePin = () => {
@@ -734,7 +760,7 @@ export default function Chatbot({
     return (
       <div
         ref={sidebarRef}
-        className={`relative h-full bg-white border-l border-gray-300 flex flex-col ${
+        className={`relative h-full bg-white border-l border-gray-300 flex flex-col z-[60] ${
           sidebarWidth ? "" : "w-64 lg:w-80 xl:w-[400px]"
         } min-w-64 lg:min-w-80 xl:min-w-[400px] max-w-[90vw] md:max-w-[600px] xl:max-w-[800px]`}
         style={sidebarWidth ? { width: sidebarWidth } : undefined}
@@ -764,7 +790,7 @@ export default function Chatbot({
   }
 
   return (
-    <div ref={chatbotRef} className="fixed bottom-6 right-6 z-50">
+    <div ref={chatbotRef} className="fixed bottom-6 right-6 z-[60]">
       {/* Floating Window - Small or Expanded */}
       {state !== "closed" && (
         <div
