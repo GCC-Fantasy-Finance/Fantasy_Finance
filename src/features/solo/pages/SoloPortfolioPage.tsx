@@ -3,6 +3,7 @@ import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import buyStock from "@/hooks/buyStock";
+import sellStock from "@/hooks/sellStock";
 import { toast } from "sonner";
 import { fetchPortfolioView } from "@/hooks/fetchPortfolio";
 
@@ -84,6 +85,33 @@ function SoloPortfolioPage() {
 
     toast.success("Bought 1 share — portfolio updated");
     // refresh data
+    await loadHoldings();
+  }
+
+  async function handleSell(h: HoldingView) {
+    if (!auth.user) {
+      toast.error("Please sign in to sell");
+      return;
+    }
+    if (!h.stock_id) {
+      toast.error("Invalid stock");
+      return;
+    }
+    const qty = Number(h.quantity ?? 0);
+    if (qty <= 0) {
+      toast.error("No shares to sell");
+      return;
+    }
+
+    setLoading(true);
+    const res = await sellStock({ userId: auth.user.id, stockId: Number(h.stock_id), price: Number(h.stock?.current_price ?? 0), quantity: 1, isSolo: true });
+    if (!res.success) {
+      toast.error(res.message ?? "Sell failed");
+      setLoading(false);
+      return;
+    }
+
+    toast.success("Sold 1 share — reserve updated");
     await loadHoldings();
   }
 
@@ -170,11 +198,11 @@ function SoloPortfolioPage() {
 
                   {/* Right: Button cluster */}
                   <div className="flex items-center gap-2">
-                    {/* Sell (no-op) */}
+                    {/* Sell (wired to sellStock) */}
                     <button
                       type="button"
                       className="inline-flex items-center gap-1 rounded-md border border-red-600 text-red-700 hover:bg-red-50 px-3 py-1 text-xs"
-                      onClick={() => toast.info("Sell not implemented yet")}
+                      onClick={() => handleSell(h)}
                     >
                       {/* Minus icon */}
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-3 h-3">
