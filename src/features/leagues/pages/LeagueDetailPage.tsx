@@ -173,7 +173,7 @@ export default function LeagueDetailPage() {
                       key={entry.portfolio_id}
                       className={
                         profile?.id === entry.user_id
-                          ? "bg-green-50/60 hover:bg-green-100/60 font-medium"
+                          ? "bg-green-50/60 hover:bg-green-100/60 font-semibold"
                           : ""
                       }
                     >
