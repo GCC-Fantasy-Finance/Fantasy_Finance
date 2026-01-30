@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 export type DraftRow = {
   id: number;
   league_id: number;
-  current_portfolio_id: string | null;
+  current_portfolio_id: number | null;
   current_round: number;
   total_rounds: number;
   is_started: boolean;
@@ -13,7 +13,7 @@ export type DraftRow = {
 };
 
 export type Portfolio = {
-  portfolio_id: string;
+  portfolio_id: number;
   user_id: string;
   league_id: number,
   reserve_value: number;
@@ -43,7 +43,7 @@ export async function getDraftByLeague(leagueId: number): Promise<DraftRow | nul
 /* ================================
    Start draft
    ================================ */
-export async function startDraft(leagueId: number, firstPortfolioId: string) {
+export async function startDraft(leagueId: number, firstPortfolioId: number) {
   const { error } = await supabase
     .from("Drafts")
     .update({

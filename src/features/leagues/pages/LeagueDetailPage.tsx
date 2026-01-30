@@ -143,9 +143,10 @@ export default function LeagueDetailPage() {
     <PageContent>
       <div className="max-w-3xl">
         {/* Enter Draft Room button */}
-        {draft && !draft.is_ended && (
+        {draft && (
           <Button onClick={() => navigate(`/draft/${id}`)}>
-            Enter Draft Room
+            {!draft.is_ended && ("Enter Draft Room")}
+            {draft.is_ended && ("View Draft Results")}
           </Button>
         )}
 

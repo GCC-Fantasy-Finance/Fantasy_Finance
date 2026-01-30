@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 export type DraftPickRow = {
   draft_pick_id: number;
   draft_id: number;
-  portfolio_id: string;
+  portfolio_id: number;
   transaction_id: number;
   stock_id: number;
   round_number: number;
@@ -35,7 +35,7 @@ export async function getDraftPicksByLeague(
    ================================ */
 export async function insertDraftPick(
   draftId: number,
-  portfolioId: string,
+  portfolioId: number,
   transactionId: number,
   stockId: number,
   roundNumber: number,
