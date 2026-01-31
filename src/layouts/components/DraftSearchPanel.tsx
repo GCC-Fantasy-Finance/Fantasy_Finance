@@ -86,7 +86,7 @@ const DraftSearchPanel = () => {
       <div className="mx-4 mb-4 flex-1 overflow-y-auto border border-gray-200 rounded-sm">
         {/* Header */}
         <div className="grid grid-cols-[90px_120px_1fr_140px_120px] gap-2 px-3 py-1 text-sm font-semibold bg-gray-50 border-b sticky top-0 z-10">
-          <div>Action</div>
+          <div></div>
           <div>Symbol</div>
           <div>Name</div>
           <div className="text-right">Price</div>
@@ -110,21 +110,27 @@ const DraftSearchPanel = () => {
                 {queued ? (
                   <Button
                     size="sm"
-                    variant="destructive"
-                    onClick={() => removeFromQueue(stock.stock_id)} // ✅ context handles everything
+                    variant="outline"
+                    className="border-red-700 text-red-700 bg-white hover:bg-gray-100"
+                    onClick={() => removeFromQueue(stock.stock_id)} // context handles everything
                   >
                     Remove
+                  </Button>
+                ) : canDraft ? (
+                  <Button
+                    size="sm"
+                    onClick={() => makePick(stock.stock_id)}
+                  >
+                    Draft
                   </Button>
                 ) : (
                   <Button
                     size="sm"
-                    onClick={() =>
-                      canDraft
-                        ? makePick(stock.stock_id)
-                        : queueStock(stock.stock_id)
-                    }
+                    variant="outline"
+                    className="border-green-700 text-green-700 bg-white hover:bg-gray-100"
+                    onClick={() => queueStock(stock.stock_id)}
                   >
-                    {canDraft ? "Draft" : "Queue"}
+                    Queue
                   </Button>
                 )}
 

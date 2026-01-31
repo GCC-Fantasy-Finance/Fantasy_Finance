@@ -13,6 +13,7 @@ const DraftHeader = () => {
     startDraft,
     isOwner,
     leagueId,
+    timer
   } = useDraft();
 
   const navigate = useNavigate();
@@ -24,21 +25,27 @@ const DraftHeader = () => {
           padding: "1rem",
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
         }}
       >
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => navigate(`/league/${leagueId}`)}
-          className="border-black text-black bg-white hover:bg-gray-100"
-        >
-          ← Back
-        </Button>
-        
-        <h1>{name}</h1>
+        {/* Left side: Back button + League name */}
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/league/${leagueId}`)}
+            className="border-black text-black bg-white hover:bg-gray-100"
+          >
+            ← Back
+          </Button>
 
-        <div style={{ display: "flex", alignItems: "center" }}>
+          <h1 style={{ margin: 0 }}>{name}</h1>
+        </div>
+
+        {/* Spacer pushes everything after this to the far right */}
+        <div style={{ flex: 1 }} />
+
+        {/* Right side: Draft info + Start button */}
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
           {draftStarted && !draftEnded && (
             <div
               style={{
@@ -55,17 +62,18 @@ const DraftHeader = () => {
             </div>
           )}
 
-          {!draftStarted && !draftEnded && isOwner && (
-            <Button
-              style={{ marginLeft: "1rem" }}
-              onClick={startDraft}
-              size="sm"
-            >
+          {!draftStarted && !draftEnded && isOwner ? (
+            <Button onClick={startDraft} size="sm">
               Start Draft
             </Button>
-          )}
+          ) : !draftStarted && !isOwner ? (
+            <Button variant="outline" size="sm" className="border-black text-black bg-white hover:bg-white">
+              Draft Starts in {timer}
+            </Button>
+          ) : (<></>)}
         </div>
       </header>
+
 
       <hr className="border-black" />
     </>
