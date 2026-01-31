@@ -17,12 +17,13 @@ const DraftSearchPanel = () => {
   const {
     makePick,
     queueStock,
-    removeFromQueue, // ✅ use context method
+    removeFromQueue,
     activePortfolio,
     draftStarted,
     draftEnded,
     queuedItems,
     myPortfolio,
+    stockPrices,
   } = useDraft();
 
   const { user } = useAuth();
@@ -31,10 +32,7 @@ const DraftSearchPanel = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const isMyPick =
-    !!user &&
-    !!activePortfolio &&
-    activePortfolio.user_id === user.id;
+  const isMyPick = !!user && !!activePortfolio && activePortfolio.user_id === user.id;
 
   const canDraft =
     activePortfolio &&
@@ -43,6 +41,7 @@ const DraftSearchPanel = () => {
     !draftEnded &&
     isMyPick;
 
+  // Initial fetch of stock table
   useEffect(() => {
     const fetchStocks = async () => {
       const { data, error } = await supabase
@@ -101,6 +100,9 @@ const DraftSearchPanel = () => {
           filteredStocks.map((stock) => {
             const queued = isQueued(stock.stock_id);
 
+            // Use live price from context if available
+            const livePrice = stockPrices[stock.stock_id] ?? stock.current_price;
+
             return (
               <div
                 key={stock.stock_id}
@@ -112,7 +114,7 @@ const DraftSearchPanel = () => {
                     size="sm"
                     variant="outline"
                     className="border-red-700 text-red-700 bg-white hover:bg-gray-100"
-                    onClick={() => removeFromQueue(stock.stock_id)} // context handles everything
+                    onClick={() => removeFromQueue(stock.stock_id)}
                   >
                     Remove
                   </Button>
@@ -135,24 +137,18 @@ const DraftSearchPanel = () => {
                 )}
 
                 {/* Symbol */}
-                <div className="text-sm font-semibold">
-                  {stock.stock_symbol}
-                </div>
+                <div className="text-sm font-semibold">{stock.stock_symbol}</div>
 
                 {/* Name */}
-                <div className="text-sm text-gray-700 truncate">
-                  {stock.name}
-                </div>
+                <div className="text-sm text-gray-700 truncate">{stock.name}</div>
 
                 {/* Price */}
                 <div className="text-sm font-mono text-right">
-                  ${stock.current_price.toFixed(2)}
+                  ${livePrice.toFixed(2)}
                 </div>
 
                 {/* Sector */}
-                <div className="text-sm text-gray-500 truncate">
-                  {stock.sector}
-                </div>
+                <div className="text-sm text-gray-500 truncate">{stock.sector}</div>
               </div>
             );
           })}
