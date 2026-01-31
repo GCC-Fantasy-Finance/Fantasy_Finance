@@ -7,12 +7,19 @@ import { useChatbot } from "@/context/ChatbotContext";
 import { getPortfoliosByUser } from "@/lib/portfolios";
 import { getLeagueById } from "@/lib/leagues";
 import { getPortfolioHoldingsByPortfolioIdAndStockId } from "@/lib/potfolioHoldings";
+import { useTradeModal } from "@/context/TradeModalContext";
 
 interface Stock {
   stock_id?: number;
   stock_symbol?: string;
   name?: string;
   current_price?: number;
+  // optional fields used in details table
+  previous_close?: any;
+  day_range?: any;
+  year_range?: any;
+  market_cap?: any;
+  volume?: any;
 }
 
 interface PortfolioWithLeague {
@@ -29,17 +36,6 @@ type Props = {
   stock: Stock | null;
   onClose: () => void;
 };
-
-function InfoTooltip({ text }: { text: string }) {
-  return (
-    <span className="relative group ml-1 cursor-help text-gray-400">
-      ⓘ
-      <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 w-48 -translate-x-1/2 rounded bg-black px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-        {text}
-      </span>
-    </span>
-  );
-}
 
 
 export default function StockDetailsModal({ open, stock, onClose }: Props) {
@@ -60,7 +56,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
 
       setLoading(true);
       try {
-        const userPortfolios = await getPortfoliosByUser(user.id as number);
+        const userPortfolios = await getPortfoliosByUser(user.id as unknown as number);
 
         const enriched = await Promise.all(
           userPortfolios.map(async (portfolio) => {
@@ -117,13 +113,40 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
   }, [open, onClose]);
 
   if (!open || !stock) return null;
+  const { openBuy, openSell } = useTradeModal();
 
   const handleBuy = (portfolio: PortfolioWithLeague) => {
-    // TODO
+    if (!stock?.stock_id || stock.current_price == null) return;
+    openBuy({
+      stock: {
+        stock_id: stock.stock_id!,
+        stock_symbol: stock.stock_symbol ?? "",
+        name: stock.name ?? "",
+        current_price: Number(stock.current_price ?? 0),
+      },
+      portfolio: {
+        portfolio_id: portfolio.portfolio_id,
+        reserve_value: Number(portfolio.reserve_value ?? 0),
+      },
+    });
   };
 
   const handleSell = (portfolio: PortfolioWithLeague) => {
-    // TODO
+    if (!stock?.stock_id || stock.current_price == null) return;
+    const qty = Number(holdings?.[portfolio.portfolio_id] ?? 0);
+    openSell({
+      stock: {
+        stock_id: stock.stock_id!,
+        stock_symbol: stock.stock_symbol ?? "",
+        name: stock.name ?? "",
+        current_price: Number(stock.current_price ?? 0),
+      },
+      portfolio: {
+        portfolio_id: portfolio.portfolio_id,
+        reserve_value: Number(portfolio.reserve_value ?? 0),
+      },
+      holdingQty: qty,
+    });
   };
 
   const modal = (

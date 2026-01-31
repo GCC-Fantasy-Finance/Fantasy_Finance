@@ -116,10 +116,13 @@ export async function sellStock(params: {
     }
     resultingHoldingId = updatedHolding?.portfolio_holding_id ?? resultingHoldingId;
   } else {
+    // If selling all remaining shares, remove the holding record entirely.
+    // Use a robust match (portfolio_id + stock_id) to avoid stale ID issues.
     const { error: deleteErr } = await supabase
       .from("Portfolio Holdings")
       .delete()
-      .eq("portfolio_holding_id", existingHolding.portfolio_holding_id);
+      .eq("portfolio_id", portfolioId)
+      .eq("stock_id", stockId);
 
     if (deleteErr) {
       return { success: false, message: "Error removing holding: " + deleteErr.message };

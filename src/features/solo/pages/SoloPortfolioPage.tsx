@@ -2,10 +2,11 @@ import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import buyStock from "@/hooks/buyStock";
-import sellStock from "@/hooks/sellStock";
+// import buyStock from "@/hooks/buyStock";
+// import sellStock from "@/hooks/sellStock";
 import { toast } from "sonner";
 import { fetchPortfolioView } from "@/hooks/fetchPortfolio";
+import { useTradeModal } from "@/context/TradeModalContext";
 
 interface HoldingView {
   portfolio_holding_id?: number;
@@ -27,6 +28,8 @@ function SoloPortfolioPage() {
   const [loading, setLoading] = useState(true);
   const [holdings, setHoldings] = useState<HoldingView[]>([]);
   const [totals, setTotals] = useState<{ total_value?: number; reserve_value?: number } | null>(null);
+  const [portfolio, setPortfolio] = useState<{ portfolio_id: number } | null>(null);
+  const { openSell, openBuy } = useTradeModal();
 
   const loadHoldings = useCallback(async () => {
     setLoading(true);
@@ -39,13 +42,32 @@ function SoloPortfolioPage() {
 
     try {
       // Use shared fetcher for Solo portfolio
-      const { portfolio, totals, holdings } = await fetchPortfolioView({ userId: auth.user.id, isSolo: true });
-      if (!portfolio) {
+      const { portfolio: pf, totals, holdings } = await fetchPortfolioView({ userId: auth.user.id, isSolo: true });
+      if (!pf) {
         setHoldings([]);
         setTotals(null);
+        setPortfolio(null);
       } else {
         setTotals(totals);
         setHoldings(holdings as HoldingView[]);
+        setPortfolio({ portfolio_id: pf.portfolio_id });
+
+        // Compute NET = invested (sum of current_price * quantity) + reserve
+        const investedValue = (holdings as HoldingView[]).reduce((sum, h) => {
+          return sum + (Number(h.stock?.current_price ?? 0) * Number(h.quantity ?? 0));
+        }, 0);
+        const reserveValue = Number(totals?.reserve_value ?? 0);
+        const netValue = investedValue + reserveValue;
+
+        // Persist NET to portfolio.total_value
+        try {
+          await supabase
+            .from("Portfolios")
+            .update({ total_value: netValue })
+            .eq("portfolio_id", pf.portfolio_id);
+        } catch (e) {
+          console.warn("Unable to update total_value (RLS/permissions?):", e);
+        }
       }
     } catch (err) {
       console.error("Error loading holdings:", err);
@@ -57,44 +79,39 @@ function SoloPortfolioPage() {
   }, [auth.user]);
 
   useEffect(() => {
-    let mounted = true;
     loadHoldings();
-    return () => {
-      mounted = false;
-    };
   }, [loadHoldings]);
 
-  async function handleBuy(h: HoldingView) {
+  function handleBuy(h: HoldingView) {
     if (!auth.user) {
       toast.error("Please sign in to buy");
       return;
     }
-    if (!h.stock_id) {
-      toast.error("Invalid stock");
+    if (!h.stock_id || !h.stock?.current_price || !portfolio) {
+      toast.error("Invalid stock or portfolio");
       return;
     }
-
-    setLoading(true);
-    const res = await buyStock({ userId: auth.user.id, stockId: Number(h.stock_id), price: Number(h.stock?.current_price ?? 0), quantity: 1, isSolo: true });
-    if (!res.success) {
-      toast.error(res.message ?? "Buy failed");
-      console.error("buyStock result:", res);
-      setLoading(false);
-      return;
-    }
-
-    toast.success("Bought 1 share — portfolio updated");
-    // refresh data
-    await loadHoldings();
+    openBuy({
+      stock: {
+        stock_id: h.stock.stock_id!,
+        stock_symbol: h.stock.stock_symbol ?? "",
+        name: h.stock.name ?? "",
+        current_price: Number(h.stock.current_price ?? 0),
+      },
+      portfolio: {
+        portfolio_id: portfolio.portfolio_id,
+        reserve_value: Number(totals?.reserve_value ?? 0),
+      },
+    });
   }
 
-  async function handleSell(h: HoldingView) {
+  function handleSell(h: HoldingView) {
     if (!auth.user) {
       toast.error("Please sign in to sell");
       return;
     }
-    if (!h.stock_id) {
-      toast.error("Invalid stock");
+    if (!h.stock?.stock_id || !portfolio) {
+      toast.error("Invalid stock or portfolio");
       return;
     }
     const qty = Number(h.quantity ?? 0);
@@ -102,17 +119,19 @@ function SoloPortfolioPage() {
       toast.error("No shares to sell");
       return;
     }
-
-    setLoading(true);
-    const res = await sellStock({ userId: auth.user.id, stockId: Number(h.stock_id), price: Number(h.stock?.current_price ?? 0), quantity: 1, isSolo: true });
-    if (!res.success) {
-      toast.error(res.message ?? "Sell failed");
-      setLoading(false);
-      return;
-    }
-
-    toast.success("Sold 1 share — reserve updated");
-    await loadHoldings();
+    openSell({
+      stock: {
+        stock_id: h.stock.stock_id!,
+        stock_symbol: h.stock.stock_symbol ?? "",
+        name: h.stock.name ?? "",
+        current_price: Number(h.stock.current_price ?? 0),
+      },
+      portfolio: {
+        portfolio_id: portfolio.portfolio_id,
+        reserve_value: Number(totals?.reserve_value ?? 0),
+      },
+      holdingQty: qty,
+    });
   }
 
   // (Step 1) — only show stock symbols and current prices for now.

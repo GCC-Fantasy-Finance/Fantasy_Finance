@@ -22,6 +22,16 @@ export async function buyStock(params: {
 }): Promise<BuyResult> {
   const { userId, stockId, price, quantity = 1, portfolioId: inputPortfolioId, isSolo } = params;
   console.log("buy " + isSolo)
+
+  // Basic validation before any DB work
+  const q = Number(quantity);
+  const p = Number(price);
+  if (!Number.isFinite(q) || q <= 0) {
+    return { success: false, message: "Quantity must be greater than zero" };
+  }
+  if (!Number.isFinite(p) || p <= 0) {
+    return { success: false, message: "Invalid price" };
+  }
   // 1) determine target portfolio: use provided `portfolioId` or look up by user with optional `isSolo` filter
   let existingPortfolio: { portfolio_id: number; reserve_value?: number; user_id: string, total_value?: number } | null = null;
   let pErr: any = null;
@@ -81,13 +91,14 @@ export async function buyStock(params: {
     return { success: false, message: "Unable to determine portfolio id" };
   }
 
-  const cost = Number(price) * Number(quantity);
+  const cost = p * q;
   if (reserve < cost) {
     return { success: false, message: "Insufficient reserve value" };
   }
 
   // 2) deduct reserve_value (keep total_value the same per requirement)
-  const newReserve = reserve - cost;
+  // Clamp to avoid -0 or tiny negative due to float rounding
+  const newReserve = Math.max(0, reserve - cost);
   const { data: updatedP, error: updateErr } = await supabase
     .from("Portfolios")
     .update({ reserve_value: newReserve })
