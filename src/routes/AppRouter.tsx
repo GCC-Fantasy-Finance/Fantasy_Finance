@@ -21,6 +21,7 @@ import SoloLayout from "@/features/solo/SoloLayout";
 import SoloLeaderboardPage from "@/features/solo/pages/SoloLeaderboardPage";
 import SoloPortfolioPage from "../features/solo/pages/SoloPortfolioPage";
 import DraftPage from "../features/draft/pages/DraftPage";
+import { Toaster } from "@/components/ui/sonner";
 
 export default function AppRouter() {
   const router = createBrowserRouter([
@@ -88,6 +89,7 @@ export default function AppRouter() {
   return (
     <AuthProvider>
       <RouterProvider router={router} />
+      <Toaster />
     </AuthProvider>
   );
 }
