@@ -199,7 +199,7 @@ async function autopick({ leagueId }) {
     .from('Wishlist Items')
     .select('stock_id')
     .eq('portfolio_id', currentPortfolioId)
-    .order('wishlist_item_id', { ascending: true });
+    .order("rank", { ascending: true });
 
   let stockId;
   if (wishlist && wishlist.length > 0) {

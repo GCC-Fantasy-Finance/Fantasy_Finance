@@ -33,13 +33,13 @@ export async function buyStock(params: {
     return { success: false, message: "Invalid price" };
   }
   // 1) determine target portfolio: use provided `portfolioId` or look up by user with optional `isSolo` filter
-  let existingPortfolio: { portfolio_id: number; reserve_value?: number; user_id: string, total_value?: number } | null = null;
+  let existingPortfolio: { portfolio_id: number; reserve_value?: number; user_id: string, previous_close_value?: number } | null = null;
   let pErr: any = null;
 
   if (inputPortfolioId) {
     const { data, error } = await supabase
       .from("Portfolios")
-      .select("portfolio_id, reserve_value, total_value, user_id, is_solo")
+      .select("portfolio_id, reserve_value, previous_close_value, user_id, is_solo")
       .eq("portfolio_id", inputPortfolioId)
       .maybeSingle();
     existingPortfolio = data as any;
@@ -50,7 +50,7 @@ export async function buyStock(params: {
   } else {
     let query = supabase
       .from("Portfolios")
-      .select("portfolio_id, reserve_value, total_value, created_at, is_solo" as any)
+      .select("portfolio_id, reserve_value, previous_close_value, created_at, is_solo" as any)
       .eq("user_id", userId);
 
     if (typeof isSolo === "boolean") {
@@ -77,7 +77,7 @@ export async function buyStock(params: {
     const { data: newP, error: insertPError } = await supabase
       .from("Portfolios")
       .insert(payload)
-      .select("portfolio_id, reserve_value, total_value")
+      .select("portfolio_id, reserve_value, previous_close_value")
       .maybeSingle();
 
     if (insertPError) {
@@ -96,9 +96,8 @@ export async function buyStock(params: {
     return { success: false, message: "Insufficient reserve value" };
   }
 
-  // 2) deduct reserve_value (keep total_value the same per requirement)
-  // Clamp to avoid -0 or tiny negative due to float rounding
-  const newReserve = Math.max(0, reserve - cost);
+  // 2) deduct reserve_value (keep previous_close_value the same per requirement)
+  const newReserve = reserve - cost;
   const { data: updatedP, error: updateErr } = await supabase
     .from("Portfolios")
     .update({ reserve_value: newReserve })

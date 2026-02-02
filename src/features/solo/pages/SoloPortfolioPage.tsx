@@ -27,7 +27,7 @@ function SoloPortfolioPage() {
   const auth = useAuth();
   const [loading, setLoading] = useState(true);
   const [holdings, setHoldings] = useState<HoldingView[]>([]);
-  const [totals, setTotals] = useState<{ total_value?: number; reserve_value?: number } | null>(null);
+  const [totals, setTotals] = useState<{ previous_close_value?: number; reserve_value?: number } | null>(null);
   const [portfolio, setPortfolio] = useState<{ portfolio_id: number } | null>(null);
   const { openSell, openBuy } = useTradeModal();
 

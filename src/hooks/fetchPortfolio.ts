@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 export interface PortfolioRow {
   portfolio_id: number;
   user_id: string;
-  total_value: number | null;
+  previous_close_value: number | null;
   reserve_value: number | null;
   created_at?: string | null;
   is_solo?: boolean | null;
@@ -36,7 +36,7 @@ export interface HoldingView {
 
 export interface PortfolioViewResult {
   portfolio: PortfolioRow | null;
-  totals: { total_value: number; reserve_value: number } | null;
+  totals: { previous_close_value: number; reserve_value: number } | null;
   holdings: HoldingView[];
 }
 
@@ -56,7 +56,7 @@ export async function fetchLatestPortfolio(params: {
     let query = supabase
       .from("Portfolios")
       .select(
-        "portfolio_id,user_id,total_value,reserve_value,created_at,is_solo,league_id"
+        "portfolio_id,user_id,previous_close_value,reserve_value,created_at,is_solo,league_id"
       )
       .eq("user_id", userId);
 
@@ -156,7 +156,7 @@ export async function fetchPortfolioView(params: {
   }
 
   const totals = {
-    total_value: Number(portfolio.total_value ?? 0),
+    previous_close_value: Number(portfolio.previous_close_value ?? 0),
     reserve_value: Number(portfolio.reserve_value ?? 0),
   };
 

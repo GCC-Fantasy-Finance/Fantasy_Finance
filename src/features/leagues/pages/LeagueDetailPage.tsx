@@ -31,7 +31,7 @@ type Profile = {
 
 type PortfolioWithUser = {
   portfolio_id: number;
-  total_value: number;
+  previous_close_value: number;
   user_id: string;
   Profiles: {
     username?: string;
@@ -95,9 +95,9 @@ export default function LeagueDetailPage() {
         // Fetch portfolios for leaderboard
         const portfoliosData = await getPortfoliosByLeague(Number(id));
         if (mounted && portfoliosData) {
-          // Sort by total_value desc
+          // Sort by previous_close_value desc
           const sorted = (portfoliosData as any[]).sort(
-            (a, b) => b.total_value - a.total_value,
+            (a, b) => b.previous_close_value - a.previous_close_value,
           );
           setLeaderboard(sorted);
         }
@@ -180,7 +180,7 @@ export default function LeagueDetailPage() {
                     >
                       <TableCell className="font-bold text-lg px-4 pl-7 text-green-700">
                         {leaderboard.findIndex(
-                          (p) => p.total_value === entry.total_value,
+                          (p) => p.previous_close_value === entry.previous_close_value,
                         ) + 1}
                       </TableCell>
                       <TableCell className="flex items-center gap-2 px-4 py-3">
@@ -201,7 +201,7 @@ export default function LeagueDetailPage() {
                       </TableCell>
                       <TableCell className="px-4">
                         $
-                        {entry.total_value.toLocaleString(undefined, {
+                        {entry.previous_close_value.toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}
