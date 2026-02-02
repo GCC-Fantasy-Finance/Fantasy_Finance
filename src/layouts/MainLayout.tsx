@@ -4,6 +4,8 @@ import Header from "./components/Header";
 import { useLayout } from "../context/LayoutContext";
 import { useChatbot } from "../context/ChatbotContext";
 import Chatbot from "../components/ui/Chatbot";
+import BuyStockModal from "@/components/ui/BuyStockModal";
+import SellStockModal from "@/components/ui/SellStockModal";
 
 export default function MainLayout() {
   const { pageTitle } = useLayout();
@@ -33,6 +35,10 @@ export default function MainLayout() {
         isPinned={isPinned}
         onPinnedChange={setIsPinned}
       />
+
+      {/* Global Trade Modals */}
+      <BuyStockModal />
+      <SellStockModal />
     </div>
   );
 }
