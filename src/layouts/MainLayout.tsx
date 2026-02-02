@@ -24,7 +24,7 @@ export default function MainLayout() {
         {/* SubNav will be rendered by individual pages if needed */}
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto bg-gray-50">
+        <main className="flex-1 overflow-auto bg-white">
           <Outlet />
         </main>
       </div>
