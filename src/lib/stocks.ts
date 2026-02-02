@@ -1,4 +1,7 @@
-import { supabase } from "@/lib/supabase";
+import { supabase } from "../lib/supabase";
+
+
+
 
 export type StockRow = {
   stock_id: number;
@@ -27,4 +30,17 @@ export async function getStockById(
   }
 
   return data as StockRow;
+}
+
+// get all stocks
+export async function getAllStocks() {
+    const { data, error } = await supabase
+        .from("Stocks")
+        .select("*")
+        .order("stock_symbol");
+    if (error) {
+        console.error(error);
+        return [];
+    }
+    return data;
 }

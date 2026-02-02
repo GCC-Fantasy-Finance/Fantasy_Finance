@@ -4,6 +4,7 @@ import { Button } from "../../components/ui/button";
 import { useAuth } from "../../context/AuthContext";
 import { Search } from "lucide-react";
 import { supabase } from "../../lib/supabase";
+import { getSectorByLeagueId } from "@/lib/leagues";
 
 type Stock = {
   stock_id: number;
@@ -12,6 +13,10 @@ type Stock = {
   current_price: number;
   sector: string;
 };
+
+
+
+
 
 const DraftSearchPanel = () => {
   const {
@@ -24,6 +29,7 @@ const DraftSearchPanel = () => {
     queuedItems,
     myPortfolio,
     stockPrices,
+    leagueId,
   } = useDraft();
 
   const { user } = useAuth();
@@ -42,19 +48,41 @@ const DraftSearchPanel = () => {
     isMyPick;
 
   // Initial fetch of stock table
+
+  
   useEffect(() => {
-    const fetchStocks = async () => {
-      const { data, error } = await supabase
-        .from("Stocks")
-        .select("*")
-        .order("stock_symbol");
+  const fetchStocks = async () => {
+    setLoading(true);
 
+    const leagueData = await getSectorByLeagueId(leagueId);
+
+    console.log("League Data:", leagueData);
+
+    const sectorFilter = leagueData ?? [];
+
+    if (sectorFilter.includes("Any")) {
+
+    const { data, error } = await supabase
+      .from("Stocks")
+      .select("*")
+      .order("stock_symbol");
       if (!error) setStocks(data ?? []);
-      setLoading(false);
-    };
+      
+    } else {
+    const { data, error } = await supabase
+      .from("Stocks")
+      .select("*")
+      .order("stock_symbol")
+      .in("sector", sectorFilter);
+      if (!error) setStocks(data ?? []);
+    }
+      
+    setLoading(false);
+  };
 
-    fetchStocks();
-  }, []);
+  fetchStocks();
+}, [leagueId]);
+
 
   const isQueued = (stockId: number) =>
     queuedItems.some((i) => i.stock_id === stockId);
