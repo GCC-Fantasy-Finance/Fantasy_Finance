@@ -26,15 +26,16 @@ interface AuthContextType {
   signUp: (
     email: string,
     password: string,
-    username: string
+    username: string,
   ) => Promise<{ error: AuthError | null }>;
   signIn: (
     email: string,
-    password: string
+    password: string,
   ) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   updateAvatar: (file: File) => Promise<{ error: Error | null }>;
   removeAvatar: () => Promise<{ error: Error | null }>;
+  updatePassword: (password: string) => Promise<{ error: AuthError | null }>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -192,7 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!filePath) {
         console.error(
           "Could not extract file path from avatar URL:",
-          avatarUrl
+          avatarUrl,
         );
         return;
       }
@@ -304,6 +305,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updatePassword = async (password: string) => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: password,
+      });
+
+      if (error) {
+        console.error("Error updating password:", error);
+        toast.error(error.message || "Failed to update password");
+        return { error };
+      }
+
+      toast.success("Password updated successfully");
+      return { error: null };
+    } catch (err) {
+      console.error("Unexpected error in updatePassword:", err);
+      const message =
+        err instanceof Error ? err.message : "An unexpected error occurred";
+      toast.error(message);
+      return {
+        error: {
+          message,
+          name: "UnexpectedError",
+          status: 500,
+        } as AuthError,
+      };
+    }
+  };
+
   const refreshProfile = async () => {
     if (user) {
       const profileData = await fetchProfile(user.id);
@@ -321,6 +351,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signOut,
     updateAvatar,
     removeAvatar,
+    updatePassword,
     refreshProfile,
   };
 

@@ -25,7 +25,7 @@ interface PortfolioWithLeague {
   league_name?: string;
   is_solo: boolean;
   reserve_value: number;
-  total_value: number;
+  previous_close_value: number;
   sectors: string[];
 }
 
@@ -76,7 +76,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
               league_name,
               is_solo: portfolio.is_solo,
               reserve_value: portfolio.reserve_value || 0,
-              total_value: portfolio.total_value || 0,
+              previous_close_value: portfolio.previous_close_value || 0,
               sectors,
             };
           })

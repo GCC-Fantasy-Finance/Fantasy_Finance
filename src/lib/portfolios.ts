@@ -4,8 +4,9 @@ import { supabase } from "../lib/supabase";
 export async function getPortfoliosByLeague(leagueId: number) {
   const { data, error } = await supabase
     .from("Portfolios")
-    .select("*, Profiles(username)")
-    .eq("league_id", leagueId);
+    .select("*, Profiles(username, avatar_url)")
+    .eq("league_id", leagueId)
+    .order("portfolio_id");
 
   if (error) {
     console.error(error);
@@ -13,7 +14,6 @@ export async function getPortfoliosByLeague(leagueId: number) {
   }
   return data; // Portfolio object with the user's username included
 }
-
 
 // get all portfolios of a user
 export async function getPortfoliosByUser(UserId: number) {
@@ -27,7 +27,10 @@ export async function getPortfoliosByUser(UserId: number) {
 }
 
 // get all portfolios of a user
-export async function getPortfoliosByLeagueAndUser(LeagueId: number, UserId: number) {
+export async function getPortfoliosByLeagueAndUser(
+  LeagueId: number,
+  UserId: number,
+) {
   const { data, error } = await supabase
     .from("Portfolios")
     .select("*")

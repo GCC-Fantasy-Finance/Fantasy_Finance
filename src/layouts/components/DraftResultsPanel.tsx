@@ -16,6 +16,7 @@ const DraftResultsPanel = () => {
     draftEnded,
     draftRounds,
     leagueId,
+    myPortfolio, // ✅ NEW
   } = useDraft();
 
   const [pickedStocks, setPickedStocks] = useState<
@@ -54,8 +55,7 @@ const DraftResultsPanel = () => {
     picks.forEach((pick: DraftPickRow) => {
       const roundIdx = pick.round_number - 1;
       if (!map[pick.portfolio_id]) map[pick.portfolio_id] = {};
-      map[pick.portfolio_id][roundIdx] =
-        stockMap[pick.stock_id] ?? "";
+      map[pick.portfolio_id][roundIdx] = stockMap[pick.stock_id] ?? "";
     });
 
     setPickedStocks(map);
@@ -65,10 +65,8 @@ const DraftResultsPanel = () => {
     loadDraftResults();
   }, [loadDraftResults, round, currentPick, direction]);
 
-  /** TOTAL FIXED HEIGHT */
   const slotsContainerHeight =
-    draftRounds * SLOT_HEIGHT +
-    (draftRounds - 1) * SLOT_GAP;
+    draftRounds * SLOT_HEIGHT + (draftRounds - 1) * SLOT_GAP;
 
   return (
     <div
@@ -77,116 +75,123 @@ const DraftResultsPanel = () => {
         gap: "4px",
         padding: "0 12px",
         boxSizing: "border-box",
-        alignItems: "flex-start", // no vertical stretching
+        alignItems: "flex-start",
       }}
     >
-      {users.map((user, userIdx) => (
-        <div
-          key={user.portfolio_id}
-          style={{
-            flex: "1 1 0",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            minWidth: 0,
-          }}
-        >
-          {/* Username */}
-          <div
-            style={{
-              fontWeight: "bold",
-              marginBottom: "4px",
-              fontSize: "0.8rem",
-              textAlign: "center",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              width: "100%",
-            }}
-          >
-            {user?.Profiles?.username ?? "Name not found"}
-          </div>
+      {users.map((user, userIdx) => {
+        const isMe = user.portfolio_id === myPortfolio?.portfolio_id; // ✅ NEW
 
-          {/* FIXED-HEIGHT SLOTS CONTAINER */}
+        return (
           <div
+            key={user.portfolio_id}
             style={{
-              height: `${slotsContainerHeight}px`,
+              flex: "1 1 0",
               display: "flex",
               flexDirection: "column",
-              gap: `${SLOT_GAP}px`,
-              width: "100%",
-              flexShrink: 0, // prevent compression
+              alignItems: "center",
+              minWidth: 0,
+              background: isMe ? "rgba(34,197,94,0.08)" : "transparent",
+              borderRadius: isMe ? "8px" : undefined,
+              padding: isMe ? "4px" : undefined,
+              boxShadow: isMe ? "inset 0 0 0 1px rgba(34,197,94,0.25)" : undefined,
             }}
           >
-            {Array.from({ length: draftRounds }).map((_, idx) => {
-              let isCurrent = false;
-              let isPast = false;
+            {/* Username */}
+            <div
+              style={{
+                fontWeight: isMe ? "bold" : "normal",
+                marginBottom: "4px",
+                fontSize: "0.8rem",
+                textAlign: "center",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                width: "100%",
+                color: isMe ? "#166534" : undefined,
+              }}
+            >
+              {user?.Profiles?.username ?? "Name not found"}
+            </div>
 
-              if (draftEnded) {
-                isPast = true;
-              } else if (draftStarted) {
-                if (idx === round - 1) {
-                  if (userIdx === currentPick) isCurrent = true;
-                  else if (
-                    (direction === "forward" && userIdx < currentPick) ||
-                    (direction === "backward" && userIdx > currentPick)
-                  ) {
+            {/* Slots */}
+            <div
+              style={{
+                height: `${slotsContainerHeight}px`,
+                display: "flex",
+                flexDirection: "column",
+                gap: `${SLOT_GAP}px`,
+                width: "100%",
+                flexShrink: 0,
+              }}
+            >
+              {Array.from({ length: draftRounds }).map((_, idx) => {
+                let isCurrent = false;
+                let isPast = false;
+
+                if (draftEnded) {
+                  isPast = true;
+                } else if (draftStarted) {
+                  if (idx === round - 1) {
+                    if (userIdx === currentPick) isCurrent = true;
+                    else if (
+                      (direction === "forward" && userIdx < currentPick) ||
+                      (direction === "backward" && userIdx > currentPick)
+                    ) {
+                      isPast = true;
+                    }
+                  } else if (idx < round - 1) {
                     isPast = true;
                   }
-                } else if (idx < round - 1) {
-                  isPast = true;
                 }
-              }
 
-              let background = "#fff";
-              let color = "#6b7280";
-              let border = "1px solid #e5e7eb";
-              let text = "";
+                let background = "#fff";
+                let color = "#6b7280";
+                let border = "1px solid #e5e7eb";
+                let text = "";
 
-              if (isPast) {
-                background = "#f3f4f6";
-                color = "#374151";
-                border = "1px solid #d1d5db";
-                text =
-                  pickedStocks[user.portfolio_id]?.[idx] ?? "";
-              }
+                if (isPast) {
+                  background = "#f3f4f6";
+                  color = "#374151";
+                  border = "1px solid #d1d5db";
+                  text = pickedStocks[user.portfolio_id]?.[idx] ?? "";
+                }
 
-              if (isCurrent) {
-                background = "#2563eb";
-                color = "#fff";
-                border = "2px solid #2563eb";
-              }
+                if (isCurrent) {
+                  background = "#2563eb";
+                  color = "#fff";
+                  border = "2px solid #2563eb";
+                }
 
-              return (
-                <div
-                  key={idx}
-                  style={{
-                    height: `${SLOT_HEIGHT}px`,
-                    width: "100%",
-                    background,
-                    border,
-                    borderRadius: "4px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "0.8rem",
-                    fontWeight:
-                      isPast || isCurrent ? "bold" : "normal",
-                    color,
-                    overflow: "hidden",
-                    whiteSpace: "nowrap",
-                    textOverflow: "ellipsis",
-                    boxSizing: "border-box",
-                    flexShrink: 0, // cannot resize
-                  }}
-                >
-                  {text}
-                </div>
-              );
-            })}
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      height: `${SLOT_HEIGHT}px`,
+                      width: "100%",
+                      background,
+                      border,
+                      borderRadius: "4px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "0.8rem",
+                      fontWeight: isPast || isCurrent ? "bold" : "normal",
+                      color,
+                      overflow: "hidden",
+                      whiteSpace: "nowrap",
+                      textOverflow: "ellipsis",
+                      boxSizing: "border-box",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {text}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };

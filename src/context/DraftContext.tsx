@@ -2,7 +2,13 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { supabase } from "@/lib/supabase";
 import { getPortfoliosByLeague } from "../lib/portfolios";
 import { getDraftByLeague, type Portfolio } from "../lib/drafts";
-import { addWishlistItem, getWishlistByPortfolio, removeWishlistItem, type WishlistItem } from "../lib/wishlists";
+import {
+  addWishlistItem,
+  getWishlistByPortfolio,
+  removeWishlistItem,
+  updateWishlistOrder,
+  type WishlistItem
+} from "../lib/wishlists";
 import { getLeagueById, type LeagueRow } from "../lib/leagues";
 
 const SERVER_URL = import.meta.env.VITE_DRAFT_SERVER_URL || "http://localhost:4000";
@@ -23,10 +29,12 @@ type DraftContextType = {
   isOwner: boolean;
   queuedItems: WishlistItem[];
   draftPicks: any[];
+  stockPrices: Record<number, number>;
   startDraft: () => Promise<void>;
   makePick: (stockId: number) => Promise<void>;
   queueStock: (stockId: number) => Promise<void>;
   removeFromQueue: (stockId: number) => Promise<void>;
+  reorderQueue: (from: number, to: number) => void;
 };
 
 const DraftContext = createContext<DraftContextType | undefined>(undefined);
@@ -54,8 +62,9 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
 
   const isOwner = !!league && !!myPortfolio && league.owner_id === myPortfolio.user_id;
   const [queuedItems, setQueuedItems] = useState<WishlistItem[]>([]);
+  const [stockPrices, setStockPrices] = useState<Record<number, number>>({});
 
-  // --- Initial load ---
+  // Initial load
   useEffect(() => {
     (async () => {
       const [userData, draftData, leagueData, picksData] = await Promise.all([
@@ -74,7 +83,7 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     })();
   }, [leagueId]);
 
-  // --- Draft realtime ---
+  // Draft realtime subscription
   useEffect(() => {
     const channel = supabase
       .channel(`drafts-${leagueId}`)
@@ -90,24 +99,63 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     };
   }, [leagueId]);
 
+  // Live stock price updates
+  useEffect(() => {
+    const channel = supabase
+      .channel("live-stock-prices")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "Stocks" },
+        (payload) => {
+          const updated = payload.new as { stock_id: number; current_price: number };
+          setStockPrices(prev => ({
+            ...prev,
+            [updated.stock_id]: updated.current_price,
+          }));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Load initial prices for queued stocks
+  useEffect(() => {
+    const loadInitialPrices = async () => {
+      const ids = queuedItems.map(q => q.stock_id);
+      if (ids.length === 0) return;
+
+      const { data } = await supabase
+        .from("Stocks")
+        .select("stock_id, current_price")
+        .in("stock_id", ids);
+
+      if (!data) return;
+
+      const map: Record<number, number> = {};
+      for (const row of data) map[row.stock_id] = row.current_price;
+
+      setStockPrices(prev => ({ ...prev, ...map }));
+    };
+
+    loadInitialPrices();
+  }, [queuedItems]);
+
+  // Refresh queue when draft state changes
   useEffect(() => {
     if (!myPortfolio?.portfolio_id) return;
 
     const refreshQueue = async () => {
-      console.log("Refreshing queue after draft update");
       const updated = await getWishlistByPortfolio(myPortfolio.portfolio_id);
       setQueuedItems(updated ?? []);
     };
 
     refreshQueue();
-  }, [
-    myPortfolio?.portfolio_id,
-    currentPortfolioId,
-    round
-  ]);
+  }, [myPortfolio?.portfolio_id, currentPortfolioId, round]);
 
-
-  // --- Resolve my portfolio ---
+  // Resolve my portfolio
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -117,8 +165,7 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     })();
   }, [users]);
 
-  // --- Hydrate from draft row ---
-  const hydrateFromDraftRow = async (d: any) => {
+  const hydrateFromDraftRow = (d: any) => {
     setDraftStarted(d.is_started);
     setDraftEnded(d.is_ended);
     setDraftRounds(d.total_rounds);
@@ -128,14 +175,27 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     setCurrentPortfolioId(d.current_portfolio_id);
   };
 
-  // --- UI index from DB ---
+  const reorderQueue = (from: number, to: number) => {
+    setQueuedItems(prev => {
+      const updated = [...prev];
+      const [moved] = updated.splice(from, 1);
+      updated.splice(to, 0, moved);
+
+      if (myPortfolio?.portfolio_id) {
+        updateWishlistOrder(updated).catch(console.error);
+      }
+
+      return updated;
+    });
+  };
+
   useEffect(() => {
     if (currentPortfolioId == null || users.length === 0) return;
     const idx = users.findIndex(u => u.portfolio_id === currentPortfolioId);
     if (idx !== -1) setCurrentPick(idx);
   }, [currentPortfolioId, users]);
 
-  // --- Timer logic ---
+  // Timer logic
   useEffect(() => {
     if (!timerStartTime) {
       setTimer(10);
@@ -152,48 +212,45 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     };
 
     update();
-    intervalRef.current = setInterval(update, 1000);
+    intervalRef.current = window.setInterval(update, 1000);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [timerStartTime]);
 
-  // --- Start draft ---
   const startDraft = async () => {
     await fetch(`${SERVER_URL}/draft/${leagueId}/start`, { method: "POST" });
   };
 
-  // --- Queue a stock ---
   const queueStock = async (stockId: number) => {
     if (!myPortfolio?.portfolio_id) return;
     if (queuedItems.some(i => i.stock_id === stockId)) return;
 
-    const optimisticItem: WishlistItem = { portfolio_id: myPortfolio.portfolio_id, stock_id: stockId };
-    setQueuedItems(prev => [...prev, optimisticItem]);
-
     try {
-      await addWishlistItem({ portfolio_id: myPortfolio.portfolio_id, stock_id: stockId });
-    } catch {
-      setQueuedItems(prev => prev.filter(i => i.stock_id !== stockId));
+      const newItem = await addWishlistItem({
+        portfolio_id: myPortfolio.portfolio_id,
+        stock_id: stockId,
+      });
+
+      setQueuedItems(prev => [...prev, newItem]);
+    } catch (err) {
+      console.error("Failed to queue stock", err);
     }
   };
 
-  // Remove stock from queue
   const removeFromQueue = async (stockId: number) => {
     if (!myPortfolio?.portfolio_id) return;
-    if (!queuedItems.some(i => i.stock_id === stockId)) return; // make sure the stock is queued
 
     setQueuedItems(prev => prev.filter(item => item.stock_id !== stockId));
-    console.log(queuedItems);
+
     try {
       await removeWishlistItem(myPortfolio.portfolio_id, stockId);
-    } catch {
-      console.log("in catch");
+    } catch (err) {
+      console.error("Failed to remove item", err);
     }
   };
 
-  // --- Make a pick ---
   const makePick = async (stockId: number) => {
     if (!currentPortfolioId) return;
 
@@ -227,10 +284,12 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
         isOwner,
         queuedItems,
         draftPicks,
+        stockPrices,
         startDraft,
         makePick,
         queueStock,
         removeFromQueue,
+        reorderQueue,
       }}
     >
       {children}

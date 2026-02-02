@@ -14,7 +14,6 @@ import CreateLeagueModal from "@/components/ui/CreateLeagueModal";
 import JoinLeagueModal from "@/components/ui/JoinLeagueModal";
 import { supabase } from "@/lib/supabase";
 
-
 type NavItem = {
   name: string;
   path: string;
@@ -36,62 +35,55 @@ export default function Sidebar() {
     { name: "Solo", path: "/solo", icon: UserRound },
   ];
 
-  
-
   async function fetchLeagues() {
-  console.log("PROFILE:", profile);
+    console.log("PROFILE:", profile);
 
-  if (!profile) {
-    console.log("No profile yet");
-    return [];
-  }
-
-  // STEP 1 — Get user’s portfolios (excluding solo)
-  const { data: portfolios, error: portfoliosError } = await supabase
-    .from("Portfolios")
-    .select("league_id")
-    .eq("user_id", profile.id)
-    .eq("is_solo", false);
-
-  console.log("PORTFOLIOS:", portfolios);
-  console.log("PORTFOLIOS ERROR:", portfoliosError);
-
-  if (portfoliosError || !portfolios) return [];
-
-  const leagues: any[] = [];
-
-  // STEP 2 — Fetch each league by ID (super reliable)
-  for (const p of portfolios) {
-    console.log("Fetching league:", p.league_id);
-
-    const { data: league, error: leagueError } = await supabase
-      .from("Leagues")
-      .select("*")
-      .eq("league_id", p.league_id)
-      .maybeSingle();
-
-    console.log("LEAGUE RESULT:", league);
-    console.log("LEAGUE ERROR:", leagueError);
-
-    if (!leagueError && league) {
-      leagues.push(league);
+    if (!profile) {
+      console.log("No profile yet");
+      return [];
     }
+
+    // STEP 1 — Get user’s portfolios (excluding solo)
+    const { data: portfolios, error: portfoliosError } = await supabase
+      .from("Portfolios")
+      .select("league_id")
+      .eq("user_id", profile.id)
+      .eq("is_solo", false);
+
+    console.log("PORTFOLIOS:", portfolios);
+    console.log("PORTFOLIOS ERROR:", portfoliosError);
+
+    if (portfoliosError || !portfolios) return [];
+
+    const leagues: any[] = [];
+
+    // STEP 2 — Fetch each league by ID (super reliable)
+    for (const p of portfolios) {
+      console.log("Fetching league:", p.league_id);
+
+      const { data: league, error: leagueError } = await supabase
+        .from("Leagues")
+        .select("*")
+        .eq("league_id", p.league_id)
+        .maybeSingle();
+
+      console.log("LEAGUE RESULT:", league);
+      console.log("LEAGUE ERROR:", leagueError);
+
+      if (!leagueError && league) {
+        leagues.push(league);
+      }
+    }
+
+    console.log("FINAL LEAGUES:", leagues);
+    return leagues;
   }
-
-  console.log("FINAL LEAGUES:", leagues);
-  return leagues;
-}
-
-
-
-
 
   useEffect(() => {
     fetchLeagues()
       .then((data) => setLeagues(data))
       .finally(() => setLoading(false));
   }, [profile]);
-  
 
   const isActive = (path: string) => {
     if (path === "/") {
@@ -102,9 +94,6 @@ export default function Sidebar() {
       location.pathname === path || location.pathname.startsWith(path + "/")
     );
   };
-
-  
-  
 
   return (
     <aside className="w-50 h-screen bg-gray-100 border-r border-gray-300 flex flex-col">
@@ -161,7 +150,12 @@ export default function Sidebar() {
           >
             <PlusCircle /> Create
           </Button>
-          <Button size="xs" variant="secondary" className="flex-1" onClick={() => setIsJoinOpen(true)}>
+          <Button
+            size="xs"
+            variant="secondary"
+            className="flex-1"
+            onClick={() => setIsJoinOpen(true)}
+          >
             <UserPlus /> Join
           </Button>
         </div>
@@ -174,44 +168,55 @@ export default function Sidebar() {
             <p className="text-xs text-gray-400 px-2 py-1">No leagues yet</p>
           ) : (
             <ul className="space-y-1">
-  {leagues.map((league) => (
-    <li key={league.league_id}>
-      <Link
-        to={`/league/${league.league_id}`}
-        className="block px-4 py-2 rounded hover:bg-gray-200 text-sm"
-      >
-        {league.name}
-      </Link>
-    </li>
-  ))}
-</ul>
-
+              {leagues.map((league) => {
+                const path = `/league/${league.league_id}`;
+                const active = isActive(path);
+                return (
+                  <li key={league.league_id}>
+                    <Link
+                      to={path}
+                      className={`block px-4 py-2 rounded text-sm transition-colors ${
+                        active
+                          ? "bg-green-700/10 font-semibold text-green-700"
+                          : "hover:bg-gray-200"
+                      }`}
+                    >
+                      {league.name}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </div>
 
-        
-
-        <CreateLeagueModal open={isCreateOpen} onClose={() => setIsCreateOpen(false)} />
-        <JoinLeagueModal open={isJoinOpen} onClose={() => setIsJoinOpen(false)} />
+        <CreateLeagueModal
+          open={isCreateOpen}
+          onClose={() => setIsCreateOpen(false)}
+        />
+        <JoinLeagueModal
+          open={isJoinOpen}
+          onClose={() => setIsJoinOpen(false)}
+        />
       </nav>
 
       {/* User Profile at Bottom */}
       <div className="border-t border-gray-300">
         <Link
           to="/profile"
-          className="flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors"
+          className="flex items-center gap-2.5 p-4 hover:bg-gray-50 transition-colors"
         >
-          <div className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center bg-gray-300 overflow-hidden">
-            {profile?.avatar_url ? (
-              <img
-                src={profile.avatar_url}
-                alt="Profile"
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <User2 className="w-5 h-5 text-gray-500" />
-            )}
-          </div>
+          {profile?.avatar_url ? (
+            <img
+              src={profile.avatar_url}
+              alt="Profile"
+              className="w-8 h-8 rounded-full object-cover shrink-0"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-sm select-none shrink-0">
+              {(profile?.username?.[0] ?? "U").toUpperCase()}
+            </div>
+          )}
           <span className="text-sm truncate min-w-0">
             {profile?.username || "Username"}
           </span>

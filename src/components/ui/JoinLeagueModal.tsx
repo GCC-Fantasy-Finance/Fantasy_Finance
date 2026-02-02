@@ -62,7 +62,7 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
       const portfolioPayload = {
         league_id: leagueId,
         user_id: user.id,
-        total_value: 10000,
+        previous_close_value: 10000,
         reserve_value: 10000,
         last_recalculated: new Date().toISOString(),
         is_solo: false,

@@ -83,7 +83,7 @@ export interface Portfolios {
   portfolio_id: number;
   created_at: string;
   league_id?: number | null;
-  total_value: number;
+  previous_close_value: number;
   reserve_value: number;
   last_recalculated: string;
   user_id: string;
