@@ -16,6 +16,7 @@ import LeagueDetailPage from "@/features/leagues/pages/LeagueDetailPage";
 import { LayoutProvider } from "../context/LayoutContext";
 import { AuthProvider } from "../context/AuthContext";
 import { ChatbotProvider } from "../context/ChatbotContext";
+import { TradeModalProvider } from "@/context/TradeModalContext";
 import SoloLayout from "@/features/solo/SoloLayout";
 import SoloLeaderboardPage from "@/features/solo/pages/SoloLeaderboardPage";
 import SoloPortfolioPage from "../features/solo/pages/SoloPortfolioPage";
@@ -28,9 +29,11 @@ export default function AppRouter() {
       element: (
         <LayoutProvider>
           <ChatbotProvider>
-            <ProtectedRoute>
-              <MainLayout />
-            </ProtectedRoute>
+            <TradeModalProvider>
+              <ProtectedRoute>
+                <MainLayout />
+              </ProtectedRoute>
+            </TradeModalProvider>
           </ChatbotProvider>
         </LayoutProvider>
       ),
