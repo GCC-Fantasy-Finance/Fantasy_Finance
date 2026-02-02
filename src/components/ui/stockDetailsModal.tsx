@@ -7,12 +7,16 @@ import { useChatbot } from "@/context/ChatbotContext";
 import { getPortfoliosByUser } from "@/lib/portfolios";
 import { getLeagueById } from "@/lib/leagues";
 import { getPortfolioHoldingsByPortfolioIdAndStockId } from "@/lib/potfolioHoldings";
+import StockChart from "./stockChart";
+import{Sparkles} from "lucide-react";
+import { getSectorByLeagueId } from "@/lib/leagues";
 
 interface Stock {
   stock_id?: number;
   stock_symbol?: string;
   name?: string;
   current_price?: number;
+  sector?: string;
 }
 
 interface PortfolioWithLeague {
@@ -22,6 +26,7 @@ interface PortfolioWithLeague {
   is_solo: boolean;
   reserve_value: number;
   total_value: number;
+  sectors: string[];
 }
 
 type Props = {
@@ -30,16 +35,7 @@ type Props = {
   onClose: () => void;
 };
 
-function InfoTooltip({ text }: { text: string }) {
-  return (
-    <span className="relative group ml-1 cursor-help text-gray-400">
-      ⓘ
-      <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 w-48 -translate-x-1/2 rounded bg-black px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-        {text}
-      </span>
-    </span>
-  );
-}
+
 
 
 export default function StockDetailsModal({ open, stock, onClose }: Props) {
@@ -48,6 +44,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
   const [portfolios, setPortfolios] = useState<PortfolioWithLeague[]>([]);
   const [loading, setLoading] = useState(false);
   const [holdings, setHoldings] = useState<Record<number, number>>({});
+  const [timeFrame, setTimeFrame] = useState("1M");
 
   /* ================= FETCH DATA ================= */
   useEffect(() => {
@@ -68,6 +65,10 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
               portfolio.league_id && !portfolio.is_solo
                 ? (await getLeagueById(portfolio.league_id))?.name
                 : undefined;
+            const sectors = 
+              portfolio.league_id
+                ? await getSectorByLeagueId(portfolio.league_id)
+                : [];
 
             return {
               portfolio_id: portfolio.portfolio_id,
@@ -76,6 +77,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
               is_solo: portfolio.is_solo,
               reserve_value: portfolio.reserve_value || 0,
               total_value: portfolio.total_value || 0,
+              sectors,
             };
           })
         );
@@ -145,7 +147,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
         {/* CLOSE */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+          className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 cursor-pointer"
           aria-label="Close"
         >
           <X className="w-6 h-6" />
@@ -157,7 +159,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
           <div className="w-full flex flex-col border-r border-gray-200 p-6">
             <div className="mb-2">
               <h2 className="text-3xl font-semibold">
-                {stock.name}{" "}
+                {stock.name}{" – "}
                 {stock.current_price != null && (
                   <span className="text-green-600">
                     ${stock.current_price.toFixed(2)}
@@ -169,36 +171,66 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
               </p>
             </div>
 
-            <div className="flex-1 flex items-center justify-center">
-              <div className="h-[300px] w-full bg-gray-100 rounded-lg flex items-center justify-center">
-                <div className="text-center text-gray-500">
-                  <p className="text-lg font-medium">Price Chart</p>
-                  <p className="text-sm">Graph will appear here</p>
-                </div>
-              </div>
+            <div className="flex-1 ">
+
+              <Button className="mx-1 my-[5px] h-[30px] w-16" 
+                onClick={() => setTimeFrame("1M")  }
+                disabled={timeFrame === "1M"}>
+                  30 Days
+                
+              </Button>
+              <Button className="mx-1 my-[5px] h-[30px] w-16" 
+                onClick={() => setTimeFrame("1Y")}
+                disabled={timeFrame === "1Y"}>
+                  Year
+              </Button>
+              
+              <StockChart id={stock.stock_id || 0} timeFrame={timeFrame} />
+                
+              
             </div>
 
+            
+
+
             {/* Ai questions about the stock */}
-            <div>
+            <div className=" border-t">
               <button
-                className="mt-4 px-4 py-[3px] bg-blue-600 text-white rounded hover:bg-blue-700"
+                className="cursor-pointer mt-2 ml-2 px-2 py-[3px]  text-green-700 rounded hover:bg-green-100 border-green-300 border"
                 onClick={() => {
                   setInitialMessage(`Is ${stock.name} (${stock.stock_symbol}) a volatile stock?`);
                   setChatbotState("expanded");
                   setIsPinned(true);
                 }}
               >
-                Is this stock volatile?
+                <Sparkles className="size-4 inline mb-1 mr-1 text-green-700" />
+                 <span>Is this stock volatile?</span> 
+                
+                 
               </button>
               <button
-                className="mt-4 ml-2 px-4 py-[3px] bg-blue-600 text-white rounded hover:bg-blue-700"
+                className="cursor-pointer mt-2  ml-2 px-2 py-[3px]  text-green-700 rounded hover:bg-green-100 border-green-300 border"
                 onClick={() => {
                   setInitialMessage(`What is the future outlook for ${stock.name} (${stock.stock_symbol})?`);
                   setChatbotState("expanded");
                   setIsPinned(true);
                 }}
               >
-                What is the future outlook for this stock?
+                <Sparkles className="size-4 inline mb-1 mr-1 text-green-700" />
+                 <span>What is the future outlook for this stock?</span> 
+                
+              </button>
+              <button
+                className="cursor-pointer mt-2 ml-2 px-2 py-[3px]  text-green-700 rounded hover:bg-green-100 border-green-300 border"
+                onClick={() => {
+                  setInitialMessage(`Tell me more about ${stock.name} (${stock.stock_symbol})?`);
+                  setChatbotState("expanded");
+                  setIsPinned(true);
+                }}
+              >
+                <Sparkles className="size-4 inline mb-1 mr-1 text-green-700" />
+                 <span>Tell me more?</span> 
+                
               </button>
             </div>
           </div>
@@ -221,6 +253,8 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                 </p>
               ) : (
                 portfolios.map((portfolio) => (
+                  console.log("stock.sector:", stock.sector),
+                  console.log("portfolio.sectors:", portfolio.sectors),
                   <div
                     key={portfolio.portfolio_id}
                     className="bg-white border border-gray-200 rounded p-3 flex items-center justify-between gap-2"
@@ -236,21 +270,25 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                         ${portfolio.reserve_value.toFixed(2)}
                       </span>
 
-                      {(holdings?.[portfolio.portfolio_id] ?? 0) > 0 && (
+                      
                         <Button
                           onClick={() => handleSell(portfolio)}
                           variant="outline"
-                          className="text-xs h-7 px-2 text-red-600 border-red-300 hover:bg-red-50"
+                          disabled={!(holdings[portfolio.portfolio_id] > 0)}
+                          className="text-xs h-7 px-2 text-red-600 border-red-300 hover:bg-red-50 disabled:bg-gray-300"
                         >
                           – Sell
                         </Button>
-                      )}
+                      
+
+                      
 
                       <Button
+
                         onClick={() => handleBuy(portfolio)}
                         disabled={
-                          portfolio.reserve_value <
-                          (stock.current_price ?? 0)
+                          
+                          portfolio.reserve_value <= 0 || (!portfolio.sectors.includes("Any")  && !portfolio.sectors.includes(stock.sector || ""))
                         }
                         className="text-xs h-7 px-2 bg-green-700 hover:bg-green-800 text-white disabled:bg-gray-300"
                       >
@@ -273,9 +311,9 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                     
                     <tr>
                       <td className="pr-4 font-medium">
-                        <span className="relative group cursor-help">
+                        <span className="relative group ">
                           Previous Close
-                          <span className="pointer-events-none absolute left-0 top-full z-20 mt-1 w-56 rounded bg-black px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
+                          <span className="pointer-events-none absolute left-0 top-full z-20 mt-1 w-56 rounded bg-green-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
                             The stock’s closing price from the previous trading day.
                           </span>
                         </span>
@@ -285,9 +323,9 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
 
                     <tr>
                       <td className="pr-4 font-medium">
-                        <span className="relative group cursor-help">
+                        <span className="relative group ">
                           Day Range
-                          <span className="pointer-events-none absolute left-0 top-full z-20 mt-1 w-56 rounded bg-black px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
+                          <span className="pointer-events-none absolute left-0 top-full z-20 mt-1 w-56 rounded bg-green-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
                             The lowest and highest prices traded today.
                           </span>
                         </span>
@@ -297,9 +335,9 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
 
                     <tr>
                       <td className="pr-4 font-medium">
-                        <span className="relative group cursor-help">
-                          52 Week Range
-                          <span className="pointer-events-none absolute left-0 top-full z-20 mt-1 w-56 rounded bg-black px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
+                        <span className="relative group ">
+                          Year Range
+                          <span className="pointer-events-none absolute left-0 top-full z-20 mt-1 w-56 rounded bg-green-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
                             The lowest and highest prices over the past year.
                           </span>
                         </span>
@@ -309,9 +347,9 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
 
                     <tr>
                       <td className="pr-4 font-medium">
-                        <span className="relative group cursor-help">
+                        <span className="relative group ">
                           Market Cap
-                          <span className="pointer-events-none absolute left-0 top-full z-20 mt-1 w-56 rounded bg-black px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
+                          <span className="pointer-events-none absolute left-0 top-full z-20 mt-1 w-56 rounded bg-green-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
                             Total market value of all outstanding shares.
                           </span>
                         </span>
@@ -321,9 +359,9 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
 
                     <tr>
                       <td className="pr-4 font-medium">
-                        <span className="relative group cursor-help">
+                        <span className="relative group ">
                           Volume
-                          <span className="pointer-events-none absolute left-0 top-full z-20 mt-1 w-56 rounded bg-black px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
+                          <span className="pointer-events-none absolute left-0 top-full z-20 mt-1 w-56 rounded bg-green-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
                             Number of shares traded today.
                           </span>
                         </span>

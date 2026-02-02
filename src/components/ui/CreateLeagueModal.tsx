@@ -165,6 +165,23 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
         },
       ]);
 
+      if (hasDraft){
+        await supabase.from("Drafts").insert([
+          {
+            league_id: data.league_id,
+            current_round: 0,
+            current_pick: 0,
+            current_portfolio_id: null,
+            is_snaking_forward: true,
+            timer_start_time: data.start_time,
+            is_started: false,
+            is_ended: false,
+            total_rounds: draftRounds
+            
+          },
+        ]);
+      }
+
       toast.success("League created");
       window.location.reload();
       onClose();

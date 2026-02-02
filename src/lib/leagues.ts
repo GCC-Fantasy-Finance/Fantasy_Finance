@@ -34,3 +34,21 @@ export async function getLeagueById(
 
   return data as LeagueRow;
 }
+
+export async function getSectorByLeagueId(
+  league_Id: number
+): Promise<string[]> {
+  const { data: leagueData, error: leagueError } = await supabase
+        .from("Leagues")
+        .select("sectors")
+        .eq("league_id", league_Id)
+        .single();
+  
+      if (leagueError) {
+        console.error(leagueError);
+        
+        return [];
+      }
+  
+      return leagueData?.sectors ?? [];
+}

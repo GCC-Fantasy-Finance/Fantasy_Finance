@@ -3,6 +3,7 @@ import { Search, Sparkles } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import StockDetailsModal from "@/components/ui/stockDetailsModal";
 import { useChatbot } from "@/context/ChatbotContext";
+import { getAllStocks } from "@/lib/stocks";
 
 interface StockRow {
   stock_id?: number;
@@ -52,24 +53,24 @@ export default function Header({ title }: HeaderProps) {
       return;
     }
 
-    const fetchResults = async () => {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from("Stocks")
-        .select("stock_id, stock_symbol, name, current_price")
-        .or(`name.ilike.%${query}%,stock_symbol.ilike.%${query}%`)
-        .limit(10);
+    setLoading(true);
 
-      if (error) {
-        console.error("Search error:", error);
-        setResults([]);
-      } else {
-        setResults(data || []);
-      }
+    getAllStocks().then((data) => {
+      const filtered = data.filter((stock) =>
+        stock.name?.toLowerCase().includes(query.toLowerCase()) ||
+        stock.stock_symbol?.toLowerCase().includes(query.toLowerCase()),
+      );
+      setResults(filtered);
+    }).catch((error) => {
+      console.error("Error fetching stocks:", error);
+      setResults([]);
+    }).finally(() => {
       setLoading(false);
-    };
+    });
 
-    const timeout = setTimeout(fetchResults, 300); // Debounce search
+    const timeout = setTimeout(() => {
+      setLoading(false);
+    }, 5000); // Safety timeout
     return () => clearTimeout(timeout);
   }, [query]);
 
