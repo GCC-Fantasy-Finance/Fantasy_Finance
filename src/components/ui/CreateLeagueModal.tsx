@@ -158,7 +158,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
         {
           league_id: data.league_id,
           user_id: user.id,
-          total_value: 10000,
+          previous_close_value: 10000,
           reserve_value: 10000,
           is_solo: false,
           last_recalculated: new Date().toISOString(),

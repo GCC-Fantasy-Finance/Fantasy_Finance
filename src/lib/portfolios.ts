@@ -5,7 +5,8 @@ export async function getPortfoliosByLeague(leagueId: number) {
   const { data, error } = await supabase
     .from("Portfolios")
     .select("*, Profiles(username, avatar_url)")
-    .eq("league_id", leagueId);
+    .eq("league_id", leagueId)
+    .order("portfolio_id");
 
   if (error) {
     console.error(error);

@@ -17,12 +17,13 @@ const DraftSearchPanel = () => {
   const {
     makePick,
     queueStock,
-    removeFromQueue, // ✅ use context method
+    removeFromQueue,
     activePortfolio,
     draftStarted,
     draftEnded,
     queuedItems,
     myPortfolio,
+    stockPrices,
   } = useDraft();
 
   const { user } = useAuth();
@@ -31,10 +32,7 @@ const DraftSearchPanel = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const isMyPick =
-    !!user &&
-    !!activePortfolio &&
-    activePortfolio.user_id === user.id;
+  const isMyPick = !!user && !!activePortfolio && activePortfolio.user_id === user.id;
 
   const canDraft =
     activePortfolio &&
@@ -43,6 +41,7 @@ const DraftSearchPanel = () => {
     !draftEnded &&
     isMyPick;
 
+  // Initial fetch of stock table
   useEffect(() => {
     const fetchStocks = async () => {
       const { data, error } = await supabase
@@ -86,7 +85,7 @@ const DraftSearchPanel = () => {
       <div className="mx-4 mb-4 flex-1 overflow-y-auto border border-gray-200 rounded-sm">
         {/* Header */}
         <div className="grid grid-cols-[90px_120px_1fr_140px_120px] gap-2 px-3 py-1 text-sm font-semibold bg-gray-50 border-b sticky top-0 z-10">
-          <div>Action</div>
+          <div></div>
           <div>Symbol</div>
           <div>Name</div>
           <div className="text-right">Price</div>
@@ -101,6 +100,9 @@ const DraftSearchPanel = () => {
           filteredStocks.map((stock) => {
             const queued = isQueued(stock.stock_id);
 
+            // Use live price from context if available
+            const livePrice = stockPrices[stock.stock_id] ?? stock.current_price;
+
             return (
               <div
                 key={stock.stock_id}
@@ -110,43 +112,43 @@ const DraftSearchPanel = () => {
                 {queued ? (
                   <Button
                     size="sm"
-                    variant="destructive"
-                    onClick={() => removeFromQueue(stock.stock_id)} // ✅ context handles everything
+                    variant="outline"
+                    className="border-red-700 text-red-700 bg-white hover:bg-gray-100"
+                    onClick={() => removeFromQueue(stock.stock_id)}
                   >
                     Remove
+                  </Button>
+                ) : canDraft ? (
+                  <Button
+                    size="sm"
+                    onClick={() => makePick(stock.stock_id)}
+                  >
+                    Draft
                   </Button>
                 ) : (
                   <Button
                     size="sm"
-                    onClick={() =>
-                      canDraft
-                        ? makePick(stock.stock_id)
-                        : queueStock(stock.stock_id)
-                    }
+                    variant="outline"
+                    className="border-green-700 text-green-700 bg-white hover:bg-gray-100"
+                    onClick={() => queueStock(stock.stock_id)}
                   >
-                    {canDraft ? "Draft" : "Queue"}
+                    Queue
                   </Button>
                 )}
 
                 {/* Symbol */}
-                <div className="text-sm font-semibold">
-                  {stock.stock_symbol}
-                </div>
+                <div className="text-sm font-semibold">{stock.stock_symbol}</div>
 
                 {/* Name */}
-                <div className="text-sm text-gray-700 truncate">
-                  {stock.name}
-                </div>
+                <div className="text-sm text-gray-700 truncate">{stock.name}</div>
 
                 {/* Price */}
                 <div className="text-sm font-mono text-right">
-                  ${stock.current_price.toFixed(2)}
+                  ${livePrice.toFixed(2)}
                 </div>
 
                 {/* Sector */}
-                <div className="text-sm text-gray-500 truncate">
-                  {stock.sector}
-                </div>
+                <div className="text-sm text-gray-500 truncate">{stock.sector}</div>
               </div>
             );
           })}
