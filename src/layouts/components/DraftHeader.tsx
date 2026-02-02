@@ -2,6 +2,8 @@ import { useDraft } from "../../context/DraftContext";
 import DraftTimer from "./DraftTimer";
 import { Button } from "../../components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { getLeagueById, type LeagueRow } from "../../lib/leagues";
 
 const DraftHeader = () => {
   const {
@@ -13,10 +15,57 @@ const DraftHeader = () => {
     startDraft,
     isOwner,
     leagueId,
-    timer
   } = useDraft();
 
   const navigate = useNavigate();
+
+  // Local state for league info
+  const [league, setLeague] = useState<LeagueRow | null>(null);
+
+  // Countdown state for "Draft starts in"
+  const [countdown, setCountdown] = useState(0);
+
+  // Fetch league info
+  useEffect(() => {
+    const fetchLeague = async () => {
+      const data = await getLeagueById(leagueId);
+      setLeague(data);
+    };
+    fetchLeague();
+  }, [leagueId]);
+
+  // Countdown logic
+  useEffect(() => {
+    if (!league?.start_time) return;
+
+    const startTime = new Date(league.start_time).getTime();
+
+    const updateCountdown = () => {
+      const now = Date.now();
+      const diff = Math.max(Math.floor((startTime - now) / 1000), 0);
+      setCountdown(diff);
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+
+    return () => clearInterval(interval);
+  }, [league?.start_time]);
+
+  // Compute dynamically instead of storing in state
+  const showCountdownButton =
+    !draftStarted && !draftEnded && countdown > 0 && !isOwner;
+
+  // Format seconds into hh:mm:ss or mm:ss
+  const formatTime = (seconds: number) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+
+    if (hrs > 0) return `${hrs}h ${mins}m ${secs}s`;
+    if (mins > 0) return `${mins}m ${secs}s`;
+    return `${secs}s`;
+  };
 
   return (
     <>
@@ -62,18 +111,24 @@ const DraftHeader = () => {
             </div>
           )}
 
-          {!draftStarted && !draftEnded && isOwner ? (
+          {!draftStarted && !draftEnded && isOwner && (
             <Button onClick={startDraft} size="sm">
               Start Draft
             </Button>
-          ) : !draftStarted && !isOwner ? (
-            <Button variant="outline" size="sm" className="border-black text-black bg-white hover:bg-white">
-              Draft Starts in {timer}
+          )}
+
+          {showCountdownButton && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-black text-black bg-white hover:bg-white"
+              disabled
+            >
+              Draft Starts in {formatTime(countdown)}
             </Button>
-          ) : (<></>)}
+          )}
         </div>
       </header>
-
 
       <hr className="border-black" />
     </>

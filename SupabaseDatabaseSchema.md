@@ -86,7 +86,7 @@
 - portfolio_id: int8
 - created_at: timestamptz
 - league_id: int8
-- total_value: float8
+- previous_close_value: float8
 - reserve_value: float8
 - last_recalculated: timestamp
 - user_id: uuid
