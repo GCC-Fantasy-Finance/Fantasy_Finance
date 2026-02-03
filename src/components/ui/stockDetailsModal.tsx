@@ -191,11 +191,19 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
           {/* LEFT — CHART */}
           <div className="w-full flex flex-col border-r border-gray-200 p-6">
             <div className="mb-2">
-              <h2 className="text-3xl font-semibold">
+              <h2 className="text-2xl font-semibold">
                 {stock.name}{" – "}
-                {stock.current_price != null && (
+                {stock.current_price != null && stock.current_price > stock.previous_close! && (
                   <span className="text-green-600">
                     ${stock.current_price.toFixed(2)}
+                    <span className="text-green-600 text-sm"> (↑{((stock.current_price - stock.previous_close!) / stock.previous_close! * 100).toFixed(2)}%)</span>
+                  </span>
+                )}
+
+                {stock.current_price != null && stock.current_price < stock.previous_close! && (
+                  <span className="text-red-600">
+                    ${stock.current_price.toFixed(2)}
+                    <span className="text-red-600 text-sm"> (↓{((stock.previous_close! - stock.current_price) / stock.previous_close! * 100).toFixed(2)}%)</span>
                   </span>
                 )}
               </h2>
@@ -321,7 +329,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                         onClick={() => handleBuy(portfolio)}
                         disabled={
                           
-                          portfolio.reserve_value <= 0 || (!portfolio.sectors.includes("Any")  && !portfolio.sectors.includes(stock.sector || ""))
+                          portfolio.reserve_value <= 0 || (!portfolio.sectors.includes("Any") && !portfolio.is_solo  && !portfolio.sectors.includes(stock.sector || ""))
                         }
                         className="text-xs h-7 px-2 bg-green-700 hover:bg-green-800 text-white disabled:bg-gray-300"
                       >
