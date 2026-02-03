@@ -12,7 +12,6 @@ type PortfolioCard = {
   league_id?: number | null;
   previous_close_value?: number | null;
   reserve_value?: number | null;
-  previous_close_value?: number | null;
   name: string;
 };
 
@@ -67,7 +66,7 @@ function Home() {
             league_id: r.league_id ?? null,
             previous_close_value: r.previous_close_value ?? 0,
             reserve_value: r.reserve_value ?? 0,
-            previous_close_value: r.previous_close_value ?? 0,
+            
             name,
           });
         }

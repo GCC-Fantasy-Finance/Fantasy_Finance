@@ -8,9 +8,10 @@ import { getPortfoliosByUser } from "@/lib/portfolios";
 import { getLeagueById } from "@/lib/leagues";
 import { getPortfolioHoldingsByPortfolioIdAndStockId } from "@/lib/potfolioHoldings";
 import StockChart from "./stockChart";
-import{Sparkles} from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { getSectorByLeagueId } from "@/lib/leagues";
 import { useTradeModal } from "@/context/TradeModalContext";
+import { supabase } from "@/lib/supabase";
 
 interface Stock {
   stock_id?: number;
@@ -41,16 +42,51 @@ type Props = {
   onClose: () => void;
 };
 
-
-
-
 export default function StockDetailsModal({ open, stock, onClose }: Props) {
   const { user } = useAuth();
   const { setChatbotState, setIsPinned, setInitialMessage, isPinned } = useChatbot();
+  const { openBuy, openSell } = useTradeModal();
+
   const [portfolios, setPortfolios] = useState<PortfolioWithLeague[]>([]);
   const [loading, setLoading] = useState(false);
   const [holdings, setHoldings] = useState<Record<number, number>>({});
   const [timeFrame, setTimeFrame] = useState("1M");
+  const [stockPrice, setStockPrice] = useState<number | null>(null);
+
+  /* ================= INIT PRICE (ADDED) ================= */
+  useEffect(() => {
+    if (!open || stock?.current_price == null) return;
+    setStockPrice(stock.current_price);
+  }, [open, stock?.current_price]);
+
+  /* ================= REALTIME PRICE (FIXED) ================= */
+  useEffect(() => {
+    if (!stock?.stock_id) return;
+
+    const channel = supabase
+      .channel(`live-stock-prices-${stock.stock_id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "Stocks",
+          filter: `stock_id=eq.${stock.stock_id}`,
+        },
+        (payload) => {
+          const updated = payload.new as {
+            stock_id: number;
+            current_price: number;
+          };
+          setStockPrice(updated.current_price);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [stock?.stock_id]);
 
   /* ================= FETCH DATA ================= */
   useEffect(() => {
@@ -71,7 +107,8 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
               portfolio.league_id && !portfolio.is_solo
                 ? (await getLeagueById(portfolio.league_id))?.name
                 : undefined;
-            const sectors = 
+
+            const sectors =
               portfolio.league_id
                 ? await getSectorByLeagueId(portfolio.league_id)
                 : [];
@@ -125,16 +162,18 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
   }, [open, onClose]);
 
   if (!open || !stock) return null;
-  const { openBuy, openSell } = useTradeModal();
+
+  /* ================= SAFE PREV CLOSE (ADDED) ================= */
+  const prevClose = Number(stock.previous_close ?? 0);
 
   const handleBuy = (portfolio: PortfolioWithLeague) => {
-    if (!stock?.stock_id || stock.current_price == null) return;
+    if (!stock?.stock_id || stockPrice == null) return;
     openBuy({
       stock: {
         stock_id: stock.stock_id!,
         stock_symbol: stock.stock_symbol ?? "",
         name: stock.name ?? "",
-        current_price: Number(stock.current_price ?? 0),
+        current_price: stockPrice,
       },
       portfolio: {
         portfolio_id: portfolio.portfolio_id,
@@ -144,14 +183,14 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
   };
 
   const handleSell = (portfolio: PortfolioWithLeague) => {
-    if (!stock?.stock_id || stock.current_price == null) return;
+    if (!stock?.stock_id || stockPrice == null) return;
     const qty = Number(holdings?.[portfolio.portfolio_id] ?? 0);
     openSell({
       stock: {
         stock_id: stock.stock_id!,
         stock_symbol: stock.stock_symbol ?? "",
         name: stock.name ?? "",
-        current_price: Number(stock.current_price ?? 0),
+        current_price: stockPrice,
       },
       portfolio: {
         portfolio_id: portfolio.portfolio_id,
@@ -163,25 +202,17 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
 
   const modal = (
     <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${isPinned ? "pr-[350px]" : ""}`}>
-      {/* BACKDROP */}
-      <div
-        className="absolute inset-0 bg-black/40"
-        onClick={onClose}
-        aria-hidden
-      />
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
-      {/* MODAL */}
       <div
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
         className="relative z-10 w-full max-w-6xl h-[90vh] rounded bg-white shadow-lg flex flex-col"
       >
-        {/* CLOSE */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 cursor-pointer"
-          aria-label="Close"
         >
           <X className="w-6 h-6" />
         </button>
@@ -193,17 +224,17 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
             <div className="mb-2">
               <h2 className="text-2xl font-semibold">
                 {stock.name}{" – "}
-                {stock.current_price != null && stock.current_price > stock.previous_close! && (
+                {stockPrice != null && stockPrice > stock.previous_close! && (
                   <span className="text-green-600">
-                    ${stock.current_price.toFixed(2)}
-                    <span className="text-green-600 text-sm"> (↑{((stock.current_price - stock.previous_close!) / stock.previous_close! * 100).toFixed(2)}%)</span>
+                    ${stockPrice.toFixed(2)}
+                    <span className="text-green-600 text-sm"> (↑{((stockPrice - stock.previous_close!) / stock.previous_close! * 100).toFixed(2)}%)</span>
                   </span>
                 )}
 
-                {stock.current_price != null && stock.current_price < stock.previous_close! && (
+                {stockPrice != null && stockPrice < stock.previous_close! && (
                   <span className="text-red-600">
-                    ${stock.current_price.toFixed(2)}
-                    <span className="text-red-600 text-sm"> (↓{((stock.previous_close! - stock.current_price) / stock.previous_close! * 100).toFixed(2)}%)</span>
+                    ${stockPrice.toFixed(2)}
+                    <span className="text-red-600 text-sm"> (↓{((stock.previous_close! - stockPrice) / stock.previous_close! * 100).toFixed(2)}%)</span>
                   </span>
                 )}
               </h2>
