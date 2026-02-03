@@ -5,6 +5,8 @@ import DraftQueuePanel from "../../../layouts/components/DraftQueuePanel";
 import { DraftProvider } from "../../../context/DraftContext";
 import { useRef, useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
+import StockDetailsModal from "@/components/ui/stockDetailsModal";
+import { getStockById } from "@/lib/stocks"; // ✅ fetch stock object
 
 const DraftPage = () => {
   const { leagueId } = useParams<{ leagueId: string }>();
@@ -14,23 +16,25 @@ const DraftPage = () => {
   const parsedLeagueId = Number(leagueId);
   if (Number.isNaN(parsedLeagueId)) return <div>Invalid league ID</div>;
 
-  // Panel sizes
-  const [topHeight, setTopHeight] = useState(35); // %
-  const [leftWidth, setLeftWidth] = useState(65); // %
+  // ⭐ Modal state (store full stock object)
+  const [selectedStock, setSelectedStock] = useState<any | null>(null);
 
-  // Drag state refs
+  // Panel sizes
+  const [topHeight, setTopHeight] = useState(35);
+  const [leftWidth, setLeftWidth] = useState(65);
+
   const draggingVert = useRef(false);
   const draggingHorz = useRef(false);
-  const vertClickOffset = useRef(0); // Where in the divider the click happened
+  const vertClickOffset = useRef(0);
 
   /* ================= VERTICAL DRAG ================= */
   const onVertMouseDown = (e: React.MouseEvent) => {
     draggingVert.current = true;
     document.body.style.cursor = "row-resize";
 
-    // Capture click position inside divider
     const divider = e.currentTarget as HTMLDivElement;
-    vertClickOffset.current = e.clientY - divider.getBoundingClientRect().top;
+    vertClickOffset.current =
+      e.clientY - divider.getBoundingClientRect().top;
   };
 
   const onVertMouseMove = (e: MouseEvent) => {
@@ -42,10 +46,9 @@ const DraftPage = () => {
     const containerRect = container.getBoundingClientRect();
     const headerHeight = header ? header.offsetHeight : 0;
 
-    // Mouse position relative to content below header, minus where you clicked on the divider
-    let newTop = e.clientY - containerRect.top - headerHeight - vertClickOffset.current;
+    let newTop =
+      e.clientY - containerRect.top - headerHeight - vertClickOffset.current;
 
-    // Clamp the height
     const maxContentHeight = containerRect.height - headerHeight;
     newTop = Math.max(60, Math.min(maxContentHeight * 0.85, newTop));
 
@@ -101,6 +104,12 @@ const DraftPage = () => {
     };
   }, []);
 
+  // ⭐ Helper for panels to open modal by stockId
+  const handleStockClick = async (stockId: number) => {
+    const stock = await getStockById(stockId);
+    if (stock) setSelectedStock(stock);
+  };
+
   return (
     <DraftProvider leagueId={parsedLeagueId}>
       <div
@@ -117,7 +126,7 @@ const DraftPage = () => {
             style={{ height: `${topHeight}%` }}
             className="min-h-[60px] overflow-auto border-b border-gray-200"
           >
-            <DraftResultsPanel />
+            <DraftResultsPanel onStockClick={handleStockClick} />
           </div>
 
           {/* VERTICAL RESIZER */}
@@ -125,7 +134,6 @@ const DraftPage = () => {
             onMouseDown={onVertMouseDown}
             className="relative h-px bg-gray-200 cursor-row-resize group"
           >
-            {/* Invisible larger hit area */}
             <div className="absolute inset-x-0 -top-1.5 h-3" />
           </div>
 
@@ -136,7 +144,7 @@ const DraftPage = () => {
               style={{ width: `${leftWidth}%` }}
               className="min-w-[120px] border-r border-gray-200 overflow-hidden"
             >
-              <DraftSearchPanel />
+              <DraftSearchPanel onStockClick={handleStockClick} />
             </div>
 
             {/* HORIZONTAL RESIZER */}
@@ -144,16 +152,22 @@ const DraftPage = () => {
               onMouseDown={onHorzMouseDown}
               className="relative w-px bg-gray-200 cursor-col-resize group"
             >
-              {/* Invisible larger hit area */}
               <div className="absolute inset-y-0 -left-1.5 w-3" />
             </div>
 
             {/* RIGHT PANEL */}
             <div className="flex-1 min-w-[120px] overflow-auto">
-              <DraftQueuePanel />
+              <DraftQueuePanel onStockClick={handleStockClick} />
             </div>
           </div>
         </div>
+
+        {/* ⭐ GLOBAL STOCK MODAL FOR DRAFT ROOM */}
+        <StockDetailsModal
+          open={selectedStock !== null}
+          stock={selectedStock} // ✅ pass full stock object
+          onClose={() => setSelectedStock(null)}
+        />
       </div>
     </DraftProvider>
   );

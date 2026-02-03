@@ -6,7 +6,11 @@ import { supabase } from "@/lib/supabase";
 const SLOT_HEIGHT = 24;
 const SLOT_GAP = 2;
 
-const DraftResultsPanel = () => {
+interface DraftResultsPanelProps {
+  onStockClick: (stockId: number) => void; // Prop to open modal
+}
+
+const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
   const {
     users,
     currentPick,
@@ -16,12 +20,14 @@ const DraftResultsPanel = () => {
     draftEnded,
     draftRounds,
     leagueId,
-    myPortfolio, // ✅ NEW
+    myPortfolio,
   } = useDraft();
 
-  const [pickedStocks, setPickedStocks] = useState<
-    Record<string, Record<number, string>>
-  >({});
+  // pickedStocks[userId][roundIndex] = stock_id
+  const [pickedStocks, setPickedStocks] = useState<Record<string, Record<number, number>>>({});
+
+  // Map stock_id → stock_symbol for display
+  const [stocksMap, setStocksMap] = useState<Record<number, string>>({});
 
   const loadDraftResults = useCallback(async () => {
     if (!draftStarted && !draftEnded) return;
@@ -30,6 +36,7 @@ const DraftResultsPanel = () => {
     const picks = await getDraftPicksByLeague(leagueId);
     if (!picks.length) {
       setPickedStocks({});
+      setStocksMap({});
       return;
     }
 
@@ -45,20 +52,21 @@ const DraftResultsPanel = () => {
       return;
     }
 
-    const stockMap: Record<number, string> = {};
+    // Build stockId → stockSymbol map
+    const map: Record<number, string> = {};
     stocks?.forEach((s) => {
-      stockMap[s.stock_id] = s.stock_symbol;
+      map[s.stock_id] = s.stock_symbol;
     });
+    setStocksMap(map);
 
-    const map: Record<string, Record<number, string>> = {};
-
+    // Build pickedStocks[userId][roundIndex] = stock_id
+    const userPicks: Record<string, Record<number, number>> = {};
     picks.forEach((pick: DraftPickRow) => {
       const roundIdx = pick.round_number - 1;
-      if (!map[pick.portfolio_id]) map[pick.portfolio_id] = {};
-      map[pick.portfolio_id][roundIdx] = stockMap[pick.stock_id] ?? "";
+      if (!userPicks[pick.portfolio_id]) userPicks[pick.portfolio_id] = {};
+      userPicks[pick.portfolio_id][roundIdx] = pick.stock_id;
     });
-
-    setPickedStocks(map);
+    setPickedStocks(userPicks);
   }, [draftStarted, draftEnded, users, leagueId]);
 
   useEffect(() => {
@@ -79,7 +87,7 @@ const DraftResultsPanel = () => {
       }}
     >
       {users.map((user, userIdx) => {
-        const isMe = user.portfolio_id === myPortfolio?.portfolio_id; // ✅ NEW
+        const isMe = user.portfolio_id === myPortfolio?.portfolio_id;
 
         return (
           <div
@@ -93,7 +101,9 @@ const DraftResultsPanel = () => {
               background: isMe ? "rgba(34,197,94,0.08)" : "transparent",
               borderRadius: isMe ? "8px" : undefined,
               padding: isMe ? "4px" : undefined,
-              boxShadow: isMe ? "inset 0 0 0 1px rgba(34,197,94,0.25)" : undefined,
+              boxShadow: isMe
+                ? "inset 0 0 0 1px rgba(34,197,94,0.25)"
+                : undefined,
             }}
           >
             {/* Username */}
@@ -147,13 +157,14 @@ const DraftResultsPanel = () => {
                 let background = "#fff";
                 let color = "#6b7280";
                 let border = "1px solid #e5e7eb";
-                let text = "";
+
+                const stockId = pickedStocks[user.portfolio_id]?.[idx];
+                const text = stockId ? stocksMap[stockId] : "";
 
                 if (isPast) {
                   background = "#f3f4f6";
                   color = "#374151";
                   border = "1px solid #d1d5db";
-                  text = pickedStocks[user.portfolio_id]?.[idx] ?? "";
                 }
 
                 if (isCurrent) {
@@ -182,6 +193,10 @@ const DraftResultsPanel = () => {
                       textOverflow: "ellipsis",
                       boxSizing: "border-box",
                       flexShrink: 0,
+                      cursor: stockId ? "pointer" : "default",
+                    }}
+                    onClick={() => {
+                      if (stockId) onStockClick(stockId);
                     }}
                   >
                     {text}
