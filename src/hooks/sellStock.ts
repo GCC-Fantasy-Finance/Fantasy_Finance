@@ -85,7 +85,7 @@ export async function sellStock(params: {
     return { success: false, message: "Insufficient shares to sell" };
   }
 
-  // 3) Increase reserve by proceeds (keep total_value unchanged per current app behavior)
+  // 3) Increase reserve by proceeds (keep previous_close_value unchanged per current app behavior)
   const currentReserve = Number(portfolio.reserve_value ?? 0);
   const proceeds = Number(price) * sellQty;
   const newReserve = currentReserve + proceeds;
