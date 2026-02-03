@@ -67,8 +67,20 @@ export default function StockChart({ id, timeFrame }: { id: number, timeFrame: s
         <AreaChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#36c719" stopOpacity={0.4} />
-            <stop offset="100%" stopColor="#36c719" stopOpacity={0} />
+
+            {/* green gradient for upward trend */}
+            {data[data.length - 1]?.close >= data[0]?.close ? (
+              <>
+                <stop offset="0%" stopColor="#36c719" stopOpacity={0.4} />
+                <stop offset="100%" stopColor="#36c719" stopOpacity={0} />
+              </>
+            ) : (
+              // red gradient for downward trend
+              <>
+                <stop offset="0%" stopColor="#ff4d4f" stopOpacity={0.4} />
+                <stop offset="100%" stopColor="#ff4d4f" stopOpacity={0} />
+              </>
+            )}
           </linearGradient>
         </defs>
 
@@ -85,7 +97,7 @@ export default function StockChart({ id, timeFrame }: { id: number, timeFrame: s
         <Area
           type="linear"       
           dataKey="close"
-          stroke="#36c719"       
+          stroke={data[data.length - 1]?.close >= data[0]?.close ? "#0da70d" : "#ff4d4f"}
           fill="url(#lineGradient)" 
           dot={false}
         />

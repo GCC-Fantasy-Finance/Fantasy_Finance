@@ -224,6 +224,10 @@ export default function LeagueDetailPage() {
         <p className="text-sm text-gray-500 mb-4">
           Owner: {owner?.username ?? owner?.email ?? "Unknown"}
         </p>
+
+        <p className="text-sm text-gray-500 mb-4">
+          Join Code: <span className="font-mono bg-gray-100 px-2 py-1 rounded">{(league as any).join_code}</span>
+        </p>
       </div>
     </PageContent>
   );

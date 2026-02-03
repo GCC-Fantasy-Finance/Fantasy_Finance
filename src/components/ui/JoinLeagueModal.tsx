@@ -15,7 +15,7 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const nameRef = useRef<HTMLInputElement | null>(null);
   const { user } = useAuth();
-  const [leagueId, setLeagueId] = useState<string>("");
+  const [joinCode, setJoinCode] = useState<string>("");
 
   // --- ESC key + auto-focus handling ---
   useEffect(() => {
@@ -34,7 +34,7 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
   // --- RESET MODAL WHEN CLOSED ---
   useEffect(() => {
     if (!open) {
-      setLeagueId("");
+      setJoinCode("");
       setError(null);
       setLoading(false);
     }
@@ -46,8 +46,8 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
     e.preventDefault();
     setError(null);
 
-    if (!leagueId) {
-      setError("Please enter a League Id");
+    if (!joinCode) {
+      setError("Please enter a Join Code");
       return;
     }
 
@@ -59,14 +59,31 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
     setLoading(true);
 
     try {
+      const { data: leagueData } = await supabase
+        .from("Leagues")
+        .select("league_id")
+        .eq("join_code", joinCode)
+        .single();
+
       const portfolioPayload = {
-        league_id: leagueId,
+        league_id: leagueData?.league_id,
         user_id: user.id,
         previous_close_value: 10000,
         reserve_value: 10000,
         last_recalculated: new Date().toISOString(),
         is_solo: false,
       };
+
+      if(await supabase
+        .from("Portfolios")
+        .select("*")
+        .eq("league_id", leagueData?.league_id)
+        .eq("user_id", user.id)
+        .single()) {
+        setError("You are already in this league.");
+        setLoading(false);
+        return;
+      }
 
       const { error: supaError } = await supabase
         .from("Portfolios")
@@ -104,12 +121,12 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
 
         <form onSubmit={handleSubmit}>
           <div className="mb-3">
-            <label className="block text-sm font-medium mb-1">League Id</label>
+            <label className="block text-sm font-medium mb-1">Join Code</label>
             <input
               ref={nameRef}
-              name="leagueId"
-              value={leagueId}
-              onChange={(e) => setLeagueId(e.target.value)}
+              name="joinCode"
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value)}
               className="w-full rounded border px-3 py-2 text-sm mb-3"
             />
           </div>

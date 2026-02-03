@@ -59,6 +59,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [joinCode, setJoinCode] = useState("");
 
   // Focus + ESC
   useEffect(() => {
@@ -133,6 +134,14 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
     setLoading(true);
 
     try {
+
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      let code = "";
+      for (let i = 0; i < 9; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      setJoinCode(code);
+
       const { data, error } = await supabase
         .from("Leagues")
         .insert([
@@ -147,6 +156,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
               selectedSectors.size > 0
                 ? Array.from(selectedSectors)
                 : ["Any"],
+            join_code: code,
           },
         ])
         .select()
@@ -191,6 +201,11 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
     } finally {
       setLoading(false);
     }
+
+    
+
+
+
   }
 
   const modal = (
@@ -252,7 +267,9 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
             </label>
           </div>
 
+          <label className="text-sm">Number of Draft Rounds</label>
           {hasDraft && (
+            
             <input
               type="number"
               min={1}

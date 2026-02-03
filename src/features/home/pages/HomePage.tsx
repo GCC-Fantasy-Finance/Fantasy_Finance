@@ -66,6 +66,7 @@ function Home() {
             league_id: r.league_id ?? null,
             previous_close_value: r.previous_close_value ?? 0,
             reserve_value: r.reserve_value ?? 0,
+            
             name,
           });
         }
@@ -97,7 +98,7 @@ function Home() {
                 if (p.is_solo) navigate("/solo");
                 else navigate(`/league/${p.league_id}`);
               }}
-              className="w-full text-left rounded-lg border shadow-sm px-4 py-3 bg-white hover:bg-gray-50"
+              className="w-full text-left rounded-lg border shadow-sm px-4 py-3 bg-white hover:bg-gray-50 cursor-pointer"
             >
               <div className="flex items-center justify-between">
                 <div className="font-medium">{p.is_solo ? "Solo" : p.name}</div>

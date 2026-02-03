@@ -32,20 +32,17 @@ export default function AppRouter() {
   const router = createBrowserRouter([
     {
       element: (
-        <AuthProvider>
-          <LayoutProvider>
-            <ChatbotProvider>
-              <TradeModalProvider>
-                <ProtectedRoute>
-                  <AppLayout />
-                </ProtectedRoute>
-              </TradeModalProvider>
-            </ChatbotProvider>
-          </LayoutProvider>
-        </AuthProvider>
+        <LayoutProvider>
+          <ChatbotProvider>
+            <TradeModalProvider>
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            </TradeModalProvider>
+          </ChatbotProvider>
+        </LayoutProvider>
       ),
       children: [
-        // ---------------- MAIN APP (with sidebar + header) ----------------
         {
           element: <MainLayout />,
           children: [
@@ -71,7 +68,6 @@ export default function AppRouter() {
           ],
         },
 
-        // ---------------- DRAFT ROOM (no sidebar/header) ----------------
         {
           element: (
             <LeagueGuardRoute>
@@ -83,7 +79,7 @@ export default function AppRouter() {
       ],
     },
 
-    // ---------------- AUTH PAGES ----------------
+    
     {
       element: <AuthLayout />,
       children: [
@@ -92,16 +88,15 @@ export default function AppRouter() {
       ],
     },
 
-    // ---------------- FALLBACK ----------------
-    {
-      path: "*",
-      element: <NotFoundPage />,
-    },
+    { path: "*", element: <NotFoundPage /> },
   ]);
 
   return (
     <>
-      <RouterProvider router={router} />
+      
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>
       <Toaster />
     </>
   );
