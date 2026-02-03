@@ -1,9 +1,11 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
-import AuthLayout from "../layouts/AuthLayout";
 import DraftLayout from "../layouts/DraftLayout";
+import AppLayout from "../layouts/AppLayout";
+import AuthLayout from "../layouts/AuthLayout";
 import ProtectedRoute from "./ProtectedRoute";
 import LeagueGuardRoute from "./LeagueGuardRoute";
+
 import Home from "../features/home/pages/HomePage";
 import DiscoverPage from "../features/discover/pages/DiscoverPage";
 import ProfileLayout from "../features/profile/ProfileLayout";
@@ -13,66 +15,75 @@ import LoginPage from "../features/auth/pages/LoginPage";
 import SignupPage from "../features/auth/pages/SignupPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import LeagueDetailPage from "@/features/leagues/pages/LeagueDetailPage";
+
 import { LayoutProvider } from "../context/LayoutContext";
 import { AuthProvider } from "../context/AuthContext";
 import { ChatbotProvider } from "../context/ChatbotContext";
 import { TradeModalProvider } from "@/context/TradeModalContext";
+
 import SoloLayout from "@/features/solo/SoloLayout";
 import SoloLeaderboardPage from "@/features/solo/pages/SoloLeaderboardPage";
 import SoloPortfolioPage from "../features/solo/pages/SoloPortfolioPage";
 import DraftPage from "../features/draft/pages/DraftPage";
+
 import { Toaster } from "@/components/ui/sonner";
 
 export default function AppRouter() {
   const router = createBrowserRouter([
     {
       element: (
-        <LayoutProvider>
-          <ChatbotProvider>
-            <TradeModalProvider>
-              <ProtectedRoute>
-                <MainLayout />
-              </ProtectedRoute>
-            </TradeModalProvider>
-          </ChatbotProvider>
-        </LayoutProvider>
+        <AuthProvider>
+          <LayoutProvider>
+            <ChatbotProvider>
+              <TradeModalProvider>
+                <ProtectedRoute>
+                  <AppLayout />
+                </ProtectedRoute>
+              </TradeModalProvider>
+            </ChatbotProvider>
+          </LayoutProvider>
+        </AuthProvider>
       ),
       children: [
-        { path: "/", element: <Home /> },
-        { path: "/discover", element: <DiscoverPage /> },
+        // ---------------- MAIN APP (with sidebar + header) ----------------
         {
-          path: "/solo",
-          element: <SoloLayout />,
+          element: <MainLayout />,
           children: [
-            { index: true, element: <SoloPortfolioPage /> },
-            { path: "global-leaderboard", element: <SoloLeaderboardPage /> },
+            { path: "/", element: <Home /> },
+            { path: "/discover", element: <DiscoverPage /> },
+            {
+              path: "/solo",
+              element: <SoloLayout />,
+              children: [
+                { index: true, element: <SoloPortfolioPage /> },
+                { path: "global-leaderboard", element: <SoloLeaderboardPage /> },
+              ],
+            },
+            { path: "/league/:id", element: <LeagueDetailPage /> },
+            {
+              path: "/profile",
+              element: <ProfileLayout />,
+              children: [
+                { index: true, element: <ProfilePage /> },
+                { path: "friends", element: <FriendsPage /> },
+              ],
+            },
           ],
         },
-        // League routes
-        { path: "/league/:id", element: <LeagueDetailPage /> },
+
+        // ---------------- DRAFT ROOM (no sidebar/header) ----------------
         {
-          path: "/profile",
-          element: <ProfileLayout />,
-          children: [
-            { index: true, element: <ProfilePage /> },
-            { path: "friends", element: <FriendsPage /> },
-          ],
-        },
-      ],
-    },
-    {
-      // Draft room route with its own layout (doesnt have main header/sidebar)
-      element: (
-        <LayoutProvider>
-          <ProtectedRoute>
+          element: (
             <LeagueGuardRoute>
               <DraftLayout />
             </LeagueGuardRoute>
-          </ProtectedRoute>
-        </LayoutProvider>
-      ),
-      children: [{ path: "/draft/:leagueId", element: <DraftPage /> }],
+          ),
+          children: [{ path: "/draft/:leagueId", element: <DraftPage /> }],
+        },
+      ],
     },
+
+    // ---------------- AUTH PAGES ----------------
     {
       element: <AuthLayout />,
       children: [
@@ -80,6 +91,8 @@ export default function AppRouter() {
         { path: "/signup", element: <SignupPage /> },
       ],
     },
+
+    // ---------------- FALLBACK ----------------
     {
       path: "*",
       element: <NotFoundPage />,
@@ -87,9 +100,9 @@ export default function AppRouter() {
   ]);
 
   return (
-    <AuthProvider>
+    <>
       <RouterProvider router={router} />
       <Toaster />
-    </AuthProvider>
+    </>
   );
 }

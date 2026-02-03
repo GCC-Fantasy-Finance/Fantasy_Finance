@@ -77,13 +77,14 @@ function SoloPortfolioPage() {
         const reserveValue = Number(totals?.reserve_value ?? 0);
         const netValue = investedValue + reserveValue;
 
+        // Persist NET to portfolio.previous_close_value
         try {
           await supabase
             .from("Portfolios")
-            .update({ total_value: netValue })
+            .update({ previous_close_value: netValue })
             .eq("portfolio_id", pf.portfolio_id);
         } catch (e) {
-          console.warn("Unable to update total_value:", e);
+          console.warn("Unable to update previous_close_value (RLS/permissions?):", e);
         }
       }
     } catch (err) {

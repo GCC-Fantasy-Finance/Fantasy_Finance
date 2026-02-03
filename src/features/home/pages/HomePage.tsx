@@ -10,7 +10,7 @@ type PortfolioCard = {
   portfolio_id: number;
   is_solo: boolean;
   league_id?: number | null;
-  total_value?: number | null;
+  previous_close_value?: number | null;
   reserve_value?: number | null;
   previous_close_value?: number | null;
   name: string;
@@ -47,7 +47,7 @@ function Home() {
         if (!hasSolo) {
           const { data: inserted, error: insErr } = await supabase
             .from("Portfolios")
-            .insert({ user_id: user.id, is_solo: true, total_value: 10000, reserve_value: 10000, previous_close_value: 10000 })
+            .insert({ user_id: user.id, is_solo: true, previous_close_value: 10000, reserve_value: 10000 })
             .select("portfolio_id,is_solo,league_id,previous_close_value,reserve_value")
             .maybeSingle();
           if (!insErr && inserted) working.unshift(inserted);
@@ -65,7 +65,7 @@ function Home() {
             portfolio_id: Number(r.portfolio_id),
             is_solo: Boolean(r.is_solo),
             league_id: r.league_id ?? null,
-            total_value: r.total_value ?? 0,
+            previous_close_value: r.previous_close_value ?? 0,
             reserve_value: r.reserve_value ?? 0,
             previous_close_value: r.previous_close_value ?? 0,
             name,

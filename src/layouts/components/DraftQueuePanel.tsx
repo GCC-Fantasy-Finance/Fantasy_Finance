@@ -4,7 +4,11 @@ import { useAuth } from "../../context/AuthContext";
 import { Button } from "../../components/ui/button";
 import { getStockById, type StockRow } from "@/lib/stocks";
 
-const DraftQueuePanel = () => {
+interface DraftQueuePanelProps {
+  onStockClick: (stockId: number) => void;
+}
+
+const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
   const {
     queuedItems,
     makePick,
@@ -21,7 +25,7 @@ const DraftQueuePanel = () => {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
-  // stock_id -> symbol
+  // stock_id -> StockRow
   const [stockMap, setStockMap] = useState<Record<number, StockRow>>({});
 
   const isMyPick =
@@ -34,7 +38,7 @@ const DraftQueuePanel = () => {
     !draftEnded &&
     isMyPick;
 
-  // Fetch stock symbols for queued items
+  // Fetch stock info for queued items
   useEffect(() => {
     const loadStocks = async () => {
       const missingIds = queuedItems
@@ -100,7 +104,9 @@ const DraftQueuePanel = () => {
               }}
             >
               {/* Drag handle + stock info */}
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+              >
                 <span
                   draggable
                   onDragStart={() => handleDragStart(index)}
@@ -115,7 +121,15 @@ const DraftQueuePanel = () => {
                   ☰
                 </span>
 
-                <span style={{ fontWeight: 600 }}>
+                {/* Stock symbol clickable */}
+                <span
+                  style={{
+                    fontWeight: 600,
+                    cursor: stock ? "pointer" : "default",
+                  }}
+                  onClick={() => stock && onStockClick(stock.stock_id)}
+                  title={stock?.name}
+                >
                   {stock ? stock.stock_symbol : "Loading..."}
                 </span>
               </div>

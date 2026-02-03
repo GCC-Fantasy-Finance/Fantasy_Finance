@@ -14,11 +14,11 @@ type Stock = {
   sector: string;
 };
 
+interface DraftSearchPanelProps {
+  onStockClick: (stockId: number) => void;
+}
 
-
-
-
-const DraftSearchPanel = () => {
+const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
   const {
     makePick,
     queueStock,
@@ -48,41 +48,27 @@ const DraftSearchPanel = () => {
     isMyPick;
 
   // Initial fetch of stock table
-
-  
   useEffect(() => {
-  const fetchStocks = async () => {
-    setLoading(true);
+    const fetchStocks = async () => {
+      setLoading(true);
 
-    const leagueData = await getSectorByLeagueId(leagueId);
+      const leagueData = await getSectorByLeagueId(leagueId);
+      const sectorFilter = leagueData ?? [];
 
-    console.log("League Data:", leagueData);
+      let query = supabase.from("Stocks").select("*").order("stock_symbol");
 
-    const sectorFilter = leagueData ?? [];
+      if (!sectorFilter.includes("Any")) {
+        query = query.in("sector", sectorFilter);
+      }
 
-    if (sectorFilter.includes("Any")) {
-
-    const { data, error } = await supabase
-      .from("Stocks")
-      .select("*")
-      .order("stock_symbol");
+      const { data, error } = await query;
       if (!error) setStocks(data ?? []);
-      
-    } else {
-    const { data, error } = await supabase
-      .from("Stocks")
-      .select("*")
-      .order("stock_symbol")
-      .in("sector", sectorFilter);
-      if (!error) setStocks(data ?? []);
-    }
-      
-    setLoading(false);
-  };
 
-  fetchStocks();
-}, [leagueId]);
+      setLoading(false);
+    };
 
+    fetchStocks();
+  }, [leagueId]);
 
   const isQueued = (stockId: number) =>
     queuedItems.some((i) => i.stock_id === stockId);
@@ -165,10 +151,20 @@ const DraftSearchPanel = () => {
                 )}
 
                 {/* Symbol */}
-                <div className="text-sm font-semibold">{stock.stock_symbol}</div>
+                <div
+                  className="text-sm font-semibold cursor-pointer"
+                  onClick={() => onStockClick(stock.stock_id)} // click opens modal
+                >
+                  {stock.stock_symbol}
+                </div>
 
                 {/* Name */}
-                <div className="text-sm text-gray-700 truncate">{stock.name}</div>
+                <div
+                  className="text-sm text-gray-700 truncate cursor-pointer"
+                  onClick={() => onStockClick(stock.stock_id)} // click opens modal
+                >
+                  {stock.name}
+                </div>
 
                 {/* Price */}
                 <div className="text-sm font-mono text-right">
