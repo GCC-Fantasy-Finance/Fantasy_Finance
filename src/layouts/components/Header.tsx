@@ -66,7 +66,7 @@ export default function Header({ title }: HeaderProps) {
       setResults([]);
     }).finally(() => {
       setLoading(false);
-    });
+    }); 
 
     const timeout = setTimeout(() => {
       setLoading(false);
