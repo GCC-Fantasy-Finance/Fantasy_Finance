@@ -38,7 +38,8 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const isMyPick = !!user && !!activePortfolio && activePortfolio.user_id === user.id;
+  const isMyPick =
+    !!user && !!activePortfolio && activePortfolio.user_id === user.id;
 
   const canDraft =
     activePortfolio &&
@@ -47,7 +48,6 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
     !draftEnded &&
     isMyPick;
 
-  // Initial fetch of stock table
   useEffect(() => {
     const fetchStocks = async () => {
       setLoading(true);
@@ -113,17 +113,20 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
         {!loading &&
           filteredStocks.map((stock) => {
             const queued = isQueued(stock.stock_id);
-
-            // Use live price from context if available
-            const livePrice = stockPrices[stock.stock_id] ?? stock.current_price;
+            const livePrice =
+              stockPrices[stock.stock_id] ?? stock.current_price;
 
             return (
               <div
                 key={stock.stock_id}
                 className="grid grid-cols-[90px_120px_1fr_140px_120px] gap-2 px-3 py-1 items-center border-b hover:bg-gray-100"
               >
-                {/* Action */}
-                {queued ? (
+                {/* Action — DRAFT HAS PRIORITY */}
+                {canDraft ? (
+                  <Button size="sm" onClick={() => makePick(stock.stock_id)}>
+                    Draft
+                  </Button>
+                ) : queued ? (
                   <Button
                     size="sm"
                     variant="outline"
@@ -131,13 +134,6 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
                     onClick={() => removeFromQueue(stock.stock_id)}
                   >
                     Remove
-                  </Button>
-                ) : canDraft ? (
-                  <Button
-                    size="sm"
-                    onClick={() => makePick(stock.stock_id)}
-                  >
-                    Draft
                   </Button>
                 ) : (
                   <Button
@@ -153,7 +149,7 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
                 {/* Symbol */}
                 <div
                   className="text-sm font-semibold cursor-pointer"
-                  onClick={() => onStockClick(stock.stock_id)} // click opens modal
+                  onClick={() => onStockClick(stock.stock_id)}
                 >
                   {stock.stock_symbol}
                 </div>
@@ -161,7 +157,7 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
                 {/* Name */}
                 <div
                   className="text-sm text-gray-700 truncate cursor-pointer"
-                  onClick={() => onStockClick(stock.stock_id)} // click opens modal
+                  onClick={() => onStockClick(stock.stock_id)}
                 >
                   {stock.name}
                 </div>
@@ -172,7 +168,9 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
                 </div>
 
                 {/* Sector */}
-                <div className="text-sm text-gray-500 truncate">{stock.sector}</div>
+                <div className="text-sm text-gray-500 truncate">
+                  {stock.sector}
+                </div>
               </div>
             );
           })}

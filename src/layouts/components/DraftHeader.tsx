@@ -101,22 +101,21 @@ const DraftHeader = () => {
             <h1 className="text-xl font-semibold">{name}</h1>
           </div>
 
-          {/* Middle: Draft info with timer */}
-          {draftStarted && !draftEnded && (
-            <div className="flex items-center gap-4 whitespace-nowrap text-sm font-medium">
-              <span>
-                Round {round} | Current Pick:{" "}
-                {activePortfolio?.Profiles?.username ?? "Name not found"}
-              </span>
-              <DraftTimer />
-            </div>
-          )}
-
           {/* Spacer */}
           <div className="flex-1" />
 
           {/* Right-side controls */}
           <div className="flex items-stretch gap-2">
+            {/* Middle: Draft info with timer */}
+            {draftStarted && !draftEnded && (
+              <div className="whitespace-nowrap text-sm font-medium">
+                <span>
+                  Round {round} | Current Pick:{" "}
+                  {activePortfolio?.Profiles?.username ?? "Name not found"}
+                </span>
+                <DraftTimer />
+              </div>
+            )}
             {/* Countdown if draft not started */}
             {showCountdownButton && (
               <Button

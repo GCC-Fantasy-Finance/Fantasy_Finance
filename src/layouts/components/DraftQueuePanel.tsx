@@ -58,7 +58,8 @@ const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
     };
 
     loadStocks();
-  }, [queuedItems]); // eslint-disable-line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queuedItems]);
 
   const handleDragStart = (index: number) => {
     setDragIndex(index);
@@ -110,15 +111,30 @@ const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
                 <span
                   draggable
                   onDragStart={() => handleDragStart(index)}
+                  onMouseDown={(e) => (e.currentTarget.style.cursor = "grabbing")}
+                  onMouseUp={(e) => (e.currentTarget.style.cursor = "grab")}
+                  onMouseLeave={(e) => (e.currentTarget.style.cursor = "grab")}
+                  title="Drag to reorder"
                   style={{
                     cursor: "grab",
-                    padding: "0 4px",
-                    fontSize: "1.2rem",
+                    padding: "4px",
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, 4px)",
+                    gap: "3px",
                     userSelect: "none",
                   }}
-                  title="Drag to reorder"
                 >
-                  ☰
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <span
+                      key={i}
+                      style={{
+                        width: "4px",
+                        height: "4px",
+                        borderRadius: "50%",
+                        backgroundColor: "#666",
+                      }}
+                    />
+                  ))}
                 </span>
 
                 {/* Stock symbol clickable */}
