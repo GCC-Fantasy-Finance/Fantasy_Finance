@@ -132,7 +132,7 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
                     className="border-red-700 text-red-700 bg-white hover:bg-gray-100"
                     onClick={() => removeFromQueue(stock.stock_id)}
                   >
-                    Remove
+                    Dequeue
                   </Button>
                 ) : (
                   <Button

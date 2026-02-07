@@ -7,6 +7,7 @@ import { getLeagueById, type LeagueRow } from "../../lib/leagues";
 import { useChatbot } from "@/context/ChatbotContext";
 import { supabase } from "@/lib/supabase";
 import { Sparkles } from "lucide-react";
+import { getStockById, type StockRow } from "@/lib/stocks";
 
 const DraftHeader = () => {
   const {
@@ -18,14 +19,18 @@ const DraftHeader = () => {
     startDraft,
     isOwner,
     leagueId,
+    queuedItems,
+    myPortfolio,
   } = useDraft();
 
   const navigate = useNavigate();
   const { chatbotState, setChatbotState, lastConversationId, setIsPinned } =
     useChatbot();
+
   const [conversationTitle, setConversationTitle] = useState<string | null>(null);
   const [league, setLeague] = useState<LeagueRow | null>(null);
   const [countdown, setCountdown] = useState(0);
+  const [nextAutoStock, setNextAutoStock] = useState<StockRow | null>(null);
 
   // Fetch league info
   useEffect(() => {
@@ -72,6 +77,22 @@ const DraftHeader = () => {
     return () => clearInterval(interval);
   }, [league?.start_time]);
 
+  // Load the next auto-draft stock (top of queue)
+  useEffect(() => {
+    const loadNextAuto = async () => {
+      if (!myPortfolio || queuedItems.length === 0) {
+        setNextAutoStock(null);
+        return;
+      }
+
+      const topItem = queuedItems[0];
+      const stock = await getStockById(topItem.stock_id);
+      setNextAutoStock(stock ?? null);
+    };
+
+    loadNextAuto();
+  }, [queuedItems, myPortfolio]);
+
   const showCountdownButton =
     !draftStarted && !draftEnded && countdown > 0 && !isOwner;
 
@@ -101,22 +122,29 @@ const DraftHeader = () => {
             <h1 className="text-xl font-semibold">{name}</h1>
           </div>
 
-          {/* Spacer */}
           <div className="flex-1" />
 
           {/* Right-side controls */}
-          <div className="flex items-stretch gap-2">
-            {/* Middle: Draft info with timer */}
+          <div className="flex items-stretch gap-3">
             {draftStarted && !draftEnded && (
-              <div className="whitespace-nowrap text-sm font-medium">
+              <div className="flex items-center gap-3 whitespace-nowrap text-sm font-medium">
+                
+                {/* Next Auto Draft Badge */}
+                {nextAutoStock && (
+                  <div className="border-2 border-dashed border-[#FFD1B3] rounded-md px-2 py-0.5 text-xs font-semibold text-[#FF8C42] bg-white">
+                    ⚡ Next auto draft: {nextAutoStock.stock_symbol}
+                  </div>
+                )}
+
                 <span>
                   Round {round} | Current Pick:{" "}
                   {activePortfolio?.Profiles?.username ?? "Name not found"}
                 </span>
+
                 <DraftTimer />
               </div>
             )}
-            {/* Countdown if draft not started */}
+
             {showCountdownButton && (
               <Button
                 variant="outline"
@@ -128,7 +156,6 @@ const DraftHeader = () => {
               </Button>
             )}
 
-            {/* Start Draft button if owner */}
             {!draftStarted && !draftEnded && isOwner && (
               <Button onClick={startDraft} size="sm">
                 Start Draft
@@ -136,6 +163,7 @@ const DraftHeader = () => {
             )}
           </div>
         </header>
+
         {/* Resume Chat */}
         {chatbotState === "closed" && lastConversationId && (
           <div
@@ -143,7 +171,7 @@ const DraftHeader = () => {
               setChatbotState("expanded");
               setIsPinned(true);
             }}
-            className="w-48 h-full flex flex-col gap-0.5 justify-center h-full px-4 text-sm border-b border-l border-gray-300 hover:bg-gray-100 cursor-pointer"
+            className="w-48 flex flex-col gap-0.5 justify-center px-4 text-sm border-b border-l border-gray-300 hover:bg-gray-100 cursor-pointer"
           >
             <div className="flex gap-1 items-center">
               <Sparkles className="w-3 h-3 text-green-700" />
