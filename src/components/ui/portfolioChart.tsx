@@ -36,7 +36,7 @@ export default function PortfolioChart({ id, timeFrame }: { id: number; timeFram
                     const year = dateObj.getFullYear();
         return {
             date: `${month} ${day}, ${year}`,
-            close: d.value.toFixed(2),
+            close: Number(d.value.toFixed(2)),
         };
     });
             setData(formatted);
