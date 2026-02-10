@@ -135,12 +135,24 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
 
     try {
 
-      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-      let code = "";
-      for (let i = 0; i < 9; i++) {
-        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      // Generate unique join code
+      while(true) {
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        let code = "";
+        for (let i = 0; i < 9; i++) {
+          code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        const { data } = await supabase
+          .from("Leagues")
+          .select("league_id")
+          .eq("join_code", code)
+          .single();
+        if (!data) {
+          setJoinCode(code);
+          break;
+        }
       }
-      setJoinCode(code);
+      
 
       const { data, error } = await supabase
         .from("Leagues")
@@ -156,7 +168,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
               selectedSectors.size > 0
                 ? Array.from(selectedSectors)
                 : ["Any"],
-            join_code: code,
+            join_code: joinCode,
           },
         ])
         .select()

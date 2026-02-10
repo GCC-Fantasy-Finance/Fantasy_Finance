@@ -65,6 +65,8 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
         .eq("join_code", joinCode)
         .single();
 
+      console.log("League data found:", leagueData);
+
       const portfolioPayload = {
         league_id: leagueData?.league_id,
         user_id: user.id,
@@ -74,16 +76,21 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
         is_solo: false,
       };
 
-      if(await supabase
+
+      const { data: existingPortfolio, error: portfolioError } = await supabase
         .from("Portfolios")
-        .select("*")
+        .select("portfolio_id")
         .eq("league_id", leagueData?.league_id)
         .eq("user_id", user.id)
-        .single()) {
+        .maybeSingle();
+
+      if (existingPortfolio) {
         setError("You are already in this league.");
         setLoading(false);
         return;
       }
+      if (portfolioError) throw portfolioError;
+
 
       const { error: supaError } = await supabase
         .from("Portfolios")
