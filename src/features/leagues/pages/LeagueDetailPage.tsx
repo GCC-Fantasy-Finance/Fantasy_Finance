@@ -33,7 +33,7 @@ export type PortfolioWithUser = {
 };
 
 export default function LeagueDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const { leagueId } = useParams<{ leagueId: string }>();
   const navigate = useNavigate();
   const { profile } = useAuth();
 
@@ -51,7 +51,7 @@ export default function LeagueDetailPage() {
     let mounted = true;
 
     async function load() {
-      if (!id) return;
+      if (!leagueId) return;
 
       setLoading(true);
       setError(null);
@@ -60,7 +60,7 @@ export default function LeagueDetailPage() {
         const { data: leagueData, error: leagueErr } = await supabase
           .from("Leagues")
           .select("*")
-          .eq("league_id", id)
+          .eq("league_id", leagueId)
           .maybeSingle();
 
         if (leagueErr) throw leagueErr;
@@ -79,10 +79,10 @@ export default function LeagueDetailPage() {
           if (mounted) setOwner(ownerData as Profile | null);
         }
 
-        const draftData = await getDraftByLeague(Number(id));
+        const draftData = await getDraftByLeague(Number(leagueId));
         if (mounted) setDraft(draftData);
 
-        const portfoliosData = await getPortfoliosByLeague(Number(id));
+        const portfoliosData = await getPortfoliosByLeague(Number(leagueId));
         if (mounted && portfoliosData) {
           const sorted = (portfoliosData as any[]).sort(
             (a, b) => b.previous_close_value - a.previous_close_value,
@@ -101,7 +101,7 @@ export default function LeagueDetailPage() {
     return () => {
       mounted = false;
     };
-  }, [id]);
+  }, [leagueId]);
 
   if (loading) {
     return (
@@ -131,7 +131,7 @@ export default function LeagueDetailPage() {
     <PageContent>
       <div className="max-w-3xl">
         {draft && (
-          <Button onClick={() => navigate(`/draft/${id}`)}>
+          <Button onClick={() => navigate(`/draft/${leagueId}`)}>
             {!draft.is_ended ? "Enter Draft Room" : "View Draft Results"}
           </Button>
         )}
