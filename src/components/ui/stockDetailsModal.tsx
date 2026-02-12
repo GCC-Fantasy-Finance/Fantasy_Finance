@@ -390,7 +390,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                           </span>
                         </span>
                       </td>
-                      <td className="text-sm">{stock.previous_close}</td>
+                      <td className="text-sm">{stock.previous_close.toFixed(2)}</td>
                     </tr>
 
                     <tr>
