@@ -52,14 +52,14 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
   const [endAt, setEndAt] = useState(defaultEnd);
   const [hasTrading, setHasTrading] = useState(true);
   const [hasDraft, setHasDraft] = useState(true);
-  const [draftRounds, setDraftRounds] = useState<number | "">(3);
+  const [draftRounds, setDraftRounds] = useState<number | "">(5);
   const [selectedSectors, setSelectedSectors] = useState<Set<string>>(
     new Set()
   );
   const [showDropdown, setShowDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [joinCode, setJoinCode] = useState("");
+  
 
   // Focus + ESC
   useEffect(() => {
@@ -108,7 +108,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
       setEndAt(defaultEnd());
       setHasTrading(true);
       setHasDraft(true);
-      setDraftRounds(3);
+      setDraftRounds(5);
       setSelectedSectors(new Set());
       setShowDropdown(false);
       setError(null);
@@ -124,7 +124,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
 
     if (!leagueName.trim()) return setError("League name required.");
     if (!user) return setError("You must be signed in.");
-    if (hasDraft && (!draftRounds || Number(draftRounds) < 1)) {
+    if (hasDraft && (!draftRounds || Number(draftRounds) < 5 || Number(draftRounds) > 30)) {
       return setError("Invalid draft rounds.");
     }
     if (new Date(startAt) > new Date(endAt)) {
@@ -135,23 +135,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
 
     try {
 
-      // Generate unique join code
-      while(true) {
-        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        let code = "";
-        for (let i = 0; i < 9; i++) {
-          code += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        const { data } = await supabase
-          .from("Leagues")
-          .select("league_id")
-          .eq("join_code", code)
-          .single();
-        if (!data) {
-          setJoinCode(code);
-          break;
-        }
-      }
+      
       
 
       const { data, error } = await supabase
@@ -168,7 +152,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
               selectedSectors.size > 0
                 ? Array.from(selectedSectors)
                 : ["Any"],
-            join_code: joinCode,
+           
           },
         ])
         .select()
@@ -236,11 +220,26 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
 
         {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
 
+        
         <form onSubmit={handleSubmit} className="space-y-3">
           <input
             ref={nameRef}
             value={leagueName}
-            onChange={(e) => setLeagueName(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value.length <= 20) {
+                setLeagueName(value);
+              }
+            }}
+
+            onBlur ={() => {
+              if (leagueName.trim() === "") {
+                setError("League name required.");
+              }
+              else {                
+                setError(null);
+              }
+            }}
             placeholder="League name"
             className="w-full rounded border px-3 py-2 text-sm"
           />
@@ -259,39 +258,33 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
             className="w-full rounded border px-3 py-2 text-sm"
           />
 
-          <div className="flex gap-4">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={hasTrading}
-                onChange={(e) => setHasTrading(e.target.checked)}
-              />
-              Trading
-            </label>
-
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={hasDraft}
-                onChange={(e) => setHasDraft(e.target.checked)}
-              />
-              Drafting
-            </label>
-          </div>
+          
 
           <label className="text-sm">Number of Draft Rounds</label>
-          {hasDraft && (
-            
+          
             <input
               type="number"
-              min={1}
+              min={5}
+              max={30}
               value={draftRounds}
-              onChange={(e) =>
-                setDraftRounds(Number(e.target.value) || "")
-              }
+              onChange={(e) => {
+                const value = e.target.value;
+                setDraftRounds(value === "" ? "" : Number(value));
+              }}
+              onBlur={() => {
+                if (draftRounds === "") return;
+
+                if (Number(draftRounds) < 5 || Number(draftRounds) > 30) {
+                  setError("Draft rounds must be between 5 and 30.");
+
+                } else {
+                  setError(null);
+                }
+              }}
               className="w-full rounded border px-3 py-2 text-sm"
             />
-          )}
+        
+
 
           {/* Dropdown */}
           <div className="relative" ref={dropdownRef}>

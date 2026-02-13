@@ -161,7 +161,7 @@ export default function Sidebar() {
         </div>
 
         {/* Links to League pages */}
-        <div className="px-2 mt-2">
+        <div className="px-2 mt-2 overflow-y-auto max-h-50">
           {loading ? (
             <p className="text-xs text-gray-500 px-2 py-1">Loading...</p>
           ) : leagues.length === 0 ? (
