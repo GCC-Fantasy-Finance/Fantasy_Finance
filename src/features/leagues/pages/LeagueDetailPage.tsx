@@ -8,6 +8,7 @@ import { Button } from "../../../components/ui/button";
 import { getDraftByLeague, type DraftRow } from "@/lib/drafts";
 import { getPortfoliosByLeague } from "@/lib/portfolios";
 import Leaderboard from "@/layouts/components/Leaderboard";
+import { calculatePortfolioValue } from "@/lib/portfolioValue";
 
 type League = {
   id: string;
@@ -25,6 +26,8 @@ type Profile = {
 export type PortfolioWithUser = {
   portfolio_id: number;
   previous_close_value: number;
+  reserve_value?: number;
+  live_value?: number;
   user_id: string;
   Profiles: {
     username?: string;
@@ -84,9 +87,84 @@ export default function LeagueDetailPage() {
 
         const portfoliosData = await getPortfoliosByLeague(Number(leagueId));
         if (mounted && portfoliosData) {
-          const sorted = (portfoliosData as any[]).sort(
-            (a, b) => b.previous_close_value - a.previous_close_value,
+          const portfolios = portfoliosData as PortfolioWithUser[];
+          const portfolioIds = portfolios.map(
+            (portfolio) => portfolio.portfolio_id,
           );
+
+          let holdingsByPortfolio = new Map<
+            number,
+            Array<{
+              quantity?: number | null;
+              stock?: { current_price?: number | null };
+            }>
+          >();
+
+          if (portfolioIds.length > 0) {
+            const { data: holdingsRows } = await supabase
+              .from("Portfolio Holdings")
+              .select("portfolio_id, stock_id, quantity")
+              .in("portfolio_id", portfolioIds);
+
+            const stockIds = [
+              ...new Set(
+                (holdingsRows ?? [])
+                  .map((holding: any) => Number(holding.stock_id))
+                  .filter((stockId) => Number.isFinite(stockId)),
+              ),
+            ];
+
+            const stockPricesById = new Map<number, number>();
+            if (stockIds.length > 0) {
+              const { data: stockRows } = await supabase
+                .from("Stocks")
+                .select("stock_id, current_price")
+                .in("stock_id", stockIds);
+
+              for (const stock of stockRows ?? []) {
+                stockPricesById.set(
+                  Number((stock as any).stock_id),
+                  Number((stock as any).current_price ?? 0),
+                );
+              }
+            }
+
+            holdingsByPortfolio = (holdingsRows ?? []).reduce(
+              (map, holding: any) => {
+                const portfolioId = Number(holding.portfolio_id);
+                const list = map.get(portfolioId) ?? [];
+                list.push({
+                  quantity: Number(holding.quantity ?? 0),
+                  stock: {
+                    current_price:
+                      stockPricesById.get(Number(holding.stock_id)) ?? 0,
+                  },
+                });
+                map.set(portfolioId, list);
+                return map;
+              },
+              new Map<
+                number,
+                Array<{
+                  quantity?: number | null;
+                  stock?: { current_price?: number | null };
+                }>
+              >(),
+            );
+          }
+
+          const withLiveValues = portfolios.map((portfolio) => ({
+            ...portfolio,
+            live_value: calculatePortfolioValue({
+              holdings: holdingsByPortfolio.get(portfolio.portfolio_id) ?? [],
+              reserveValue: portfolio.reserve_value,
+            }),
+          }));
+
+          const sorted = withLiveValues.sort(
+            (a, b) => Number(b.live_value ?? 0) - Number(a.live_value ?? 0),
+          );
+
           setLeaderboard(sorted);
         }
       } catch (err: any) {
@@ -135,9 +213,9 @@ export default function LeagueDetailPage() {
             {!draft.is_ended ? "Enter Draft Room" : "View Draft Results"}
           </Button>
         )}
-
-        {/* ✅ Leaderboard Component */}
-        <Leaderboard entries={leaderboard} currentUserId={profile?.id} />
+        <div className="my-6">
+          <Leaderboard entries={leaderboard} currentUserId={profile?.id} />
+        </div>
 
         <p className="text-sm text-gray-500 mb-2">
           Created:{" "}
