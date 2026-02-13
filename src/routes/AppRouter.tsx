@@ -56,7 +56,7 @@ export default function AppRouter() {
                 { path: "global-leaderboard", element: <SoloLeaderboardPage /> },
               ],
             },
-            { path: "/league/:id", element: <LeagueDetailPage /> },
+            { path: "/league/:leagueId", element: <LeagueGuardRoute><LeagueDetailPage /></LeagueGuardRoute> },
             {
               path: "/profile",
               element: <ProfileLayout />,
