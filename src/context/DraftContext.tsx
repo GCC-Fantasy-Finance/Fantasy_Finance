@@ -29,7 +29,7 @@ type DraftContextType = {
   isOwner: boolean;
   queuedItems: WishlistItem[];
   draftPicks: any[];
-  draftedStockIds: Set<number>; // ✅ NEW
+  draftedStockIds: Set<number>;
   stockPrices: Record<number, number>;
   startDraft: () => Promise<void>;
   makePick: (stockId: number) => Promise<void>;
@@ -44,14 +44,15 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
   const [users, setUsers] = useState<Portfolio[]>([]);
   const usersRef = useRef<Portfolio[]>([]);
   const [draftPicks, setDraftPicks] = useState<any[]>([]);
-  const [draftedStockIds, setDraftedStockIds] = useState<Set<number>>(new Set()); // ✅ NEW
+  const [draftedStockIds, setDraftedStockIds] = useState<Set<number>>(new Set());
 
   const [currentPortfolioId, setCurrentPortfolioId] = useState<number | null>(null);
   const [currentPick, setCurrentPick] = useState(0);
   const [round, setRound] = useState(1);
   const [direction, setDirection] = useState<"forward" | "backward">("forward");
   const [timerStartTime, setTimerStartTime] = useState<string | null>(null);
-  const [timer, setTimer] = useState(10);
+  const [secondsPerPick, setSecondsPerPick] = useState(60);
+  const [timer, setTimer] = useState(60);
   const [draftStarted, setDraftStarted] = useState(false);
   const [draftEnded, setDraftEnded] = useState(false);
   const [draftRounds, setDraftRounds] = useState(0);
@@ -66,14 +67,12 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
   const [queuedItems, setQueuedItems] = useState<WishlistItem[]>([]);
   const [stockPrices, setStockPrices] = useState<Record<number, number>>({});
 
-  // 🧠 Build drafted stock lookup set whenever picks change
   useEffect(() => {
     const ids = new Set<number>();
     draftPicks.forEach(p => ids.add(p.stock_id));
     setDraftedStockIds(ids);
   }, [draftPicks]);
 
-  // Initial load
   useEffect(() => {
     (async () => {
       const [userData, draftData, leagueData, picksData] = await Promise.all([
@@ -92,7 +91,6 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     })();
   }, [leagueId]);
 
-  // 🔄 Function to refresh picks
   const refreshDraftPicks = async () => {
     const { data, error } = await supabase
       .from("Draft Picks")
@@ -108,7 +106,6 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     setDraftPicks(data ?? []);
   };
 
-  // Draft realtime subscription
   useEffect(() => {
     const channel = supabase
       .channel(`drafts-${leagueId}`)
@@ -117,7 +114,7 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
         { event: "UPDATE", schema: "public", table: "Drafts", filter: `league_id=eq.${leagueId}` },
         async (payload) => {
           hydrateFromDraftRow(payload.new);
-          await refreshDraftPicks(); // ✅ pull new picks after every draft update
+          await refreshDraftPicks();
         }
       )
       .subscribe();
@@ -127,7 +124,6 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     };
   }, [leagueId]);
 
-  // Live stock price updates
   useEffect(() => {
     const channel = supabase
       .channel("live-stock-prices")
@@ -149,7 +145,6 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     };
   }, []);
 
-  // Load initial prices for queued stocks
   useEffect(() => {
     const loadInitialPrices = async () => {
       const ids = queuedItems.map(q => q.stock_id);
@@ -171,7 +166,6 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     loadInitialPrices();
   }, [queuedItems]);
 
-  // Refresh queue when draft state changes
   useEffect(() => {
     if (!myPortfolio?.portfolio_id) return;
 
@@ -183,7 +177,6 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     refreshQueue();
   }, [myPortfolio?.portfolio_id, currentPortfolioId, round]);
 
-  // Resolve my portfolio
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -201,6 +194,10 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     setDirection(d.is_snaking_forward ? "forward" : "backward");
     setTimerStartTime(d.timer_start_time ?? null);
     setCurrentPortfolioId(d.current_portfolio_id);
+
+    const seconds = d.seconds_per_pick ?? 60;
+    setSecondsPerPick(seconds);
+    setTimer(seconds);
   };
 
   const reorderQueue = (from: number, to: number) => {
@@ -223,10 +220,9 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     if (idx !== -1) setCurrentPick(idx);
   }, [currentPortfolioId, users]);
 
-  // Timer logic
   useEffect(() => {
     if (!timerStartTime) {
-      setTimer(10);
+      setTimer(secondsPerPick);
       return;
     }
 
@@ -235,8 +231,8 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     const update = () => {
       const start = Date.parse(timerStartTime);
       const now = Date.now();
-      const elapsed = Math.max(Math.round((now - start) / 1000), 0);
-      setTimer(Math.max(10 - elapsed, 0));
+      const elapsed = Math.max(Math.floor((now - start) / 1000), 0);
+      setTimer(Math.max(secondsPerPick - elapsed, 0));
     };
 
     update();
@@ -245,7 +241,7 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [timerStartTime]);
+  }, [timerStartTime, secondsPerPick]);
 
   const startDraft = async () => {
     await fetch(`${SERVER_URL}/draft/${leagueId}/start`, { method: "POST" });
@@ -312,7 +308,7 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
         isOwner,
         queuedItems,
         draftPicks,
-        draftedStockIds, // ✅ EXPOSED
+        draftedStockIds,
         stockPrices,
         startDraft,
         makePick,

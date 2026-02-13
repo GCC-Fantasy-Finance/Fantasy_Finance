@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const http = require('http');
-const { makePick, autopick } = require('./draftlogic');
+const { makePick, autopick } = require('./draftLogic');
 const { createClient } = require('@supabase/supabase-js');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -15,7 +15,6 @@ app.use(express.json());
 
 const server = http.createServer(app);
 
-const PICK_DURATION = 10 * 1000; // 10 seconds
 const draftTimers = {}; // { [leagueId]: Timeout }
 
 // Clear timer helper
@@ -28,32 +27,45 @@ function clearDraftTimer(leagueId) {
 }
 
 // Start or reset the timer for a league
-function startOrResetDraftTimer(leagueId) {
-  console.log("Starting/reseting timer for league", leagueId); // ADD THIS
+async function startOrResetDraftTimer(leagueId) {
+  console.log("Starting/resetting timer for league", leagueId);
 
-  if (draftTimers[leagueId]) clearTimeout(draftTimers[leagueId]);
+  if (draftTimers[leagueId]) {
+    clearTimeout(draftTimers[leagueId]);
+  }
+
+  // 🔥 Fetch timer duration from DB
+  const { data: draft, error } = await supabase
+    .from('Drafts')
+    .select('seconds_per_pick')
+    .eq('league_id', leagueId)
+    .single();
+
+  if (error || !draft) {
+    console.error("Failed to fetch draft duration:", error);
+    return;
+  }
+
+  const pickDurationMs = (draft.seconds_per_pick ?? 60) * 1000;
 
   draftTimers[leagueId] = setTimeout(async () => {
     console.log(`Timer expired for league ${leagueId}, running autopick`);
 
     try {
       const result = await autopick({ leagueId });
-      console.log('Autopick success:', result.success);
 
-      // STOP if draft is finished
       if (result?.ended || result?.newState?.is_ended) {
         console.log(`Draft ${leagueId} ended. Stopping timer loop.`);
         clearDraftTimer(leagueId);
         return;
       }
 
-      // Otherwise continue timer for next pick
       startOrResetDraftTimer(leagueId);
 
     } catch (err) {
       console.error('Autopick error:', err);
     }
-  }, PICK_DURATION);
+  }, pickDurationMs);
 }
 
 // Make a draft pick
