@@ -29,6 +29,7 @@ type DraftContextType = {
   isOwner: boolean;
   queuedItems: WishlistItem[];
   draftPicks: any[];
+  draftedStockIds: Set<number>; // ✅ NEW
   stockPrices: Record<number, number>;
   startDraft: () => Promise<void>;
   makePick: (stockId: number) => Promise<void>;
@@ -43,6 +44,7 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
   const [users, setUsers] = useState<Portfolio[]>([]);
   const usersRef = useRef<Portfolio[]>([]);
   const [draftPicks, setDraftPicks] = useState<any[]>([]);
+  const [draftedStockIds, setDraftedStockIds] = useState<Set<number>>(new Set()); // ✅ NEW
 
   const [currentPortfolioId, setCurrentPortfolioId] = useState<number | null>(null);
   const [currentPick, setCurrentPick] = useState(0);
@@ -64,6 +66,13 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
   const [queuedItems, setQueuedItems] = useState<WishlistItem[]>([]);
   const [stockPrices, setStockPrices] = useState<Record<number, number>>({});
 
+  // 🧠 Build drafted stock lookup set whenever picks change
+  useEffect(() => {
+    const ids = new Set<number>();
+    draftPicks.forEach(p => ids.add(p.stock_id));
+    setDraftedStockIds(ids);
+  }, [draftPicks]);
+
   // Initial load
   useEffect(() => {
     (async () => {
@@ -83,14 +92,33 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     })();
   }, [leagueId]);
 
+  // 🔄 Function to refresh picks
+  const refreshDraftPicks = async () => {
+    const { data, error } = await supabase
+      .from("Draft Picks")
+      .select("*")
+      .eq("draft_id", leagueId)
+      .order("pick_number");
+
+    if (error) {
+      console.error("Failed to refresh draft picks", error);
+      return;
+    }
+
+    setDraftPicks(data ?? []);
+  };
+
   // Draft realtime subscription
   useEffect(() => {
     const channel = supabase
       .channel(`drafts-${leagueId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "Drafts", filter: `league_id=eq.${leagueId}` },
-        (payload) => hydrateFromDraftRow(payload.new)
+        { event: "UPDATE", schema: "public", table: "Drafts", filter: `league_id=eq.${leagueId}` },
+        async (payload) => {
+          hydrateFromDraftRow(payload.new);
+          await refreshDraftPicks(); // ✅ pull new picks after every draft update
+        }
       )
       .subscribe();
 
@@ -284,6 +312,7 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
         isOwner,
         queuedItems,
         draftPicks,
+        draftedStockIds, // ✅ EXPOSED
         stockPrices,
         startDraft,
         makePick,

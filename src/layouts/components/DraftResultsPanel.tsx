@@ -7,7 +7,7 @@ const SLOT_HEIGHT = 24;
 const SLOT_GAP = 2;
 
 interface DraftResultsPanelProps {
-  onStockClick: (stockId: number) => void; // Prop to open modal
+  onStockClick: (stockId: number) => void;
 }
 
 const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
@@ -23,10 +23,9 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
     myPortfolio,
   } = useDraft();
 
-  // pickedStocks[userId][roundIndex] = stock_id
-  const [pickedStocks, setPickedStocks] = useState<Record<string, Record<number, number>>>({});
-
-  // Map stock_id → stock_symbol for display
+  const [pickedStocks, setPickedStocks] = useState<
+    Record<string, Record<number, number>>
+  >({});
   const [stocksMap, setStocksMap] = useState<Record<number, string>>({});
 
   const loadDraftResults = useCallback(async () => {
@@ -52,14 +51,12 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
       return;
     }
 
-    // Build stockId → stockSymbol map
     const map: Record<number, string> = {};
     stocks?.forEach((s) => {
       map[s.stock_id] = s.stock_symbol;
     });
     setStocksMap(map);
 
-    // Build pickedStocks[userId][roundIndex] = stock_id
     const userPicks: Record<string, Record<number, number>> = {};
     picks.forEach((pick: DraftPickRow) => {
       const roundIdx = pick.round_number - 1;
@@ -106,7 +103,6 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
                 : undefined,
             }}
           >
-            {/* Username */}
             <div
               style={{
                 fontWeight: isMe ? "bold" : "normal",
@@ -123,7 +119,6 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
               {user?.Profiles?.username ?? "Name not found"}
             </div>
 
-            {/* Slots */}
             <div
               style={{
                 height: `${slotsContainerHeight}px`,
@@ -135,6 +130,14 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
               }}
             >
               {Array.from({ length: draftRounds }).map((_, idx) => {
+                const roundNumber = idx + 1;
+
+                // Determine pick number within the round (snake logic)
+                const pickInRound =
+                  idx % 2 === 0
+                    ? userIdx + 1
+                    : users.length - userIdx;
+
                 let isCurrent = false;
                 let isPast = false;
 
@@ -168,15 +171,16 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
                 }
 
                 if (isCurrent) {
-                  background = "#2563eb";
+                  background = "#166534";
                   color = "#fff";
-                  border = "2px solid #2563eb";
+                  border = "2px solid #166534";
                 }
 
                 return (
                   <div
                     key={idx}
                     style={{
+                      position: "relative",
                       height: `${SLOT_HEIGHT}px`,
                       width: "100%",
                       background,
@@ -199,6 +203,21 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
                       if (stockId) onStockClick(stockId);
                     }}
                   >
+                    {/* Round.Pick number */}
+                    <span
+                      style={{
+                        position: "absolute",
+                        top: "2px",
+                        right: "4px",
+                        fontSize: "0.6rem",
+                        fontWeight: 500,
+                        opacity: 0.7,
+                        pointerEvents: "none",
+                      }}
+                    >
+                      {roundNumber}.{pickInRound}
+                    </span>
+
                     {text}
                   </div>
                 );
