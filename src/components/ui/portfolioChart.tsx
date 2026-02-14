@@ -18,7 +18,7 @@ type Point = {
 
 }
 
-export default function PortfolioChart({ id, timeFrame }: { id: number; timeFrame: string }) {
+export default function PortfolioChart({ id }: { id: number; timeFrame: string }) {
     const [data, setData] = useState<Point[]>([]);
     const [loading, setLoading] = useState(true);
     useEffect(() => {
