@@ -5,7 +5,7 @@ import {
   Compass,
   Home,
   PlusCircle,
-  User2,
+  // User2,
   UserPlus,
   UserRound,
 } from "lucide-react";
@@ -24,7 +24,7 @@ export default function Sidebar() {
   const location = useLocation();
   const { profile } = useAuth();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // const [error, setError] = useState<string | null>(null);
   const [isJoinOpen, setIsJoinOpen] = useState(false);
   const [leagues, setLeagues] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

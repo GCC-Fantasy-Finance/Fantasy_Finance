@@ -27,7 +27,7 @@ interface ChatbotProps {
   onPinnedChange?: (pinned: boolean) => void;
 }
 
-type ChatbotState = "closed" | "small" | "expanded";
+// type ChatbotState = "closed" | "small" | "expanded";
 type ViewMode = "chat" | "history";
 
 interface Message {

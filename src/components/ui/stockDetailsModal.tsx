@@ -164,7 +164,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
   if (!open || !stock) return null;
 
   /* ================= SAFE PREV CLOSE (ADDED) ================= */
-  const prevClose = Number(stock.previous_close ?? 0);
+  // const prevClose = Number(stock.previous_close ?? 0);
 
   const handleBuy = (portfolio: PortfolioWithLeague) => {
     if (!stock?.stock_id || stockPrice == null) return;
