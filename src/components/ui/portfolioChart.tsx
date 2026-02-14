@@ -20,7 +20,6 @@ type Point = {
 
 export default function PortfolioChart({ id }: { id: number; timeFrame: string }) {
     const [data, setData] = useState<Point[]>([]);
-    const [loading, setLoading] = useState(true);
     useEffect(() => {
         // runs once when the component mounts (i.e. modal opens)
         const fetchHistory = async () => {
@@ -40,14 +39,12 @@ export default function PortfolioChart({ id }: { id: number; timeFrame: string }
         };
     });
             setData(formatted);
-            setLoading(false);
         };
         try {
             fetchHistory();
         }
         catch (error) {
             console.error("Error fetching portfolio history:", error);
-            setLoading(false);
         }
     }, [id]);
 
