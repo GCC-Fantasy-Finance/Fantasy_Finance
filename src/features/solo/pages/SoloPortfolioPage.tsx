@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { supabase } from "@/lib/supabase";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { toast } from "sonner";
 import { fetchPortfolioView } from "@/hooks/fetchPortfolio";
@@ -82,25 +81,6 @@ function SoloPortfolioPage() {
         setTotals(totals);
         setHoldings(holdings as HoldingView[]);
         setPortfolio({ portfolio_id: pf.portfolio_id });
-
-        const reserveValue = Number(totals?.reserve_value ?? 0);
-        const netValue = calculatePortfolioValue({
-          holdings: holdings as HoldingView[],
-          reserveValue,
-        });
-
-        // Persist NET to portfolio.previous_close_value
-        try {
-          await supabase
-            .from("Portfolios")
-            .update({ previous_close_value: netValue })
-            .eq("portfolio_id", pf.portfolio_id);
-        } catch (e) {
-          console.warn(
-            "Unable to update previous_close_value (RLS/permissions?):",
-            e,
-          );
-        }
       }
     } catch (err) {
       console.error("Error loading holdings:", err);
