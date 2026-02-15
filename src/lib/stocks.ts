@@ -8,6 +8,7 @@ export type StockRow = {
   stock_symbol: string;
   name: string;
   current_price: number;
+  previous_close: number;
   sector: string;
 };
 

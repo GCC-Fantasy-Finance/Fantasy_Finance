@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { supabase } from "@/lib/supabase";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { toast } from "sonner";
 import { fetchPortfolioView } from "@/hooks/fetchPortfolio";
@@ -8,6 +7,10 @@ import { useTradeModal } from "@/context/TradeModalContext";
 import StockDetailsModal from "@/components/ui/stockDetailsModal";
 import PortfolioChart from "@/components/ui/portfolioChart";
 import { getStockById } from "@/lib/stocks";
+import {
+  calculateInvestedValue,
+  calculatePortfolioValue,
+} from "@/lib/portfolioValue";
 
 interface HoldingView {
   portfolio_holding_id?: number;
@@ -39,8 +42,13 @@ function SoloPortfolioPage() {
   const auth = useAuth();
   const [loading, setLoading] = useState(true);
   const [holdings, setHoldings] = useState<HoldingView[]>([]);
-  const [totals, setTotals] = useState<{ previous_close_value?: number; reserve_value?: number } | null>(null);
-  const [portfolio, setPortfolio] = useState<{ portfolio_id: number } | null>(null);
+  const [totals, setTotals] = useState<{
+    previous_close_value?: number;
+    reserve_value?: number;
+  } | null>(null);
+  const [portfolio, setPortfolio] = useState<{ portfolio_id: number } | null>(
+    null,
+  );
   const { openSell, openBuy } = useTradeModal();
 
   const [stockDetailsModalOpen, setStockDetailsModalOpen] = useState(false);
@@ -56,7 +64,11 @@ function SoloPortfolioPage() {
     }
 
     try {
-      const { portfolio: pf, totals, holdings } = await fetchPortfolioView({
+      const {
+        portfolio: pf,
+        totals,
+        holdings,
+      } = await fetchPortfolioView({
         userId: auth.user.id,
         isSolo: true,
       });
@@ -69,23 +81,6 @@ function SoloPortfolioPage() {
         setTotals(totals);
         setHoldings(holdings as HoldingView[]);
         setPortfolio({ portfolio_id: pf.portfolio_id });
-
-        const investedValue = (holdings as HoldingView[]).reduce((sum, h) => {
-          return sum + Number(h.stock?.current_price ?? 0) * Number(h.quantity ?? 0);
-        }, 0);
-
-        const reserveValue = Number(totals?.reserve_value ?? 0);
-        const netValue = investedValue + reserveValue;
-
-        // Persist NET to portfolio.previous_close_value
-        try {
-          await supabase
-            .from("Portfolios")
-            .update({ previous_close_value: netValue })
-            .eq("portfolio_id", pf.portfolio_id);
-        } catch (e) {
-          console.warn("Unable to update previous_close_value (RLS/permissions?):", e);
-        }
       }
     } catch (err) {
       console.error("Error loading holdings:", err);
@@ -172,18 +167,21 @@ function SoloPortfolioPage() {
         <div>
           {totals && (
             <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="rounded-lg border border-gray-300 shadow px-6 py-4 bg-white w-full h-[160px] max-w-sm">
+              <div className="rounded-lg border border-gray-300 shadow px-6 py-4 bg-white w-full h-40 max-w-sm">
                 {(() => {
-                  const investedValue = holdings.reduce((sum, h) => {
-                    return sum + Number(h.stock?.current_price ?? 0) * Number(h.quantity ?? 0);
-                  }, 0);
-                  const netValue = investedValue + Number(totals.reserve_value ?? 0);
+                  const investedValue = calculateInvestedValue(holdings);
+                  const netValue = calculatePortfolioValue({
+                    holdings,
+                    reserveValue: totals.reserve_value,
+                  });
 
                   return (
                     <>
                       <div className="flex justify-between">
                         <span>NET:</span>
-                        <span className="text-3xl font-semibold">{netValue.toFixed(2)}</span>
+                        <span className="text-3xl font-semibold">
+                          {netValue.toFixed(2)}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span>INVESTED:</span>
@@ -191,7 +189,9 @@ function SoloPortfolioPage() {
                       </div>
                       <div className="flex justify-between">
                         <span>RESERVE:</span>
-                        <span>{Number(totals.reserve_value ?? 0).toFixed(2)}</span>
+                        <span>
+                          {Number(totals.reserve_value ?? 0).toFixed(2)}
+                        </span>
                       </div>
                     </>
                   );
@@ -219,8 +219,12 @@ function SoloPortfolioPage() {
                   {/* Left */}
                   <div className="flex items-center gap-3">
                     <div className="flex flex-col">
-                      <span className="text-sm font-semibold">{h.stock?.stock_symbol}</span>
-                      <span className="text-xs text-gray-500">{h.stock?.name}</span>
+                      <span className="text-sm font-semibold">
+                        {h.stock?.stock_symbol}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {h.stock?.name}
+                      </span>
                     </div>
                     <span className="text-sm">{price.toFixed(2)}</span>
                   </div>
@@ -228,7 +232,9 @@ function SoloPortfolioPage() {
                   {/* Middle */}
                   <div className="text-right">
                     <span className="font-bold">{total.toFixed(2)}</span>
-                    <span className="ml-2 text-xs text-gray-500">({qty} shares)</span>
+                    <span className="ml-2 text-xs text-gray-500">
+                      ({qty} shares)
+                    </span>
                   </div>
 
                   {/* Right — BUTTONS PRESERVED */}

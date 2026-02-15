@@ -98,7 +98,7 @@ export async function buyStock(params: {
 
   // 2) deduct reserve_value (keep previous_close_value the same per requirement)
   const newReserve = reserve - cost;
-  const { data: updatedP, error: updateErr } = await supabase
+  const { error: updateErr } = await supabase
     .from("Portfolios")
     .update({ reserve_value: newReserve })
     .eq("portfolio_id", portfolioId)
