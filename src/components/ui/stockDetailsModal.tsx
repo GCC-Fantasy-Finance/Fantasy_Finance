@@ -164,7 +164,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
   if (!open || !stock) return null;
 
   /* ================= SAFE PREV CLOSE (ADDED) ================= */
-  const prevClose = Number(stock.previous_close ?? 0);
+  
 
   const handleBuy = (portfolio: PortfolioWithLeague) => {
     if (!stock?.stock_id || stockPrice == null) return;
@@ -426,7 +426,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                           </span>
                         </span>
                       </td>
-                      <td className="text-sm">{stock.market_cap}</td>
+                      <td className="text-sm">{stock.market_cap.toLocaleString()}</td>
                     </tr>
 
                     <tr>
@@ -438,7 +438,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                           </span>
                         </span>
                       </td>
-                      <td className="text-sm">{stock.volume}</td>
+                      <td className="text-sm">{stock.volume.toLocaleString()}</td>
                     </tr>
 
 

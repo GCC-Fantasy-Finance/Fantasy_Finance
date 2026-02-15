@@ -156,6 +156,30 @@ export default function LeagueDetailPage() {
             {(league as any).join_code}
           </span>
         </p>
+
+        {/* Leave League */}
+        <Button
+          variant="outline"
+          className="mt-1 text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700"
+          onClick={() => {
+            if (window.confirm("Are you sure you want to leave this league?")) {
+              supabase
+                .from("Portfolios")
+                .delete()
+                .eq("league_id", id)
+                .eq("user_id", profile?.id)
+                .then(({ error }) => {
+                  if (error) {
+                    alert("Failed to leave league: " + error.message);
+                  } else {
+                    navigate("/");
+                  }
+                });
+            }
+          }}
+        >
+          Leave League
+        </Button>
       </div>
     </PageContent>
   );
