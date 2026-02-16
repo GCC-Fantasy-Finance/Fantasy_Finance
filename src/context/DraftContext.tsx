@@ -11,8 +11,8 @@ import {
 } from "../lib/wishlists";
 import { getLeagueById, type LeagueRow } from "../lib/leagues";
 
-// league owner must be on GCC network.
-const SERVER_URL = import.meta.env.VITE_DRAFT_SERVER_URL || "http://10.18.102.51:4000";
+// ngrok url that references the school VM
+const SERVER_URL = "https://nonalgebraical-arduously-kylie.ngrok-free.dev";
 
 type DraftContextType = {
   users: Portfolio[];
