@@ -11,7 +11,8 @@ import {
 } from "../lib/wishlists";
 import { getLeagueById, type LeagueRow } from "../lib/leagues";
 
-const SERVER_URL = import.meta.env.VITE_DRAFT_SERVER_URL || "http://localhost:4000";
+// league owner must be on GCC network.
+const SERVER_URL = import.meta.env.VITE_DRAFT_SERVER_URL || "http://10.18.102.51:4000";
 
 type DraftContextType = {
   users: Portfolio[];
