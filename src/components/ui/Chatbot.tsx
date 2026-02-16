@@ -5,7 +5,16 @@ import {
   useLayoutEffect,
   useCallback,
 } from "react";
-import { X, Send, Pin, History, ArrowLeft, Plus, Stars } from "lucide-react";
+import {
+  X,
+  Send,
+  Pin,
+  History,
+  ArrowLeft,
+  Plus,
+  Stars,
+  ArrowUpRight,
+} from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "./button";
 import { Input } from "./input";
@@ -45,7 +54,10 @@ export default function Chatbot({
   const {
     chatbotState: state,
     setChatbotState: setState,
+    lastConversationId,
     setLastConversationId,
+    resumeRequested,
+    setResumeRequested,
     initialMessage,
     setInitialMessage,
   } = useChatbot();
@@ -77,6 +89,44 @@ export default function Chatbot({
       setLastConversationId(conversationId);
     }
   }, [conversationId, setLastConversationId]);
+
+  useEffect(() => {
+    if (!resumeRequested || !lastConversationId) return;
+
+    let isCancelled = false;
+
+    const loadResumeConversation = async () => {
+      setLoadingHistory(true);
+
+      const { data, error } = await getConversationMessages(lastConversationId);
+
+      if (!isCancelled) {
+        if (error) {
+          console.error("Failed to load resumed conversation:", error);
+        } else if (data) {
+          const loadedMessages: Message[] = data.map((msg: ChatMessage) => ({
+            id: msg.message_id.toString(),
+            text: msg.message_text,
+            sender: msg.is_ai_message ? "ai" : "user",
+            timestamp: new Date(msg.created_at),
+          }));
+
+          setMessages(loadedMessages);
+          setConversationId(lastConversationId);
+          setViewMode("chat");
+        }
+
+        setLoadingHistory(false);
+        setResumeRequested(false);
+      }
+    };
+
+    void loadResumeConversation();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [lastConversationId, resumeRequested, setResumeRequested]);
 
   const startResizing = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -224,7 +274,7 @@ export default function Chatbot({
       const timer = setTimeout(() => {
         handleSendWithMessage(initialMessage);
       }, 100);
-      
+
       return () => clearTimeout(timer);
     }
   }, [initialMessage, state]);
@@ -242,154 +292,207 @@ export default function Chatbot({
     }
   };
 
-  const handleSendWithMessage = useCallback(async (messageText: string) => {
-    if (!messageText.trim() || !user) return;
+  const handleSendWithMessage = useCallback(
+    async (messageText: string) => {
+      if (!messageText.trim() || !user) return;
 
-    const trimmedMessage = messageText.trim();
+      const trimmedMessage = messageText.trim();
 
-    // Add user message to UI immediately
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      text: trimmedMessage,
-      sender: "user",
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setState("expanded");
-
-    // Clear the initial message after sending it
-    if (initialMessage) {
-      setInitialMessage(null);
-    }
-
-    try {
-      // Create conversation if this is the first message
-      let currentConversationId = conversationId;
-      if (!currentConversationId) {
-        const { data: conversation, error: convError } =
-          await createConversation(
-            user.id,
-            trimmedMessage.substring(0, 50), // Use first 50 chars as title
-          );
-
-        if (convError || !conversation) {
-          console.error("Failed to create conversation:", convError);
-          return;
-        }
-
-        currentConversationId = conversation.conversation_id;
-        setConversationId(currentConversationId);
-      }
-
-      // Save user message to database
-      const { error: userMsgError } = await addMessage(
-        currentConversationId,
-        trimmedMessage,
-        false,
-      );
-
-      if (userMsgError) {
-        console.error("Failed to save user message:", userMsgError);
-      }
-
-      // Create placeholder AI message for streaming
-      const aiMessageId = (Date.now() + 1).toString();
-      const aiMessage: Message = {
-        id: aiMessageId,
-        text: "",
-        sender: "ai",
+      // Add user message to UI immediately
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        text: trimmedMessage,
+        sender: "user",
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, aiMessage]);
 
-      // Prepare messages for OpenAI context
-      // Convert existing messages to OpenAI format
-      const historyMessages = messages.map((msg) => ({
-        role: msg.sender === "ai" ? "assistant" : "user",
-        content: msg.text,
-      }));
+      setMessages((prev) => [...prev, userMessage]);
+      setState("expanded");
 
-      // Define your system prompt / instructions here
-      const systemPrompt = {
-        role: "system",
-        content: `You are a knowledgeable assistant for a stock trading game. You enjoy helping users learn about the stock market and make informed decisions on stock trading.
-        Current Date: ${new Date().toLocaleDateString()}
-        
-        Rules:
-        1. If you don't know or can't get the answer, say you don't know.
-        2. Be concise, explain things simply.`,
-      };
+      // Clear the initial message after sending it
+      if (initialMessage) {
+        setInitialMessage(null);
+      }
 
-      // Add the new user message AND the system prompt at the start
-      const apiMessages = [
-        systemPrompt,
-        ...historyMessages,
-        { role: "user", content: trimmedMessage },
-      ];
+      try {
+        // Create conversation if this is the first message
+        let currentConversationId = conversationId;
+        if (!currentConversationId) {
+          const { data: conversation, error: convError } =
+            await createConversation(
+              user.id,
+              trimmedMessage.substring(0, 50), // Use first 50 chars as title
+            );
 
-      // Call OpenAI with streaming
-      setLoadingAI(true);
-      setIsStreaming(true);
-      let fullResponse = "";
-      let hasReceivedChunk = false;
-
-      const { error: streamError } = await callOpenAIStream(
-        apiMessages,
-        (chunk) => {
-          fullResponse += chunk;
-          // Stop loading indicator and scroll to response on first chunk
-          if (!hasReceivedChunk) {
-            hasReceivedChunk = true;
-            setLoadingAI(false);
-            // Scroll to show the user message and start of AI response
-            setTimeout(() => {
-              lastUserMessageRef.current?.scrollIntoView({
-                behavior: "smooth",
-                block: "start",
-              });
-            }, 0);
+          if (convError || !conversation) {
+            console.error("Failed to create conversation:", convError);
+            return;
           }
-          // Update the AI message with the accumulated response
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === aiMessageId ? { ...msg, text: fullResponse } : msg,
-            ),
-          );
-        },
-      );
 
-      setLoadingAI(false);
-      setIsStreaming(false);
+          currentConversationId = conversation.conversation_id;
+          setConversationId(currentConversationId);
+        }
 
-      if (streamError) {
-        console.error("Failed to get AI response:", streamError);
-        // Show error message to user
-        const errorMessage: Message = {
-          id: (Date.now() + 2).toString(),
-          text: "Sorry, I encountered an error. Please try again.",
+        // Save user message to database
+        const { error: userMsgError } = await addMessage(
+          currentConversationId,
+          trimmedMessage,
+          false,
+        );
+
+        if (userMsgError) {
+          console.error("Failed to save user message:", userMsgError);
+        }
+
+        // Create placeholder AI message for streaming
+        const aiMessageId = (Date.now() + 1).toString();
+        const aiMessage: Message = {
+          id: aiMessageId,
+          text: "",
           sender: "ai",
           timestamp: new Date(),
         };
-        setMessages((prev) => [...prev, errorMessage]);
-        return;
-      }
+        setMessages((prev) => [...prev, aiMessage]);
 
-      // Save AI message to database
-      const { error: aiMsgError } = await addMessage(
-        currentConversationId,
-        fullResponse,
-        true,
-      );
+        // Prepare messages for OpenAI context
+        // Convert existing messages to OpenAI format
+        const historyMessages = messages.map((msg) => ({
+          role: msg.sender === "ai" ? "assistant" : "user",
+          content: msg.text,
+        }));
 
-      if (aiMsgError) {
-        console.error("Failed to save AI message:", aiMsgError);
+        // Define your system prompt / instructions here
+        const systemPrompt = {
+          role: "system",
+          content: `
+            You are the Fantasy Finance assistant — a helpful, decisive coach for a STOCK TRADING GAME.
+            Your job: help users learn finance and make better in-game portfolio decisions.
+
+            Context:
+            - This is a game/simulation. Users may request predictions and specific buy/sell/hold suggestions.
+            - You may give “financial advice” in the game context, including forecasts and recommendations.
+            - If portfolio holdings / cash / constraints are provided, you MUST use them in your reasoning.
+
+            Important UI context:
+            - Assume the user can already see stock details (price chart, company info, key stats) for any stock they ask about.
+            - Do NOT repeat obvious stock details or restate large blocks of fundamentals/metrics unless the user explicitly asks.
+            - Instead, interpret what the details imply and translate them into an action plan.
+
+            Primary goals (in order):
+            1) Provide a clear recommendation (what to do next).
+            2) Explain WHY with concise reasoning grounded in market/finance concepts and any web findings.
+            3) Provide a confidence level and key assumptions.
+            4) Offer 1–3 concrete alternatives if the user has different risk preferences.
+
+            Web / evidence behavior:
+            - When you rely on web findings, summarize them and list sources at the end as bullet links (publisher + URL).
+            - Do not fabricate sources, quotes, or “news”. If you cannot confirm something via web findings, label it as an assumption.
+            - Prefer recent, reputable sources (SEC filings, earnings releases, major financial news, company IR pages).
+
+            Decision quality rules:
+            - Don’t just say “I don’t know” or “no one can predict.” If uncertain, still provide a best-effort plan with low confidence, and explain what would change your mind.
+            - Be explicit about time horizon (e.g., days/weeks vs months/years) and risk level (conservative/balanced/aggressive).
+            - Consider diversification, position sizing, downside risk, catalysts (earnings, guidance, macro data), and valuation vs growth narratives.
+
+            Portfolio-aware output (when portfolio data exists):
+            - Refer to the user’s current positions, concentration, cash, and constraints.
+            - If data is missing (e.g., position sizes, cost basis, time horizon), ask up to 3 targeted questions, BUT still give a provisional recommendation based on stated assumptions.
+
+            Style:
+            - Be concise, structured, and practical.
+            - Use simple language, teach briefly as you go (1–2 short lessons max).
+            - Avoid disclaimers (the UI already provides a game disclaimer).
+            - Avoid long company/stock overviews; prioritize actionable interpretation.
+
+            Formatting rules (adaptive):
+            - Do NOT force one fixed template for every question.
+            - DO NOT include disclaimers about not being a financial advisor; the UI already has a game disclaimer.
+            - Match the format to the request type:
+              - If user asks for picks/ideas/lists, return a numbered list with exactly the requested count.
+              - If user asks for a direct action, lead with the action first, then brief reasoning.
+              - If user asks an educational question, prioritize explanation over recommendation headers.
+            - Use the detailed sectioned format below only when it improves clarity for recommendation-style answers:
+              - Recommendation
+              - Rationale
+              - Confidence
+              - Key risks & what to watch
+              - Sources
+
+            Today’s date: ${new Date().toLocaleDateString()}
+            `.trim(),
+        };
+
+        // Add the new user message AND the system prompt at the start
+        const apiMessages = [
+          systemPrompt,
+          ...historyMessages,
+          { role: "user", content: trimmedMessage },
+        ];
+
+        // Call OpenAI with streaming
+        setLoadingAI(true);
+        setIsStreaming(true);
+        let fullResponse = "";
+        let hasReceivedChunk = false;
+
+        const { error: streamError } = await callOpenAIStream(
+          apiMessages,
+          (chunk) => {
+            fullResponse += chunk;
+            // Stop loading indicator and scroll to response on first chunk
+            if (!hasReceivedChunk) {
+              hasReceivedChunk = true;
+              setLoadingAI(false);
+              // Scroll to show the user message and start of AI response
+              setTimeout(() => {
+                lastUserMessageRef.current?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "start",
+                });
+              }, 0);
+            }
+            // Update the AI message with the accumulated response
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === aiMessageId ? { ...msg, text: fullResponse } : msg,
+              ),
+            );
+          },
+        );
+
+        setLoadingAI(false);
+        setIsStreaming(false);
+
+        if (streamError) {
+          console.error("Failed to get AI response:", streamError);
+          // Show error message to user
+          const errorMessage: Message = {
+            id: (Date.now() + 2).toString(),
+            text: "Sorry, I encountered an error. Please try again.",
+            sender: "ai",
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, errorMessage]);
+          return;
+        }
+
+        // Save AI message to database
+        const { error: aiMsgError } = await addMessage(
+          currentConversationId,
+          fullResponse,
+          true,
+        );
+
+        if (aiMsgError) {
+          console.error("Failed to save AI message:", aiMsgError);
+        }
+      } catch (error) {
+        console.error("Error handling message:", error);
+        setLoadingAI(false);
       }
-    } catch (error) {
-      console.error("Error handling message:", error);
-      setLoadingAI(false);
-    }
-  }, [user, conversationId, messages, initialMessage, setInitialMessage]);
+    },
+    [user, conversationId, messages, initialMessage, setInitialMessage],
+  );
 
   const handleSend = async () => {
     if (!message.trim() || !user) return;
@@ -469,6 +572,10 @@ export default function Chatbot({
     setMessages([]);
     setConversationId(null);
     setViewMode("chat");
+
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
   };
 
   // When switching to pinned mode, restore the saved scroll position
@@ -646,8 +753,22 @@ export default function Chatbot({
 
   // Render messages
   const renderMessages = () => {
+    const disclaimer = (
+      <p className="text-xs text-gray-500 text-center italic">
+        Not financial advice. Fantasy Finance is a game simulation and is not
+        responsible for trading outcomes.
+      </p>
+    );
+
     if (messages.length === 0) {
-      return <p className="text-gray-500 text-sm">Start a conversation...</p>;
+      return (
+        <div className="h-full flex flex-col">
+          {disclaimer}
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-lg text-center">What's on your mind?</p>
+          </div>
+        </div>
+      );
     }
 
     // Identify last user and AI messages for refs
@@ -661,6 +782,7 @@ export default function Chatbot({
 
     return (
       <div className="space-y-4">
+        {disclaimer}
         {messages.map((msg, index) => {
           const isLastUser = index === lastUserIdx;
           const isLastAi = index === lastAiIdx;
@@ -687,15 +809,23 @@ export default function Chatbot({
                     components={{
                       p: (props) => <p className="mb-2" {...props} />,
                       ul: (props) => (
-                        <ul className="list-disc list-inside mb-2" {...props} />
-                      ),
-                      ol: (props) => (
-                        <ol
-                          className="list-decimal list-inside mb-2"
+                        <ul
+                          className="list-disc list-outside mb-2 pl-5"
                           {...props}
                         />
                       ),
-                      li: (props) => <li className="mb-1" {...props} />,
+                      ol: (props) => (
+                        <ol
+                          className="list-decimal list-outside mb-2 pl-5"
+                          {...props}
+                        />
+                      ),
+                      li: (props) => (
+                        <li
+                          className="mb-1 [&>p]:inline [&>p]:mb-0"
+                          {...props}
+                        />
+                      ),
                       code: (props) => (
                         <code
                           className="bg-gray-100 px-1.5 py-0.5 rounded text-xs font-mono"
@@ -726,6 +856,18 @@ export default function Chatbot({
                       ),
                       h3: (props) => (
                         <h3 className="text-sm font-bold mb-2" {...props} />
+                      ),
+                      a: ({ href, children, ...props }) => (
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-blue-600 underline underline-offset-2 hover:text-blue-700"
+                          {...props}
+                        >
+                          <span>{children}</span>
+                          <ArrowUpRight className="h-3.5 w-3.5" />
+                        </a>
                       ),
                     }}
                   >

@@ -22,8 +22,13 @@ export default function Header({ title }: HeaderProps) {
   const [loading, setLoading] = useState(false);
   const [selectedStock, setSelectedStock] = useState<StockRow | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const { chatbotState, setChatbotState, lastConversationId, setIsPinned } =
-    useChatbot();
+  const {
+    chatbotState,
+    setChatbotState,
+    lastConversationId,
+    setIsPinned,
+    setResumeRequested,
+  } = useChatbot();
   const [conversationTitle, setConversationTitle] = useState<string | null>(
     null,
   );
@@ -55,18 +60,22 @@ export default function Header({ title }: HeaderProps) {
 
     setLoading(true);
 
-    getAllStocks().then((data) => {
-      const filtered = data.filter((stock) =>
-        stock.name?.toLowerCase().includes(query.toLowerCase()) ||
-        stock.stock_symbol?.toLowerCase().includes(query.toLowerCase()),
-      );
-      setResults(filtered);
-    }).catch((error) => {
-      console.error("Error fetching stocks:", error);
-      setResults([]);
-    }).finally(() => {
-      setLoading(false);
-    }); 
+    getAllStocks()
+      .then((data) => {
+        const filtered = data.filter(
+          (stock) =>
+            stock.name?.toLowerCase().includes(query.toLowerCase()) ||
+            stock.stock_symbol?.toLowerCase().includes(query.toLowerCase()),
+        );
+        setResults(filtered);
+      })
+      .catch((error) => {
+        console.error("Error fetching stocks:", error);
+        setResults([]);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
 
     const timeout = setTimeout(() => {
       setLoading(false);
@@ -80,63 +89,65 @@ export default function Header({ title }: HeaderProps) {
         {/* Page Title */}
         <h1 className="text-xl font-medium">{title}</h1>
 
-      {/* Search Bar */}
-      <div className="flex items-center gap-4">
-        <div className="relative w-96">
-          <div className="absolute inset-y-0 left-2 flex items-center pointer-events-none">
-            <Search className="w-4 h-4 text-gray-400" />
-          </div>
-          <input
-            type="text"
-            placeholder="Search all stocks"
-            className="w-full pl-9 pr-4 py-1 text-sm bg-gray-100 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-green-700 focus:border-transparent"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          {/* Search Results Dropdown */}
-          {(results.length > 0 || loading) && (
-            <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-b-sm shadow-lg z-10 max-h-60 overflow-y-auto">
-              {loading && (
-                <div className="p-2 text-sm text-gray-500">Searching...</div>
-              )}
-              {!loading &&
-                results.map((stock) => (
-                  <div
-                    key={stock.stock_id}
-                    onClick={() => {
-                      setSelectedStock(stock);
-                      setShowModal(true);
-                      setQuery("");
-                      setResults([]);
-                    }}
-                    className="p-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                  >
-                    <div className="font-medium">{stock.name}</div>
-                    <div className="text-sm text-gray-600">
-                      {stock.stock_symbol} - ${stock.current_price?.toFixed(2)}
-                    </div>
-                  </div>
-                ))}
-              {!loading && results.length === 0 && query.length >= 2 && (
-                <div className="p-2 text-sm text-gray-500">
-                  No stocks found
-                </div>
-              )}
+        {/* Search Bar */}
+        <div className="flex items-center gap-4">
+          <div className="relative w-96">
+            <div className="absolute inset-y-0 left-2 flex items-center pointer-events-none">
+              <Search className="w-4 h-4 text-gray-400" />
             </div>
-          )}
+            <input
+              type="text"
+              placeholder="Search all stocks"
+              className="w-full pl-9 pr-4 py-1 text-sm bg-gray-100 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-green-700 focus:border-transparent"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            {/* Search Results Dropdown */}
+            {(results.length > 0 || loading) && (
+              <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-b-sm shadow-lg z-10 max-h-60 overflow-y-auto">
+                {loading && (
+                  <div className="p-2 text-sm text-gray-500">Searching...</div>
+                )}
+                {!loading &&
+                  results.map((stock) => (
+                    <div
+                      key={stock.stock_id}
+                      onClick={() => {
+                        setSelectedStock(stock);
+                        setShowModal(true);
+                        setQuery("");
+                        setResults([]);
+                      }}
+                      className="p-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                    >
+                      <div className="font-medium">{stock.name}</div>
+                      <div className="text-sm text-gray-600">
+                        {stock.stock_symbol} - $
+                        {stock.current_price?.toFixed(2)}
+                      </div>
+                    </div>
+                  ))}
+                {!loading && results.length === 0 && query.length >= 2 && (
+                  <div className="p-2 text-sm text-gray-500">
+                    No stocks found
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Stock Details Modal */}
-      <StockDetailsModal
-        open={showModal}
-        stock={selectedStock}
-        onClose={() => setShowModal(false)}
-      />
-    </header>
+        {/* Stock Details Modal */}
+        <StockDetailsModal
+          open={showModal}
+          stock={selectedStock}
+          onClose={() => setShowModal(false)}
+        />
+      </header>
       {chatbotState === "closed" && lastConversationId && (
         <div
           onClick={() => {
+            setResumeRequested(true);
             setChatbotState("expanded");
             setIsPinned(true);
           }}
