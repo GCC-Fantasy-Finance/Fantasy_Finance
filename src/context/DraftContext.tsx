@@ -31,6 +31,7 @@ type DraftContextType = {
   draftPicks: any[];
   draftedStockIds: Set<number>;
   stockPrices: Record<number, number>;
+  activeUsers: Record<string, any>;
   startDraft: () => Promise<void>;
   makePick: (stockId: number) => Promise<void>;
   queueStock: (stockId: number) => Promise<void>;
@@ -66,6 +67,8 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
   const isOwner = !!league && !!myPortfolio && league.owner_id === myPortfolio.user_id;
   const [queuedItems, setQueuedItems] = useState<WishlistItem[]>([]);
   const [stockPrices, setStockPrices] = useState<Record<number, number>>({});
+
+  const [activeUsers, setActiveUsers] = useState<Record<string, any>>({});
 
   useEffect(() => {
     const ids = new Set<number>();
@@ -123,6 +126,74 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
       supabase.removeChannel(channel);
     };
   }, [leagueId]);
+
+  useEffect(() => {
+    let channel: any;
+    let isMounted = true;
+
+    const setupPresence = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user || !isMounted) return;
+
+        // console.log("My user id:", user.id);
+
+        channel = supabase.channel(`draft-room-${leagueId}`, {
+          config: {
+            presence: {
+              key: user.id,
+            },
+          },
+        });
+
+        channel
+          .on("presence", { event: "sync" }, () => {
+            const state = channel.presenceState() as Record<string, any[]>;
+            // console.log("Presence sync:", state);
+            setActiveUsers({ ...state }); // new reference = triggers React render
+          })
+          // .on("presence", { event: "sync" }, () => {
+          //   const state = channel.presenceState();
+          //   console.log("Presence sync:", state);
+          //   setActiveUsers(state);
+          // })
+          // .on("presence", { event: "join" }, (payload: any) => {
+          //   console.log("Presence join:", payload);
+          // })
+          // .on("presence", { event: "leave" }, (payload: any) => {
+          //   console.log("Presence leave:", payload);
+          // });
+
+        await channel.subscribe();
+
+        // console.log("Tracking presence now");
+
+        await channel.track({
+          user_id: user.id,
+          online_at: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error("Presence setup failed:", err);
+      }
+    };
+
+    setupPresence();
+
+    return () => {
+      isMounted = false;
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [leagueId]);
+
+  useEffect(() => {
+    // console.log("Active users updated:", activeUsers);
+    // console.log("Online user IDs:", Object.keys(activeUsers));
+  }, [activeUsers]);
 
   useEffect(() => {
     const channel = supabase
@@ -310,6 +381,7 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
         draftPicks,
         draftedStockIds,
         stockPrices,
+        activeUsers,
         startDraft,
         makePick,
         queueStock,

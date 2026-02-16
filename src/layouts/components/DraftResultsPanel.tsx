@@ -3,6 +3,13 @@ import { useDraft } from "../../context/DraftContext";
 import { getDraftPicksByLeague, type DraftPickRow } from "../../lib/draftpicks";
 import { supabase } from "@/lib/supabase";
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
 const SLOT_HEIGHT = 24;
 const SLOT_GAP = 2;
 
@@ -21,6 +28,7 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
     draftRounds,
     leagueId,
     myPortfolio,
+    activeUsers,
   } = useDraft();
 
   const [pickedStocks, setPickedStocks] = useState<
@@ -74,159 +82,195 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
     draftRounds * SLOT_HEIGHT + (draftRounds - 1) * SLOT_GAP;
 
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: "4px",
-        padding: "0 12px",
-        boxSizing: "border-box",
-        alignItems: "flex-start",
-      }}
-    >
-      {users.map((user, userIdx) => {
-        const isMe = user.portfolio_id === myPortfolio?.portfolio_id;
+    <TooltipProvider delayDuration={200}>
+      <div
+        style={{
+          display: "flex",
+          gap: "4px",
+          padding: "0 12px",
+          boxSizing: "border-box",
+          alignItems: "flex-start",
+        }}
+      >
+        {users.map((user, userIdx) => {
+          const isMe = user.portfolio_id === myPortfolio?.portfolio_id;
+          const isActive = !!activeUsers[user.user_id];
+          const username = user?.Profiles?.username ?? "Name not found";
 
-        return (
-          <div
-            key={user.portfolio_id}
-            style={{
-              flex: "1 1 0",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              minWidth: 0,
-              background: isMe ? "rgba(34,197,94,0.08)" : "transparent",
-              borderRadius: isMe ? "8px" : undefined,
-              padding: isMe ? "4px" : undefined,
-              boxShadow: isMe
-                ? "inset 0 0 0 1px rgba(34,197,94,0.25)"
-                : undefined,
-            }}
-          >
+          return (
             <div
+              key={user.portfolio_id}
               style={{
-                fontWeight: isMe ? "bold" : "normal",
-                marginBottom: "4px",
-                fontSize: "0.8rem",
-                textAlign: "center",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                width: "100%",
-                color: isMe ? "#166534" : undefined,
-              }}
-            >
-              {user?.Profiles?.username ?? "Name not found"}
-            </div>
-
-            <div
-              style={{
-                height: `${slotsContainerHeight}px`,
+                flex: "1 1 0",
                 display: "flex",
                 flexDirection: "column",
-                gap: `${SLOT_GAP}px`,
-                width: "100%",
-                flexShrink: 0,
+                alignItems: "center",
+                minWidth: 0,
+                background: isMe ? "rgba(34,197,94,0.08)" : "transparent",
+                borderRadius: isMe ? "8px" : undefined,
+                padding: isMe ? "4px" : undefined,
+                boxShadow: isMe
+                  ? "inset 0 0 0 1px rgba(34,197,94,0.25)"
+                  : undefined,
               }}
             >
-              {Array.from({ length: draftRounds }).map((_, idx) => {
-                const roundNumber = idx + 1;
-
-                // Determine pick number within the round (snake logic)
-                const pickInRound =
-                  idx % 2 === 0
-                    ? userIdx + 1
-                    : users.length - userIdx;
-
-                let isCurrent = false;
-                let isPast = false;
-
-                if (draftEnded) {
-                  isPast = true;
-                } else if (draftStarted) {
-                  if (idx === round - 1) {
-                    if (userIdx === currentPick) isCurrent = true;
-                    else if (
-                      (direction === "forward" && userIdx < currentPick) ||
-                      (direction === "backward" && userIdx > currentPick)
-                    ) {
-                      isPast = true;
-                    }
-                  } else if (idx < round - 1) {
-                    isPast = true;
-                  }
-                }
-
-                let background = "#fff";
-                let color = "#6b7280";
-                let border = "1px solid #e5e7eb";
-
-                const stockId = pickedStocks[user.portfolio_id]?.[idx];
-                const text = stockId ? stocksMap[stockId] : "";
-
-                if (isPast) {
-                  background = "#f3f4f6";
-                  color = "#374151";
-                  border = "1px solid #d1d5db";
-                }
-
-                if (isCurrent) {
-                  background = "#166534";
-                  color = "#fff";
-                  border = "2px solid #166534";
-                }
-
-                return (
+              <Tooltip>
+                <TooltipTrigger asChild>
                   <div
-                    key={idx}
                     style={{
-                      position: "relative",
-                      height: `${SLOT_HEIGHT}px`,
-                      width: "100%",
-                      background,
-                      border,
-                      borderRadius: "4px",
                       display: "flex",
                       alignItems: "center",
-                      justifyContent: "center",
+                      gap: "6px",
+                      fontWeight: isMe ? "bold" : "normal",
+                      marginBottom: "4px",
                       fontSize: "0.8rem",
-                      fontWeight: isPast || isCurrent ? "bold" : "normal",
-                      color,
-                      overflow: "hidden",
+                      textAlign: "center",
                       whiteSpace: "nowrap",
+                      overflow: "hidden",
                       textOverflow: "ellipsis",
-                      boxSizing: "border-box",
-                      flexShrink: 0,
-                      cursor: stockId ? "pointer" : "default",
-                    }}
-                    onClick={() => {
-                      if (stockId) onStockClick(stockId);
+                      width: "100%",
+                      justifyContent: "center",
+                      color: isMe ? "#166534" : undefined,
+                      cursor: isActive ? "pointer" : "default",
                     }}
                   >
-                    {/* Round.Pick number */}
+                    {isActive && (
+                      <span
+                        style={{
+                          width: "8px",
+                          height: "8px",
+                          borderRadius: "50%",
+                          backgroundColor: "#ef4444",
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
+
                     <span
                       style={{
-                        position: "absolute",
-                        top: "2px",
-                        right: "4px",
-                        fontSize: "0.6rem",
-                        fontWeight: 500,
-                        opacity: 0.7,
-                        pointerEvents: "none",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
                       }}
                     >
-                      {roundNumber}.{pickInRound}
+                      {username}
                     </span>
-
-                    {text}
                   </div>
-                );
-              })}
+                </TooltipTrigger>
+
+                {isActive && (
+                  <TooltipContent>
+                    {username} is in the draft room!
+                  </TooltipContent>
+                )}
+              </Tooltip>
+              
+              <div
+                style={{
+                  height: `${slotsContainerHeight}px`,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: `${SLOT_GAP}px`,
+                  width: "100%",
+                  flexShrink: 0,
+                }}
+              >
+                {Array.from({ length: draftRounds }).map((_, idx) => {
+                  const roundNumber = idx + 1;
+
+                  const pickInRound =
+                    idx % 2 === 0
+                      ? userIdx + 1
+                      : users.length - userIdx;
+
+                  let isCurrent = false;
+                  let isPast = false;
+
+                  if (draftEnded) {
+                    isPast = true;
+                  } else if (draftStarted) {
+                    if (idx === round - 1) {
+                      if (userIdx === currentPick) isCurrent = true;
+                      else if (
+                        (direction === "forward" && userIdx < currentPick) ||
+                        (direction === "backward" && userIdx > currentPick)
+                      ) {
+                        isPast = true;
+                      }
+                    } else if (idx < round - 1) {
+                      isPast = true;
+                    }
+                  }
+
+                  let background = "#fff";
+                  let color = "#6b7280";
+                  let border = "1px solid #e5e7eb";
+
+                  const stockId = pickedStocks[user.portfolio_id]?.[idx];
+                  const text = stockId ? stocksMap[stockId] : "";
+
+                  if (isPast) {
+                    background = "#f3f4f6";
+                    color = "#374151";
+                    border = "1px solid #d1d5db";
+                  }
+
+                  if (isCurrent) {
+                    background = "#166534";
+                    color = "#fff";
+                    border = "2px solid #166534";
+                  }
+
+                  return (
+                    <div
+                      key={idx}
+                      style={{
+                        position: "relative",
+                        height: `${SLOT_HEIGHT}px`,
+                        width: "100%",
+                        background,
+                        border,
+                        borderRadius: "4px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "0.8rem",
+                        fontWeight: isPast || isCurrent ? "bold" : "normal",
+                        color,
+                        overflow: "hidden",
+                        whiteSpace: "nowrap",
+                        textOverflow: "ellipsis",
+                        boxSizing: "border-box",
+                        flexShrink: 0,
+                        cursor: stockId ? "pointer" : "default",
+                      }}
+                      onClick={() => {
+                        if (stockId) onStockClick(stockId);
+                      }}
+                    >
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: "2px",
+                          right: "4px",
+                          fontSize: "0.6rem",
+                          fontWeight: 500,
+                          opacity: 0.7,
+                          pointerEvents: "none",
+                        }}
+                      >
+                        {roundNumber}.{pickInRound}
+                      </span>
+
+                      {text}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+    </TooltipProvider>
   );
 };
 
