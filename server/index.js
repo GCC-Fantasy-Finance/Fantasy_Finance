@@ -128,7 +128,11 @@ app.post('/draft/:leagueId/start', async (req, res) => {
   }
 });
 
+// app.get("/", (req, res) => {
+//   res.send("Draft server is running");
+// });
+
 const PORT = process.env.PORT || 4000;
-server.listen(PORT, () => {
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`Draft server running on port ${PORT}`);
 });
