@@ -133,8 +133,8 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
               ref={nameRef}
               name="joinCode"
               value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value)}
-              className="w-full rounded border px-3 py-2 text-sm mb-3"
+              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+              className="w-full rounded border px-3 py-2 text-sm mb-3 uppercase"
             />
           </div>
 

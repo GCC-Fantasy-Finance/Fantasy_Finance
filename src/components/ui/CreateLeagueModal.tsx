@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { ChevronDown } from "lucide-react";
 
+
 const AVAILABLE_SECTORS = [
   "Technology",
   "Finance",
@@ -46,20 +47,25 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
   const nameRef = useRef<HTMLInputElement | null>(null);
   const modalRef = useRef<HTMLDivElement | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const [closeRef, setCloseRef] = useState(false);
 
   const [leagueName, setLeagueName] = useState("");
   const [startAt, setStartAt] = useState(defaultStart);
   const [endAt, setEndAt] = useState(defaultEnd);
   const [hasTrading, setHasTrading] = useState(true);
-  const [hasDraft, setHasDraft] = useState(true);
-  const [draftRounds, setDraftRounds] = useState<number | "">(3);
+  const [draftRounds, setDraftRounds] = useState<number | "">(5);
   const [selectedSectors, setSelectedSectors] = useState<Set<string>>(
     new Set()
   );
   const [showDropdown, setShowDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [joinCode, setJoinCode] = useState("");
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [draftTime, setDraftTime] = useState<number | "">(60);
+
+  
+
+  
 
   // Focus + ESC
   useEffect(() => {
@@ -77,28 +83,34 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
 
   // Click handling
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
+  function handleClick(e: MouseEvent) {
+
+    if(closeRef == true){ 
+      return;
+    }else{
       const target = e.target as Node;
+
       if (!modalRef.current) return;
 
+      if (datePickerOpen) return;
+
       if (showDropdown) {
-        // Dropdown is open → click outside dropdown closes it
         if (dropdownRef.current && !dropdownRef.current.contains(target)) {
           setShowDropdown(false);
         }
-        // Always prevent modal closing while dropdown is open
         return;
       }
 
-      // Dropdown closed → click outside modal closes modal
       if (!modalRef.current.contains(target)) {
         onClose();
       }
     }
+  }
 
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [onClose, showDropdown]);
+  document.addEventListener("mousedown", handleClick);
+  return () => document.removeEventListener("mousedown", handleClick);
+}, [onClose, showDropdown, datePickerOpen]);
+
 
   // Reset modal when closed
   useEffect(() => {
@@ -107,8 +119,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
       setStartAt(defaultStart());
       setEndAt(defaultEnd());
       setHasTrading(true);
-      setHasDraft(true);
-      setDraftRounds(3);
+      setDraftRounds(5);
       setSelectedSectors(new Set());
       setShowDropdown(false);
       setError(null);
@@ -124,34 +135,21 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
 
     if (!leagueName.trim()) return setError("League name required.");
     if (!user) return setError("You must be signed in.");
-    if (hasDraft && (!draftRounds || Number(draftRounds) < 1)) {
-      return setError("Invalid draft rounds.");
+    if ((!draftRounds || Number(draftRounds) < 5 || Number(draftRounds) > 30)) {
+      return setError("Draft rounds must be between 5 and 30.");
     }
     if (new Date(startAt) > new Date(endAt)) {
       return setError("Start must be before end.");
+    }
+    if((Number(draftTime) < 10 || Number(draftTime) > 600)){
+      return setError("Draft time must be between 10 seconds and 10 minutes.");
     }
 
     setLoading(true);
 
     try {
 
-      // Generate unique join code
-      while(true) {
-        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        let code = "";
-        for (let i = 0; i < 9; i++) {
-          code += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        const { data } = await supabase
-          .from("Leagues")
-          .select("league_id")
-          .eq("join_code", code)
-          .single();
-        if (!data) {
-          setJoinCode(code);
-          break;
-        }
-      }
+      
       
 
       const { data, error } = await supabase
@@ -163,12 +161,12 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
             start_time: new Date(startAt).toISOString(),
             finish_time: new Date(endAt).toISOString(),
             has_trading: hasTrading,
-            has_drafting: hasDraft,
+            has_drafting: true,
             sectors:
               selectedSectors.size > 0
                 ? Array.from(selectedSectors)
                 : ["Any"],
-            join_code: joinCode,
+           
           },
         ])
         .select()
@@ -187,8 +185,8 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
         },
       ]);
 
-      if (hasDraft){
-        await supabase.from("Drafts").insert([
+      
+      await supabase.from("Drafts").insert([
           {
             league_id: data.league_id,
             current_round: 0,
@@ -198,11 +196,12 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
             timer_start_time: data.start_time,
             is_started: false,
             is_ended: false,
-            total_rounds: draftRounds
+            total_rounds: draftRounds,
+            seconds_per_pick: draftTime,
             
           },
         ]);
-      }
+      
 
       toast.success("League created");
       window.location.reload();
@@ -236,11 +235,26 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
 
         {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
 
+        
         <form onSubmit={handleSubmit} className="space-y-3">
           <input
             ref={nameRef}
             value={leagueName}
-            onChange={(e) => setLeagueName(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value.length <= 20) {
+                setLeagueName(value);
+              }
+            }}
+
+            onBlur ={() => {
+              if (leagueName.trim() === "") {
+                setError("League name required.");
+              }
+              else {                
+                setError(null);
+              }
+            }}
             placeholder="League name"
             className="w-full rounded border px-3 py-2 text-sm"
           />
@@ -248,6 +262,8 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
           <input
             type="datetime-local"
             value={startAt}
+            onFocus={() => setDatePickerOpen(true)}
+            onBlur={() => setDatePickerOpen(false)}
             onChange={(e) => setStartAt(e.target.value)}
             className="w-full rounded border px-3 py-2 text-sm"
           />
@@ -255,43 +271,59 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
           <input
             type="datetime-local"
             value={endAt}
+            onFocus={() => setDatePickerOpen(true)}
+            onBlur={() => setDatePickerOpen(false)}
             onChange={(e) => setEndAt(e.target.value)}
             className="w-full rounded border px-3 py-2 text-sm"
           />
 
-          <div className="flex gap-4">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={hasTrading}
-                onChange={(e) => setHasTrading(e.target.checked)}
-              />
-              Trading
-            </label>
 
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={hasDraft}
-                onChange={(e) => setHasDraft(e.target.checked)}
-              />
-              Drafting
-            </label>
-          </div>
+          
 
           <label className="text-sm">Number of Draft Rounds</label>
-          {hasDraft && (
-            
+          
             <input
               type="number"
-              min={1}
+              
               value={draftRounds}
-              onChange={(e) =>
-                setDraftRounds(Number(e.target.value) || "")
-              }
+              onChange={(e) => {
+                const value = e.target.value;
+                setDraftRounds(value === "" ? "" : Number(value));
+              }}
+              onBlur={() => {
+                
+                if (Number(draftRounds) < 5 || Number(draftRounds) > 30) {
+                  setError("Draft rounds must be between 5 and 30.");
+
+                } else {
+                  setError(null);
+                }
+              }}
               className="w-full rounded border px-3 py-2 text-sm"
             />
-          )}
+        
+          <div className="text-sm">
+            Time Per Pick (seconds)
+            <input
+              type="number"
+              value={draftTime}
+              onChange={(e) => {
+                const value = e.target.value;
+                setDraftTime(value === "" ? "" : Number(value));
+              }}
+              onBlur={() => {
+                if (draftTime === "") {
+                  setError("Draft time is required.");
+                } else if (Number(draftTime) < 10 || Number(draftTime) > 600) {
+                  setError("Draft time must be between 10 seconds and 10 minutes.");
+                } else {
+                  setError(null);
+                }
+              }}
+              className="w-full rounded border px-3 py-2 text-sm"
+            />
+            
+          </div>
 
           {/* Dropdown */}
           <div className="relative" ref={dropdownRef}>
@@ -335,7 +367,10 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
             <Button
               type="button"
               variant="outline"
-              onClick={onClose}
+              onClick={() => {
+                setCloseRef(true);
+                onClose();
+              }}
               disabled={loading}
             >
               Cancel

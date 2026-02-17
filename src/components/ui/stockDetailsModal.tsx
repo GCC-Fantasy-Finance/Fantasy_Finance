@@ -11,7 +11,10 @@ import StockChart from "./stockChart";
 import { Sparkles } from "lucide-react";
 import { getSectorByLeagueId } from "@/lib/leagues";
 import { useTradeModal } from "@/context/TradeModalContext";
+import Ticker from "@/components/ui/ticker";
 import { supabase } from "@/lib/supabase";
+import { getHasDraftStarted, getHasDraftEnded } from "@/lib/drafts";
+import { isWishlisted} from "@/lib/wishlists";
 
 interface Stock {
   stock_id?: number;
@@ -30,10 +33,13 @@ interface PortfolioWithLeague {
   portfolio_id: number;
   league_id?: number;
   league_name?: string;
+  draft_has_started?: boolean;
+  draft_has_ended?: boolean;
   is_solo: boolean;
   reserve_value: number;
   previous_close_value: number;
   sectors: string[];
+  wishlisted: boolean;
 }
 
 type Props = {
@@ -53,13 +59,13 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
   const [timeFrame, setTimeFrame] = useState("1M");
   const [stockPrice, setStockPrice] = useState<number | null>(null);
 
-  /* ================= INIT PRICE (ADDED) ================= */
+  /* ================= INIT PRICE ================= */
   useEffect(() => {
     if (!open || stock?.current_price == null) return;
     setStockPrice(stock.current_price);
   }, [open, stock?.current_price]);
 
-  /* ================= REALTIME PRICE (FIXED) ================= */
+  /* ================= REALTIME PRICE ================= */
   useEffect(() => {
     if (!stock?.stock_id) return;
 
@@ -113,6 +119,11 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                 ? await getSectorByLeagueId(portfolio.league_id)
                 : [];
 
+            const hasDraftStarted = await getHasDraftStarted(portfolio.league_id);
+            const hasDraftEnded = await getHasDraftEnded(portfolio.league_id);
+
+            const wishlisted =  await isWishlisted(portfolio.portfolio_id, stock?.stock_id ?? 0);
+
             return {
               portfolio_id: portfolio.portfolio_id,
               league_id: portfolio.league_id,
@@ -121,6 +132,9 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
               reserve_value: portfolio.reserve_value || 0,
               previous_close_value: portfolio.previous_close_value || 0,
               sectors,
+              draft_has_started: hasDraftStarted,
+              wishlisted: wishlisted,
+              draft_has_ended: hasDraftEnded,
             };
           })
         );
@@ -153,6 +167,47 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
     fetchPortfolios();
   }, [open, user?.id, stock?.stock_id]);
 
+  /* ================= LIVE DRAFT STATUS ================= */
+  useEffect(() => {
+    const leagueIds = portfolios
+      .map((p) => p.league_id)
+      .filter((id): id is number => !!id);
+
+    if (leagueIds.length === 0) return;
+
+    const channel = supabase
+      .channel("live-draft-status")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "Drafts",
+        },
+        (payload) => {
+          const updated = payload.new as {
+            league_id: number;
+            is_started: boolean;
+          };
+
+          if (!leagueIds.includes(updated.league_id)) return;
+
+          setPortfolios((prev) =>
+            prev.map((p) =>
+              p.league_id === updated.league_id
+                ? { ...p, has_started: updated.is_started }
+                : p
+            )
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [portfolios]);
+
   /* ================= ESC CLOSE ================= */
   useEffect(() => {
     if (!open) return;
@@ -162,9 +217,6 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
   }, [open, onClose]);
 
   if (!open || !stock) return null;
-
-  /* ================= SAFE PREV CLOSE (ADDED) ================= */
-  // const prevClose = Number(stock.previous_close ?? 0);
 
   const handleBuy = (portfolio: PortfolioWithLeague) => {
     if (!stock?.stock_id || stockPrice == null) return;
@@ -200,6 +252,15 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
     });
   };
 
+  const formatDetails = (amount: number): string => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'decimal',
+      maximumFractionDigits: 1,
+      notation: 'compact', 
+      compactDisplay: 'long',
+    }).format(amount);
+  };
+
   const modal = (
     <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${isPinned ? "pr-[350px]" : ""}`}>
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
@@ -224,51 +285,30 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
             <div className="mb-2">
               <h2 className="text-2xl font-semibold">
                 {stock.name}{" – "}
-                {stockPrice != null && stockPrice > stock.previous_close! && (
-                  <span className="text-green-600">
-                    ${stockPrice.toFixed(2)}
-                    <span className="text-green-600 text-sm"> (↑{((stockPrice - stock.previous_close!) / stock.previous_close! * 100).toFixed(2)}%)</span>
-                  </span>
-                )}
-
-                {stockPrice != null && stockPrice < stock.previous_close! && (
-                  <span className="text-red-600">
-                    ${stockPrice.toFixed(2)}
-                    <span className="text-red-600 text-sm"> (↓{((stock.previous_close! - stockPrice) / stock.previous_close! * 100).toFixed(2)}%)</span>
-                  </span>
-                )}
+                {stockPrice != null ? `$${stockPrice.toFixed(2)}` : "Loading..."}
+                <Ticker
+                  currentValue={stockPrice ?? undefined}
+                  previousValue={stock.previous_close ?? undefined}
+                />
               </h2>
-              <p className="text-gray-600 text-sm">
-                {stock.stock_symbol}
-              </p>
+              <p className="text-gray-600 text-sm">{stock.stock_symbol}</p>
             </div>
 
-            <div className="flex-1 ">
-
+            <div className="flex-1">
               <Button className="mx-1 my-[5px] h-[30px] w-16" 
-                onClick={() => setTimeFrame("1M")  }
-                disabled={timeFrame === "1M"}>
-                  30 Days
-                
-              </Button>
+                onClick={() => setTimeFrame("1M")}
+                disabled={timeFrame === "1M"}>30 Days</Button>
               <Button className="mx-1 my-[5px] h-[30px] w-16" 
                 onClick={() => setTimeFrame("1Y")}
-                disabled={timeFrame === "1Y"}>
-                  Year
-              </Button>
+                disabled={timeFrame === "1Y"}>Year</Button>
               
               <StockChart id={stock.stock_id || 0} timeFrame={timeFrame} />
-                
-              
             </div>
 
-            
-
-
-            {/* Ai questions about the stock */}
-            <div className=" border-t">
+            {/* AI questions */}
+            <div className="border-t">
               <button
-                className="cursor-pointer mt-2 ml-2 px-2 py-[3px]  text-green-700 rounded hover:bg-green-100 border-green-300 border"
+                className="cursor-pointer mt-2 ml-2 px-2 py-[3px] text-green-700 rounded hover:bg-green-100 border-green-300 border"
                 onClick={() => {
                   setInitialMessage(`Is ${stock.name} (${stock.stock_symbol}) a volatile stock?`);
                   setChatbotState("expanded");
@@ -276,12 +316,10 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                 }}
               >
                 <Sparkles className="size-4 inline mb-1 mr-1 text-green-700" />
-                 <span>Is this stock volatile?</span> 
-                
-                 
+                <span>Is this stock volatile?</span>
               </button>
               <button
-                className="cursor-pointer mt-2  ml-2 px-2 py-[3px]  text-green-700 rounded hover:bg-green-100 border-green-300 border"
+                className="cursor-pointer mt-2 ml-2 px-2 py-[3px] text-green-700 rounded hover:bg-green-100 border-green-300 border"
                 onClick={() => {
                   setInitialMessage(`What is the future outlook for ${stock.name} (${stock.stock_symbol})?`);
                   setChatbotState("expanded");
@@ -289,11 +327,10 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                 }}
               >
                 <Sparkles className="size-4 inline mb-1 mr-1 text-green-700" />
-                 <span>What is the future outlook for this stock?</span> 
-                
+                <span>What is the future outlook for this stock?</span>
               </button>
               <button
-                className="cursor-pointer mt-2 ml-2 px-2 py-[3px]  text-green-700 rounded hover:bg-green-100 border-green-300 border"
+                className="cursor-pointer mt-2 ml-2 px-2 py-[3px] text-green-700 rounded hover:bg-green-100 border-green-300 border"
                 onClick={() => {
                   setInitialMessage(`Tell me more about ${stock.name} (${stock.stock_symbol})?`);
                   setChatbotState("expanded");
@@ -301,40 +338,28 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                 }}
               >
                 <Sparkles className="size-4 inline mb-1 mr-1 text-green-700" />
-                 <span>Tell me more?</span> 
-                
+                <span>Tell me more?</span>
               </button>
             </div>
           </div>
 
           {/* RIGHT — TRADE + DETAILS */}
           <div className="w-[1000px] flex flex-col border-l border-gray-200 p-6 bg-gray-50">
-            <h3 className="text-lg font-semibold mb-4 shrink-0">
-              Trade
-            </h3>
+            <h3 className="text-lg font-semibold mb-4 shrink-0">Trade</h3>
 
-            {/* SCROLL AREA */}
             <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
               {loading ? (
-                <p className="text-gray-500 text-sm">
-                  Loading portfolios...
-                </p>
+                <p className="text-gray-500 text-sm">Loading portfolios...</p>
               ) : portfolios.length === 0 ? (
-                <p className="text-gray-500 text-sm">
-                  No portfolios found.
-                </p>
+                <p className="text-gray-500 text-sm">No portfolios found.</p>
               ) : (
                 portfolios.map((portfolio) => (
-                  console.log("stock.sector:", stock.sector),
-                  console.log("portfolio.sectors:", portfolio.sectors),
                   <div
                     key={portfolio.portfolio_id}
                     className="bg-white border border-gray-200 rounded p-3 flex items-center justify-between gap-2"
                   >
                     <p className="font-medium text-sm truncate">
-                      {portfolio.is_solo
-                        ? "Solo"
-                        : portfolio.league_name || "Unknown League"}
+                      {portfolio.is_solo ? "Solo" : portfolio.league_name || "Unknown League"}
                     </p>
 
                     <div className="flex items-center gap-2">
@@ -342,110 +367,75 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                         ${portfolio.reserve_value.toFixed(2)}
                       </span>
 
-                      
-                        <Button
-                          onClick={() => handleSell(portfolio)}
-                          variant="outline"
-                          disabled={!(holdings[portfolio.portfolio_id] > 0)}
-                          className="text-xs h-7 px-2 text-red-600 border-red-300 hover:bg-red-50 disabled:bg-gray-300"
-                        >
-                          – Sell
-                        </Button>
-                      
+                      {portfolio.draft_has_started && !portfolio.draft_has_ended ? (
+                        portfolio.wishlisted ? (
+                          <Button className="text-xs h-7 px-2 bg-yellow-500 hover:bg-yellow-600 text-white">
+                            Dequeue
+                          </Button>
+                        ) : (
+                          <Button className="text-xs h-7 px-2 bg-green-700 hover:bg-green-800 text-white">
+                            Queue
+                          </Button>
+                        )
+                      ) : (
+                        <>
+                          <Button
+                            onClick={() => handleSell(portfolio)}
+                            variant="outline"
+                            disabled={!(holdings[portfolio.portfolio_id] > 0)}
+                            className="text-xs h-7 px-2 text-red-600 border-red-300 hover:bg-red-50 disabled:bg-gray-300"
+                          >
+                            – Sell
+                          </Button>
 
-                      
-
-                      <Button
-
-                        onClick={() => handleBuy(portfolio)}
-                        disabled={
-                          
-                          portfolio.reserve_value <= 0 || (!portfolio.sectors.includes("Any") && !portfolio.is_solo  && !portfolio.sectors.includes(stock.sector || ""))
-                        }
-                        className="text-xs h-7 px-2 bg-green-700 hover:bg-green-800 text-white disabled:bg-gray-300"
-                      >
-                        + Buy
-                      </Button>
+                          <Button
+                            onClick={() => handleBuy(portfolio)}
+                            disabled={
+                              portfolio.reserve_value <= 0 ||
+                              (!portfolio.sectors.includes("Any") &&
+                                !portfolio.is_solo &&
+                                !portfolio.sectors.includes(stock.sector || ""))
+                            }
+                            className="text-xs h-7 px-2 bg-green-700 hover:bg-green-800 text-white disabled:bg-gray-300"
+                          >
+                            + Buy
+                          </Button>
+                        </>
+                      )}
                     </div>
+
                   </div>
                 ))
               )}
             </div>
 
-            {/* DETAILS- chart including previous close, day range, year range, market cap, avg, volume */}
+            {/* Stock details */}
             <div className="h-[200px] w-full mt-4 pt-4 border-t border-gray-200 shrink-0">
-              <h4 className="text-md font-semibold mb-2">
-                Stock Details
-              </h4>
-              <p className="text-sm text-gray-900">
-                <table className="w-full border-separate border-spacing-y-2">
-                  <tbody >
-                    
-                    <tr>
-                      <td className="pr-4 font-medium">
-                        <span className="relative group ">
-                          Previous Close
-                          <span className="pointer-events-none absolute left-0 top-full z-20 mt-1 w-56 rounded bg-green-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-                            The stock’s closing price from the previous trading day.
-                          </span>
-                        </span>
-                      </td>
-                      <td className="text-sm">{stock.previous_close.toFixed(2)}</td>
-                    </tr>
-
-                    <tr>
-                      <td className="pr-4 font-medium">
-                        <span className="relative group ">
-                          Day Range
-                          <span className="pointer-events-none absolute left-0 top-full z-20 mt-1 w-56 rounded bg-green-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-                            The lowest and highest prices traded today.
-                          </span>
-                        </span>
-                      </td>
-                      <td className="text-sm">{stock.day_range}</td>
-                    </tr>
-
-                    <tr>
-                      <td className="pr-4 font-medium">
-                        <span className="relative group ">
-                          Year Range
-                          <span className="pointer-events-none absolute left-0 top-full z-20 mt-1 w-56 rounded bg-green-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-                            The lowest and highest prices over the past year.
-                          </span>
-                        </span>
-                      </td>
-                      <td className="text-sm">{stock.year_range}</td>
-                    </tr>
-
-                    <tr>
-                      <td className="pr-4 font-medium">
-                        <span className="relative group ">
-                          Market Cap
-                          <span className="pointer-events-none absolute left-0 top-full z-20 mt-1 w-56 rounded bg-green-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-                            Total market value of all outstanding shares.
-                          </span>
-                        </span>
-                      </td>
-                      <td className="text-sm">{stock.market_cap}</td>
-                    </tr>
-
-                    <tr>
-                      <td className="pr-4 font-medium">
-                        <span className="relative group ">
-                          Volume
-                          <span className="pointer-events-none absolute left-0 top-full z-20 mt-1 w-56 rounded bg-green-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-                            Number of shares traded today.
-                          </span>
-                        </span>
-                      </td>
-                      <td className="text-sm">{stock.volume}</td>
-                    </tr>
-
-
-                  </tbody>
-                </table>
-
-              </p>
+              <h4 className="text-md font-semibold mb-2">Stock Details</h4>
+              <table className="w-full border-separate border-spacing-y-2 text-sm text-gray-900">
+                <tbody>
+                  <tr>
+                    <td className="pr-4 font-medium">Previous Close</td>
+                    <td>{stock.previous_close?.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td className="pr-4 font-medium">Day Range</td>
+                    <td>{stock.day_range}</td>
+                  </tr>
+                  <tr>
+                    <td className="pr-4 font-medium">Year Range</td>
+                    <td>{stock.year_range}</td>
+                  </tr>
+                  <tr>
+                    <td className="pr-4 font-medium">Market Cap</td>
+                    <td>{formatDetails(stock.market_cap)}</td>
+                  </tr>
+                  <tr>
+                    <td className="pr-4 font-medium">Volume</td>
+                    <td>{formatDetails(stock.volume)}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
