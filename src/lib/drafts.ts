@@ -40,6 +40,35 @@ export async function getDraftByLeague(leagueId: number): Promise<DraftRow | nul
   return data as DraftRow;
 }
 
+export async function getHasDraftStarted(leagueId: number): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("Drafts")
+    .select("is_started")
+    .eq("league_id", leagueId)
+    .single();
+    if (error) {
+      console.error("Failed to check draft status:", error);
+      return false;
+    }
+    return data?.is_started || false;
+}
+
+export async function getHasDraftEnded(leagueId: number): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("Drafts")
+    .select("is_ended")
+    .eq("league_id", leagueId)
+    .single();
+    if (error) {
+      console.error("Failed to check draft status:", error);
+      return false;
+    }
+    return data?.is_ended || false;
+}
+
+
+
+
 /* ================================
    Start draft
    ================================ */

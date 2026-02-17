@@ -181,6 +181,8 @@ export default function LeagueDetailPage() {
     };
   }, [leagueId]);
 
+  
+
   if (loading) {
     return (
       <PageContent>
@@ -244,7 +246,7 @@ export default function LeagueDetailPage() {
               supabase
                 .from("Portfolios")
                 .delete()
-                .eq("league_id", id)
+                .eq("league_id", leagueId)
                 .eq("user_id", profile?.id)
                 .then(({ error }) => {
                   if (error) {

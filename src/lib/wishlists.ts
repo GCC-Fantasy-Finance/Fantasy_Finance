@@ -28,6 +28,23 @@ export const getWishlistByPortfolio = async (
   return data ?? [];
 };
 
+export const isWishlisted = async (portfolioId: number, stockId: number): Promise<boolean> => {
+  const { data, error } = await supabase
+    .from("Wishlist Items")
+    .select("*")
+    .eq("portfolio_id", portfolioId)
+    .eq("stock_id", stockId)
+    .single();
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // No matching record found, so not wishlisted
+        return false;
+      }
+      throw error; // Some other error occurred
+    }
+    return !!data;
+  };
+
 //
 // ADD — insert at bottom of queue
 //
