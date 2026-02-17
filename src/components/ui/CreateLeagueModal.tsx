@@ -61,7 +61,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const [draftTime, setDraftTime] = useState(60);
+  const [draftTime, setDraftTime] = useState<number | "">(60);
 
   
 
@@ -141,7 +141,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
     if (new Date(startAt) > new Date(endAt)) {
       return setError("Start must be before end.");
     }
-    if(draftTime < 10 || draftTime > 600){
+    if((Number(draftTime) < 10 || Number(draftTime) > 600)){
       return setError("Draft time must be between 10 seconds and 10 minutes.");
     }
 
@@ -309,10 +309,12 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
               value={draftTime}
               onChange={(e) => {
                 const value = e.target.value;
-                setDraftTime(Number(value));
+                setDraftTime(value === "" ? "" : Number(value));
               }}
               onBlur={() => {
-                if (draftTime < 10 || draftTime > 600) {
+                if (draftTime === "") {
+                  setError("Draft time is required.");
+                } else if (Number(draftTime) < 10 || Number(draftTime) > 600) {
                   setError("Draft time must be between 10 seconds and 10 minutes.");
                 } else {
                   setError(null);
