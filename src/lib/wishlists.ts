@@ -36,11 +36,9 @@ export const isWishlisted = async (portfolioId: number, stockId: number): Promis
     .eq("stock_id", stockId)
     .single();
     if (error) {
-      if (error.code === 'PGRST116') {
-        // No matching record found, so not wishlisted
-        return false;
-      }
-      throw error; // Some other error occurred
+      // If there is no matching row or some REST error occurs, treat as not wishlisted
+      // console.error("isWishlisted error:", error);
+      return false;
     }
     return !!data;
   };
@@ -69,6 +67,14 @@ export const addWishlistItem = async (
 
   if (error) throw error;
   return data;
+};
+
+export const addWishlistItemStockPage = async (
+  portfolio_id: number,
+  stock_id: number
+) => {
+  const item: WishlistItemInsert = { portfolio_id, stock_id };
+  return await addWishlistItem(item);
 };
 
 //

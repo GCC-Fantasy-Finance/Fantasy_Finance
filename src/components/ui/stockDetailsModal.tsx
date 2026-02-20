@@ -14,7 +14,7 @@ import { useTradeModal } from "@/context/TradeModalContext";
 import Ticker from "@/components/ui/ticker";
 import { supabase } from "@/lib/supabase";
 import { getHasDraftStarted, getHasDraftEnded } from "@/lib/drafts";
-import { isWishlisted} from "@/lib/wishlists";
+import { isWishlisted, addWishlistItemStockPage, removeWishlistItem} from "@/lib/wishlists";
 
 interface Stock {
   stock_id?: number;
@@ -165,7 +165,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
     };
 
     fetchPortfolios();
-  }, [open, user?.id, stock?.stock_id]);
+  }, [open, user?.id, stock?.stock_id, isWishlisted]);
 
   /* ================= LIVE DRAFT STATUS ================= */
   useEffect(() => {
@@ -261,6 +261,8 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
     }).format(amount);
   };
 
+  
+
   const modal = (
     <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${isPinned ? "pr-[350px]" : ""}`}>
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
@@ -295,13 +297,16 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
             </div>
 
             <div className="flex-1">
+              <Button className="mx-1 my-[5px] h-[30px] w-16"
+                onClick={() => setTimeFrame("1D")}
+                disabled={timeFrame === "1D"}>Today</Button>
               <Button className="mx-1 my-[5px] h-[30px] w-16" 
                 onClick={() => setTimeFrame("1M")}
                 disabled={timeFrame === "1M"}>30 Days</Button>
               <Button className="mx-1 my-[5px] h-[30px] w-16" 
                 onClick={() => setTimeFrame("1Y")}
                 disabled={timeFrame === "1Y"}>Year</Button>
-              
+
               <StockChart id={stock.stock_id || 0} timeFrame={timeFrame} />
             </div>
 
@@ -367,15 +372,44 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                         ${portfolio.reserve_value.toFixed(2)}
                       </span>
 
-                      {portfolio.draft_has_started && !portfolio.draft_has_ended ? (
+                      {!portfolio.draft_has_ended && !portfolio.is_solo ? (
                         portfolio.wishlisted ? (
-                          <Button className="text-xs h-7 px-2 bg-yellow-500 hover:bg-yellow-600 text-white">
+                          <Button
+                            className="text-xs h-7 px-2 bg-orange-700 hover:bg-orange-800 text-white"
+                            onClick={async () => {
+                              setPortfolios(prev =>
+                                prev.map(p =>
+                                  p.portfolio_id === portfolio.portfolio_id
+                                    ? { ...p, wishlisted: false }
+                                    : p
+                                )
+                              );
+
+                              await removeWishlistItem(portfolio.portfolio_id, stock.stock_id!);
+                            }}
+                          >
                             Dequeue
                           </Button>
+
                         ) : (
-                          <Button className="text-xs h-7 px-2 bg-green-700 hover:bg-green-800 text-white">
+                          <Button
+                            className="text-xs h-7 px-2 bg-yellow-500 hover:bg-yellow-600 text-white"
+                            onClick={async () => {
+                              // Optimistically update UI immediately
+                              setPortfolios(prev =>
+                                prev.map(p =>
+                                  p.portfolio_id === portfolio.portfolio_id
+                                    ? { ...p, wishlisted: true }
+                                    : p
+                                )
+                              );
+
+                              await addWishlistItemStockPage(portfolio.portfolio_id, stock.stock_id!);
+                            }}
+                          >
                             Queue
                           </Button>
+
                         )
                       ) : (
                         <>
