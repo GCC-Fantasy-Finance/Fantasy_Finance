@@ -218,15 +218,11 @@ function SoloPortfolioPage() {
                 >
                   {/* Left */}
                   <div className="flex items-center gap-3">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-semibold">
-                        {h.stock?.stock_symbol}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {h.stock?.name}
-                      </span>
+                    <div className="flex flex-col min-w-[120px]">
+                      <span className="text-sm font-semibold">{h.stock?.stock_symbol}</span>
+                      <span className="text-xs text-gray-500">{h.stock?.name}</span>
                     </div>
-                    <span className="text-sm">{price.toFixed(2)}</span>
+                    <span className="text-sm w-20 text-right">${price.toFixed(2)}</span>
                   </div>
 
                   {/* Middle */}
