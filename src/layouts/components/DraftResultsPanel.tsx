@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useDraft } from "../../context/DraftContext";
 import { getDraftPicksByLeague, type DraftPickRow } from "../../lib/draftpicks";
 import { supabase } from "@/lib/supabase";
+import { Check } from "lucide-react";
 
 import {
   Tooltip,
@@ -135,12 +136,11 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
                     }}
                   >
                     {isActive && (
-                      <span
+                      <Check
+                        size={14}
+                        strokeWidth={3}
                         style={{
-                          width: "8px",
-                          height: "8px",
-                          borderRadius: "50%",
-                          backgroundColor: "#ef4444",
+                          color: "#16a34a",
                           flexShrink: 0,
                         }}
                       />

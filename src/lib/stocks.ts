@@ -12,6 +12,7 @@ export type StockRow = {
   market_cap: number;
   volume: number;
   sector: string;
+  exchange: string;
   logo_url: string;
 };
 

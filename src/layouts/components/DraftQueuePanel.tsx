@@ -125,21 +125,25 @@ const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
                   ))}
                 </span>
 
-                <span className="font-semibold" title={stock?.name}>
+                {/* LOGO */}
+                <div className="w-7 h-7 flex items-center justify-center shrink-0">
+                  {stock?.logo_url ? (
+                    <img
+                      src={stock.logo_url}
+                      alt={stock.stock_symbol}
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs">
+                      {stock?.stock_symbol?.[0]}
+                    </div>
+                  )}
+                </div>
+
+                {/* SYMBOL */}
+                <span className="font-semibold leading-none" title={stock?.name}>
                   {stock ? stock.stock_symbol : "Loading..."}
                 </span>
-
-                {stock?.logo_url ? (
-                  <img
-                    src={stock.logo_url}
-                    alt={stock.stock_symbol}
-                    className="w-5 h-5 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-[10px] select-none">
-                    {(stock?.stock_symbol?.[0] ?? "?").toUpperCase()}
-                  </div>
-                )}
               </div>
 
               {canDraft ? (
