@@ -21,7 +21,7 @@ const DraftPage = () => {
 
   // Panel sizes
   const [topHeight, setTopHeight] = useState(35);
-  const [leftWidth, setLeftWidth] = useState(65);
+  const [leftWidth, setLeftWidth] = useState(80);
 
   const draggingVert = useRef(false);
   const draggingHorz = useRef(false);

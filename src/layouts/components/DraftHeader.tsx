@@ -134,20 +134,28 @@ const DraftHeader = () => {
           {/* Right-side controls */}
           <div className="flex items-stretch gap-3">
             {draftStarted && !draftEnded && (
-              <div className="flex items-center gap-3 whitespace-nowrap text-sm font-medium">
-                {/* Next Auto Draft Badge */}
-                {nextAutoStock && (
-                  <div className="border-2 border-dashed border-[#FFD1B3] rounded-md px-2 py-0.5 text-xs font-semibold text-[#FF8C42] bg-white">
-                    ⚡ Next auto draft: {nextAutoStock.stock_symbol}
-                  </div>
-                )}
+              <div className="flex items-center gap-3 text-sm font-medium">
 
-                <span>
-                  Round {round} | Current Pick:{" "}
+                {/* Next Auto Draft */}
+                <div className="w-44 flex justify-center">
+                  {nextAutoStock && (
+                    <div className="w-full text-center border-2 border-dashed border-[#FFD1B3] rounded-md px-2 py-0.5 text-xs font-semibold text-[#FF8C42] bg-white truncate">
+                      ⚡ Next auto: {nextAutoStock.stock_symbol}
+                    </div>
+                  )}
+                </div>
+
+                {/* Round + Current Pick */}
+                <div className="w-40 text-center truncate">
+                  Round {round} |{" "}
                   {activePortfolio?.Profiles?.username ?? "Name not found"}
-                </span>
+                </div>
 
-                <DraftTimer />
+                {/* Timer */}
+                <div className="w-30 text-center tabular-nums">
+                  <DraftTimer />
+                </div>
+
               </div>
             )}
 
@@ -155,10 +163,12 @@ const DraftHeader = () => {
               <Button
                 variant="outline"
                 size="sm"
-                className="border-black text-black bg-white hover:bg-white"
+                className="w-50 border-black text-black bg-white hover:bg-white"
                 disabled
               >
-                Draft Starts in {formatTime(countdown)}
+                <span style={{ marginLeft: "1rem", fontWeight: "bold" }}>
+                  Draft Starts in {formatTime(countdown)}
+                </span>
               </Button>
             )}
 

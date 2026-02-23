@@ -11,6 +11,7 @@ interface DraftQueuePanelProps {
 const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
   const {
     queuedItems,
+    queuedLoaded,
     makePick,
     removeFromQueue,
     reorderQueue,
@@ -53,9 +54,9 @@ const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
       setStockMap((prev) => ({ ...prev, ...updates }));
     };
 
-    loadStocks();
+    if (queuedLoaded) loadStocks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queuedItems]);
+  }, [queuedItems, queuedLoaded]);
 
   const handleDragStart = (index: number) => setDragIndex(index);
   const handleDragEnter = (index: number) => setHoverIndex(index);
@@ -69,12 +70,16 @@ const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
   };
 
   return (
-    <div style={{ padding: "0.5rem" }}>
-      <h2>Draft Queue</h2>
+    <div className="p-2 text-xs">
+      <h2 className="mb-2 font-semibold">Draft Queue</h2>
 
-      {queuedItems.length === 0 && <div>No queued stocks</div>}
+      {!queuedLoaded ? (
+        <div>Loading...</div>
+      ) : queuedItems.length === 0 ? (
+        <div>No queued stocks</div>
+      ) : null}
 
-      <ul style={{ listStyle: "none", padding: 0 }}>
+      <ul className="list-none p-0">
         {queuedItems.map((item, index) => {
           const stock = stockMap[item.stock_id];
           const isTopItem = index === 0;
@@ -82,88 +87,69 @@ const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
           return (
             <li
               key={item.stock_id}
+              onClick={() => stock && onStockClick(stock.stock_id)}
               onDragEnter={() => handleDragEnter(index)}
               onDragEnd={handleDragEnd}
               onDragOver={(e) => e.preventDefault()}
-              style={{
-                position: "relative", // needed for floating label
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: "0.75rem",
-                borderBottom: "1px solid #eee",
-                padding: "0.6rem 0.5rem 0.5rem 0.5rem",
-                borderRadius: "6px",
-                border: isTopItem ? "2px dashed #FFD1B3" : undefined,
-                background:
-                  index === hoverIndex ? "rgba(0,0,0,0.05)" : "transparent",
-              }}
+              className={`
+                relative flex items-center justify-between
+                mb-2 border-b px-2 py-1 rounded
+                cursor-pointer
+                hover:bg-gray-100
+                ${index === hoverIndex ? "bg-gray-100" : ""}
+                ${isTopItem ? "outline outline-2 outline-dashed outline-orange-200 -outline-offset-2" : ""}
+              `}
             >
               {isTopItem && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "-10px",
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    background: "white",
-                    padding: "0 6px",
-                    fontSize: "0.9rem",
-                    fontWeight: 700,
-                    color: "#FFD1B3",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "4px",
-                  }}
-                >
-                  ⚡ Next up
+                <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-white px-1 text-[10px] font-bold text-orange-300">
+                  Next up
                 </div>
               )}
 
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <div className="flex items-center gap-2">
                 <span
                   draggable
-                  onDragStart={() => handleDragStart(index)}
-                  onMouseDown={(e) => (e.currentTarget.style.cursor = "grabbing")}
-                  onMouseUp={(e) => (e.currentTarget.style.cursor = "grab")}
-                  onMouseLeave={(e) => (e.currentTarget.style.cursor = "grab")}
-                  title="Drag to reorder"
-                  style={{
-                    cursor: "grab",
-                    padding: "4px",
-                    display: "grid",
-                    gridTemplateColumns: "repeat(2, 4px)",
-                    gap: "3px",
-                    userSelect: "none",
+                  onClick={(e) => e.stopPropagation()}
+                  onDragStart={(e) => {
+                    e.stopPropagation();
+                    handleDragStart(index);
                   }}
+                  className="cursor-grab active:cursor-grabbing p-1 grid grid-cols-2 gap-[2px] select-none"
+                  title="Drag to reorder"
                 >
                   {Array.from({ length: 6 }).map((_, i) => (
                     <span
                       key={i}
-                      style={{
-                        width: "4px",
-                        height: "4px",
-                        borderRadius: "50%",
-                        backgroundColor: "#666",
-                      }}
+                      className="w-[3px] h-[3px] rounded-full bg-gray-600"
                     />
                   ))}
                 </span>
 
-                <span
-                  style={{
-                    fontWeight: 600,
-                    cursor: stock ? "pointer" : "default",
-                  }}
-                  onClick={() => stock && onStockClick(stock.stock_id)}
-                  title={stock?.name}
-                >
+                <span className="font-semibold" title={stock?.name}>
                   {stock ? stock.stock_symbol : "Loading..."}
                 </span>
+
+                {stock?.logo_url ? (
+                  <img
+                    src={stock.logo_url}
+                    alt={stock.stock_symbol}
+                    className="w-5 h-5 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-[10px] select-none">
+                    {(stock?.stock_symbol?.[0] ?? "?").toUpperCase()}
+                  </div>
+                )}
               </div>
 
               {canDraft ? (
-                <Button size="sm" onClick={() => makePick(item.stock_id)}>
+                <Button
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    makePick(item.stock_id);
+                  }}
+                >
                   Draft
                 </Button>
               ) : (
@@ -171,7 +157,10 @@ const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
                   size="sm"
                   variant="outline"
                   className="border-red-700 text-red-700 bg-white hover:bg-gray-100"
-                  onClick={() => removeFromQueue(item.stock_id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeFromQueue(item.stock_id);
+                  }}
                 >
                   Dequeue
                 </Button>
