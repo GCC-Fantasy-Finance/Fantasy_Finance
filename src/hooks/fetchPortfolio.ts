@@ -40,6 +40,45 @@ export interface PortfolioViewResult {
   holdings: HoldingView[];
 }
 
+type PortfolioViewParams = {
+  userId: string;
+  isSolo?: boolean;
+  leagueId?: number;
+};
+
+const PORTFOLIO_VIEW_CACHE_TTL_MS = 15_000;
+const portfolioViewCache = new Map<
+  string,
+  { value: PortfolioViewResult; expiresAt: number }
+>();
+const inFlightPortfolioViewRequests = new Map<string, Promise<PortfolioViewResult>>();
+
+function makePortfolioViewCacheKey(params: PortfolioViewParams) {
+  const { userId, isSolo, leagueId } = params;
+  return `${userId}|${typeof isSolo === "boolean" ? String(isSolo) : "any"}|${typeof leagueId === "number" ? String(leagueId) : "any"}`;
+}
+
+export function getCachedPortfolioView(
+  params: PortfolioViewParams
+): PortfolioViewResult | null {
+  const key = makePortfolioViewCacheKey(params);
+  const cached = portfolioViewCache.get(key);
+  if (!cached) return null;
+  if (Date.now() > cached.expiresAt) {
+    portfolioViewCache.delete(key);
+    return null;
+  }
+  return cached.value;
+}
+
+export function invalidateCachedPortfolioView(params?: PortfolioViewParams) {
+  if (!params) {
+    portfolioViewCache.clear();
+    return;
+  }
+  portfolioViewCache.delete(makePortfolioViewCacheKey(params));
+}
+
 /**
  * Fetch the latest portfolio for a user with optional filters.
  * Pass { isSolo: true } for Solo; pass { leagueId } for a specific league portfolio.
@@ -107,34 +146,39 @@ export async function fetchPortfolioHoldingsWithStocks(
 
     if (error) return { holdings: [], error: error.message };
 
-    const holdings: HoldingView[] = [];
-    for (const h of (rows ?? []) as any[]) {
-      const { data: stockRow, error: sErr } = await supabase
+    const baseRows = (rows ?? []) as any[];
+    const stockIds = Array.from(
+      new Set(
+        baseRows
+          .map((row) => Number(row.stock_id))
+          .filter((stockId) => Number.isFinite(stockId))
+      )
+    );
+
+    const stockById = new Map<number, StockRow>();
+    if (stockIds.length > 0) {
+      const { data: stockRows, error: stockError } = await supabase
         .from("Stocks")
         .select("stock_id,stock_symbol,name,current_price")
-        .eq("stock_id", h.stock_id)
-        .maybeSingle();
+        .in("stock_id", stockIds);
 
-      if (sErr) {
-        holdings.push({
-          portfolio_holding_id: h.portfolio_holding_id,
-          portfolio_id: h.portfolio_id,
-          stock_id: h.stock_id,
-          quantity: h.quantity,
-          average_buy_price: h.average_buy_price,
-          stock: null,
-        });
-      } else {
-        holdings.push({
-          portfolio_holding_id: h.portfolio_holding_id,
-          portfolio_id: h.portfolio_id,
-          stock_id: h.stock_id,
-          quantity: h.quantity,
-          average_buy_price: h.average_buy_price,
-          stock: (stockRow as StockRow) ?? null,
-        });
+      if (stockError) {
+        return { holdings: [], error: stockError.message };
+      }
+
+      for (const stock of (stockRows ?? []) as any[]) {
+        stockById.set(Number(stock.stock_id), stock as StockRow);
       }
     }
+
+    const holdings: HoldingView[] = baseRows.map((row) => ({
+      portfolio_holding_id: row.portfolio_holding_id,
+      portfolio_id: row.portfolio_id,
+      stock_id: row.stock_id,
+      quantity: row.quantity,
+      average_buy_price: row.average_buy_price,
+      stock: stockById.get(Number(row.stock_id)) ?? null,
+    }));
 
     return { holdings };
   } catch (err: any) {
@@ -149,20 +193,53 @@ export async function fetchPortfolioView(params: {
   userId: string;
   isSolo?: boolean;
   leagueId?: number;
-}): Promise<PortfolioViewResult> {
-  const { portfolio, error } = await fetchLatestPortfolio(params);
-  if (error || !portfolio?.portfolio_id) {
-    return { portfolio: null, totals: null, holdings: [] };
+}, options?: { useCache?: boolean; forceRefresh?: boolean }): Promise<PortfolioViewResult> {
+  const key = makePortfolioViewCacheKey(params);
+  const useCache = options?.useCache !== false;
+  const forceRefresh = options?.forceRefresh === true;
+
+  if (useCache && !forceRefresh) {
+    const cached = getCachedPortfolioView(params);
+    if (cached) return cached;
   }
 
-  const totals = {
-    previous_close_value: Number(portfolio.previous_close_value ?? 0),
-    reserve_value: Number(portfolio.reserve_value ?? 0),
-  };
+  const inFlight = inFlightPortfolioViewRequests.get(key);
+  if (inFlight) return inFlight;
 
-  const { holdings } = await fetchPortfolioHoldingsWithStocks(
-    portfolio.portfolio_id
-  );
+  const request = (async () => {
+    const { portfolio, error } = await fetchLatestPortfolio(params);
+    if (error || !portfolio?.portfolio_id) {
+      const emptyResult = { portfolio: null, totals: null, holdings: [] };
+      portfolioViewCache.set(key, {
+        value: emptyResult,
+        expiresAt: Date.now() + PORTFOLIO_VIEW_CACHE_TTL_MS,
+      });
+      return emptyResult;
+    }
 
-  return { portfolio, totals, holdings };
+    const totals = {
+      previous_close_value: Number(portfolio.previous_close_value ?? 0),
+      reserve_value: Number(portfolio.reserve_value ?? 0),
+    };
+
+    const { holdings } = await fetchPortfolioHoldingsWithStocks(
+      portfolio.portfolio_id
+    );
+
+    const result = { portfolio, totals, holdings };
+    portfolioViewCache.set(key, {
+      value: result,
+      expiresAt: Date.now() + PORTFOLIO_VIEW_CACHE_TTL_MS,
+    });
+
+    return result;
+  })();
+
+  inFlightPortfolioViewRequests.set(key, request);
+
+  try {
+    return await request;
+  } finally {
+    inFlightPortfolioViewRequests.delete(key);
+  }
 }

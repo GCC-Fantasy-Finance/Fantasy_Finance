@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import CreateLeagueModal from "@/components/ui/CreateLeagueModal";
 import JoinLeagueModal from "@/components/ui/JoinLeagueModal";
 import { supabase } from "@/lib/supabase";
+import { prefetchLeagueView } from "@/hooks/fetchLeagueView";
 
 type NavItem = {
   name: string;
@@ -55,35 +56,47 @@ export default function Sidebar() {
 
     if (portfoliosError || !portfolios) return [];
 
-    const leagues: any[] = [];
+    const uniqueLeagueIds = [...new Set(portfolios.map(p => p.league_id).filter(id => id != null))];
+    if (uniqueLeagueIds.length === 0) return [];
 
-    // STEP 2 — Fetch each league by ID (super reliable)
-    for (const p of portfolios) {
-      console.log("Fetching league:", p.league_id);
+    const { data: leagues, error: leaguesError } = await supabase
+      .from("Leagues")
+      .select("*")
+      .in("league_id", uniqueLeagueIds as number[]);
 
-      const { data: league, error: leagueError } = await supabase
-        .from("Leagues")
-        .select("*")
-        .eq("league_id", p.league_id)
-        .maybeSingle();
+    console.log("LEAGUES RESULT:", leagues);
+    console.log("LEAGUES ERROR:", leaguesError);
 
-      console.log("LEAGUE RESULT:", league);
-      console.log("LEAGUE ERROR:", leagueError);
-
-      if (!leagueError && league) {
-        leagues.push(league);
-      }
-    }
-
-    console.log("FINAL LEAGUES:", leagues);
+    if (leaguesError || !leagues) return [];
     return leagues;
   }
 
   useEffect(() => {
-    fetchLeagues()
-      .then((data) => setLeagues(data))
+    const fetchPromise = fetchLeagues();
+    const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve([]), 5000));
+
+    Promise.race([fetchPromise, timeoutPromise])
+      .then((data) => setLeagues(data as any[]))
+      .catch(() => setLeagues([]))
       .finally(() => setLoading(false));
   }, [profile]);
+
+  useEffect(() => {
+    if (leagues.length === 0) return;
+
+    for (const league of leagues) {
+      const leagueId = Number(league?.league_id);
+      if (Number.isFinite(leagueId)) {
+        prefetchLeagueView(leagueId);
+      }
+    }
+  }, [leagues]);
+
+  const handlePrefetchLeague = (leagueId?: number | null) => {
+    const numericLeagueId = Number(leagueId);
+    if (!Number.isFinite(numericLeagueId)) return;
+    prefetchLeagueView(numericLeagueId);
+  };
 
   const isActive = (path: string) => {
     if (path === "/") {
@@ -169,12 +182,16 @@ export default function Sidebar() {
           ) : (
             <ul className="space-y-1">
               {leagues.map((league) => {
-                const path = `/league/${league.league_id}`;
+
+                const path = (league.finish_time && new Date(league.finish_time) < new Date()) ? `/league/${league.league_id}/results` : `/league/${league.league_id}`;
                 const active = isActive(path);
                 return (
                   <li key={league.league_id}>
                     <Link
                       to={path}
+                      onMouseEnter={() => handlePrefetchLeague(league.league_id)}
+                      onFocus={() => handlePrefetchLeague(league.league_id)}
+                      onTouchStart={() => handlePrefetchLeague(league.league_id)}
                       className={`block px-4 py-2 rounded text-sm transition-colors ${
                         active
                           ? "bg-green-700/10 font-semibold text-green-700"
@@ -186,6 +203,7 @@ export default function Sidebar() {
                   </li>
                 );
               })}
+            
             </ul>
           )}
         </div>
