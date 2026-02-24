@@ -130,14 +130,11 @@ async function advanceDraftState(leagueId) {
 // MAKE PICK
 // =============================
 async function makePick({ leagueId, portfolioId, stockId, round, pickNumber }) {
-
   if (!acquireLock(leagueId)) {
-    console.log(`League ${leagueId} is busy. Pick ignored.`);
-    return { busy: true };
+    throw new Error('makePick called without acquiring league lock');
   }
 
   try {
-
     const { data: draft } = await supabase
       .from('Drafts')
       .select('*')
@@ -268,4 +265,4 @@ async function getFirstUndraftedStock(leagueId) {
   return data;
 }
 
-module.exports = { makePick, autopick };
+module.exports = { makePick, autopick, acquireLock, releaseLock };

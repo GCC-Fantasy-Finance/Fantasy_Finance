@@ -102,11 +102,11 @@ const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
                 cursor-pointer
                 hover:bg-gray-100
                 ${index === hoverIndex ? "bg-gray-100" : ""}
-                ${isTopItem ? "outline outline-2 outline-dashed outline-orange-200 -outline-offset-2" : ""}
+                ${isTopItem ? "outline outline-2 outline-dashed outline-green-500 -outline-offset-2" : ""}
               `}
             >
               {isTopItem && (
-                <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-white px-1 text-[10px] font-bold text-orange-300">
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-white px-1 text-[10px] font-bold text-green-500">
                   Next up
                 </div>
               )}

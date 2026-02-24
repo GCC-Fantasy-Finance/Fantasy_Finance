@@ -139,7 +139,7 @@ const DraftHeader = () => {
                 {/* Next Auto Draft */}
                 <div className="w-44 flex justify-center">
                   {nextAutoStock && (
-                    <div className="w-full text-center border-2 border-dashed border-[#FFD1B3] rounded-md px-2 py-0.5 text-xs font-semibold text-[#FF8C42] bg-white truncate">
+                    <div className="w-full text-center border-2 border-dashed border-green-500 rounded-md px-2 py-0.5 text-xs font-semibold text-green-500 bg-white truncate">
                       ⚡ Next auto: {nextAutoStock.stock_symbol}
                     </div>
                   )}
