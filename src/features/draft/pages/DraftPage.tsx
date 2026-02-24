@@ -6,7 +6,7 @@ import { DraftProvider } from "../../../context/DraftContext";
 import { useRef, useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import StockDetailsModal from "@/components/ui/stockDetailsModal";
-import { getStockById } from "@/lib/stocks"; // ✅ fetch stock object
+import { getStockById } from "@/lib/stocks";
 
 const DraftPage = () => {
   const { leagueId } = useParams<{ leagueId: string }>();
@@ -16,7 +16,7 @@ const DraftPage = () => {
   const parsedLeagueId = Number(leagueId);
   if (Number.isNaN(parsedLeagueId)) return <div>Invalid league ID</div>;
 
-  // ⭐ Modal state (store full stock object)
+  // Modal state (store full stock object)
   const [selectedStock, setSelectedStock] = useState<any | null>(null);
 
   // Panel sizes

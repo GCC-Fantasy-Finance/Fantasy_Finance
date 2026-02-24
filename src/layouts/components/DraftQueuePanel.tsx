@@ -19,6 +19,7 @@ const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
     draftStarted,
     draftEnded,
     myPortfolio,
+    isMakingPick,
   } = useDraft();
 
   const { user } = useAuth();
@@ -87,7 +88,11 @@ const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
           return (
             <li
               key={item.stock_id}
-              onClick={() => stock && onStockClick(stock.stock_id)}
+              onClick={() => {
+                if (!isMakingPick && stock) {
+                  onStockClick(stock.stock_id);
+                }
+              }}
               onDragEnter={() => handleDragEnter(index)}
               onDragEnd={handleDragEnd}
               onDragOver={(e) => e.preventDefault()}
@@ -149,9 +154,10 @@ const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
               {canDraft ? (
                 <Button
                   size="sm"
+                  disabled={isMakingPick}
                   onClick={(e) => {
                     e.stopPropagation();
-                    makePick(item.stock_id);
+                    makePick(stock.stock_id);
                   }}
                 >
                   Draft

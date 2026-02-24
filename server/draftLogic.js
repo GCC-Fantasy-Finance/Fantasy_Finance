@@ -5,7 +5,26 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
+// =============================
+// LEAGUE PROCESSING LOCK
+// =============================
+const leagueLocks = new Map();
+
+function acquireLock(leagueId) {
+  if (leagueLocks.get(leagueId)) {
+    return false;
+  }
+  leagueLocks.set(leagueId, true);
+  return true;
+}
+
+function releaseLock(leagueId) {
+  leagueLocks.delete(leagueId);
+}
+
+// =============================
 // Get all portfolios in draft order
+// =============================
 async function getDraftPortfolios(leagueId) {
   const { data, error } = await supabase
     .from('Portfolios')
@@ -17,7 +36,9 @@ async function getDraftPortfolios(leagueId) {
   return data.map(p => p.portfolio_id);
 }
 
-// Remove drafted stock from every wishlist in the league
+// =============================
+// Remove drafted stock from every wishlist in league
+// =============================
 async function removeStockFromLeagueWishlists(leagueId, stockId) {
   const { data: portfolios, error: portfoliosError } = await supabase
     .from('Portfolios')
@@ -45,7 +66,9 @@ async function removeStockFromLeagueWishlists(leagueId, stockId) {
   }
 }
 
-// Advance draft state after a pick
+// =============================
+// Advance draft state
+// =============================
 async function advanceDraftState(leagueId) {
   const { data: draft, error: draftError } = await supabase
     .from('Drafts')
@@ -103,152 +126,146 @@ async function advanceDraftState(leagueId) {
   };
 }
 
-// Make a pick
+// =============================
+// MAKE PICK
+// =============================
 async function makePick({ leagueId, portfolioId, stockId, round, pickNumber }) {
-  const { data: draft } = await supabase
-    .from('Drafts')
-    .select('*')
-    .eq('league_id', leagueId)
-    .single();
 
-  if (draft?.is_ended) {
-    console.log(`Draft ${leagueId} already ended. Pick ignored.`);
-    return { ended: true };
+  if (!acquireLock(leagueId)) {
+    console.log(`League ${leagueId} is busy. Pick ignored.`);
+    return { busy: true };
   }
 
-  if (draft.current_portfolio_id !== portfolioId) {
-    throw new Error('Not this portfolio’s turn');
+  try {
+
+    const { data: draft } = await supabase
+      .from('Drafts')
+      .select('*')
+      .eq('league_id', leagueId)
+      .single();
+
+    if (draft?.is_ended) {
+      console.log(`Draft ${leagueId} already ended.`);
+      return { ended: true };
+    }
+
+    if (draft.current_portfolio_id !== portfolioId) {
+      throw new Error('Not this portfolios turn');
+    }
+
+    // Insert pick
+    const { error: pickError } = await supabase
+      .from('Draft Picks')
+      .insert({
+        draft_id: leagueId,
+        portfolio_id: portfolioId,
+        transaction_id: null,
+        stock_id: stockId,
+        round_number: round,
+        pick_number: pickNumber,
+      });
+
+    if (pickError) throw pickError;
+
+    console.log(`Pick made: Portfolio ${portfolioId} drafted Stock ${stockId}`);
+
+    await removeStockFromLeagueWishlists(leagueId, stockId);
+
+    const newState = await advanceDraftState(leagueId);
+
+    return { success: true, newState };
+
+  } finally {
+    releaseLock(leagueId);
+  }
+}
+
+// =============================
+// AUTOPICK
+// =============================
+async function autopick({ leagueId }) {
+
+  if (!acquireLock(leagueId)) {
+    console.log(`League ${leagueId} busy. Autopick skipped.`);
+    return { busy: true };
   }
 
-  const { error: pickError } = await supabase
-    .from('Draft Picks')
-    .insert({
-      draft_id: leagueId,
-      portfolio_id: portfolioId,
-      transaction_id: null,
-      stock_id: stockId,
-      round_number: round,
-      pick_number: pickNumber,
+  try {
+
+    const { data: draft, error: draftError } = await supabase
+      .from('Drafts')
+      .select('*')
+      .eq('league_id', leagueId)
+      .single();
+
+    if (draftError || !draft) throw new Error('Draft not found');
+
+    if (draft.is_ended) {
+      console.log(`Draft ${leagueId} already ended.`);
+      return { ended: true };
+    }
+
+    let currentPortfolioId = draft.current_portfolio_id;
+
+    if (!currentPortfolioId) {
+      const portfolios = await getDraftPortfolios(leagueId);
+      if (!portfolios.length) throw new Error('No portfolios found');
+
+      currentPortfolioId = portfolios[0];
+
+      await supabase
+        .from('Drafts')
+        .update({
+          current_portfolio_id: currentPortfolioId,
+          current_pick: 0,
+          current_round: 1,
+          is_snaking_forward: true,
+          timer_start_time: new Date().toISOString(),
+        })
+        .eq('league_id', leagueId);
+
+      console.log(`Draft initialized. First pick: ${currentPortfolioId}`);
+    }
+
+    console.log(`Timer expired. Autopicking for Portfolio ${currentPortfolioId}`);
+
+    const { data: wishlist } = await supabase
+      .from('Wishlist Items')
+      .select('stock_id')
+      .eq('portfolio_id', currentPortfolioId)
+      .order("rank", { ascending: true });
+
+    let stockId;
+
+    if (wishlist && wishlist.length > 0) {
+      stockId = wishlist[0].stock_id;
+    } else {
+      stockId = await getFirstUndraftedStock(leagueId);
+    }
+
+    return await makePick({
+      leagueId,
+      portfolioId: currentPortfolioId,
+      stockId,
+      round: draft.current_round ?? 1,
+      pickNumber: draft.current_pick ?? 0,
     });
 
-  if (pickError) throw pickError;
-
-  console.log(`Pick made: Portfolio ${portfolioId} drafted Stock ${stockId}`);
-
-  // Add to holdings
-  const { data: stock } = await supabase
-    .from('Stocks')
-    .select('current_price')
-    .eq('stock_id', stockId)
-    .single();
-
-  await supabase.from('Portfolio_Holdings').insert({
-    portfolio_id: portfolioId,
-    stock_id: stockId,
-    quantity: 1,
-    average_buy_price: stock?.current_price ?? 0,
-  });
-
-  // Remove from all wishlists in the league
-  await removeStockFromLeagueWishlists(leagueId, stockId);
-
-  const newState = await advanceDraftState(leagueId);
-  return { success: true, newState };
+  } finally {
+    releaseLock(leagueId);
+  }
 }
 
-// Autopick when timer expires
-async function autopick({ leagueId }) {
-  const { data: draft, error: draftError } = await supabase
-    .from('Drafts')
-    .select('*')
-    .eq('league_id', leagueId)
-    .single();
-
-  if (draftError || !draft) throw new Error('Draft not found');
-
-  if (draft.is_ended) {
-    console.log(`Draft ${leagueId} already ended. Autopick stopped.`);
-    return { ended: true };
-  }
-
-  let currentPortfolioId = draft.current_portfolio_id;
-
-  if (!currentPortfolioId) {
-    const portfolios = await getDraftPortfolios(leagueId);
-    if (!portfolios.length) throw new Error('No portfolios found for draft');
-
-    currentPortfolioId = portfolios[0];
-
-    await supabase
-      .from('Drafts')
-      .update({
-        current_portfolio_id: currentPortfolioId,
-        current_pick: 0,
-        current_round: 1,
-        is_snaking_forward: true,
-        timer_start_time: new Date().toISOString(),
-      })
-      .eq('league_id', leagueId);
-
-    console.log(`Draft ${leagueId} initialized. First pick: Portfolio ${currentPortfolioId}`);
-  }
-
-  console.log(`Timer expired. Autopicking for Portfolio ${currentPortfolioId}`);
-
-  const { data: wishlist } = await supabase
-    .from('Wishlist Items')
-    .select('stock_id')
-    .eq('portfolio_id', currentPortfolioId)
-    .order("rank", { ascending: true });
-
-  let stockId;
-  if (wishlist && wishlist.length > 0) {
-    stockId = wishlist[0].stock_id;
-  } else {
-    console.log('Wishlist empty, selecting best available undrafted stock');
-    stockId = await getFirstUndraftedStock(leagueId);
-  }
-
-
-  return await makePick({
-    leagueId,
-    portfolioId: currentPortfolioId,
-    stockId,
-    round: draft.current_round ?? 1,
-    pickNumber: draft.current_pick ?? 0,
-  });
-}
-
-// Get first stock not yet drafted in this league
+// =============================
+// RPC: GET AUTOPICK STOCK
+// =============================
 async function getFirstUndraftedStock(leagueId) {
-  // 1. Get all stock_ids already picked in this draft
-  const { data: picked, error: pickedError } = await supabase
-    .from('Draft Picks')
-    .select('stock_id')
-    .eq('draft_id', leagueId);
+  const { data, error } = await supabase.rpc('get_autopick_stock', {
+    p_league_id: leagueId
+  });
 
-  if (pickedError) throw pickedError;
-
-  const pickedIds = picked.map(p => p.stock_id);
-
-  // 2. Find a stock NOT in that list
-  let query = supabase
-    .from('Stocks')
-    .select('stock_id')
-    .order('stock_id', { ascending: true })
-    .limit(1);
-
-  if (pickedIds.length > 0) {
-    query = query.not('stock_id', 'in', `(${pickedIds.join(',')})`);
-  }
-
-  const { data: stock, error: stockError } = await query.single();
-
-  if (stockError || !stock) {
-    throw new Error('No undrafted stocks remaining');
-  }
-
-  return stock.stock_id;
+  if (error) throw error;
+  return data;
 }
 
 module.exports = { makePick, autopick };

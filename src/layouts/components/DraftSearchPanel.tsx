@@ -340,9 +340,11 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
               return (
                 <div
                   key={stock.stock_id}
-                  onClick={() =>
-                    onStockClick(stock.stock_id)
-                  }
+                  onClick={() => {
+                    if (!isMakingPick && stock) {
+                      onStockClick(stock.stock_id);
+                    }
+                  }}
                   className="grid grid-cols-[90px_60px_100px_1fr_120px_130px_120px_120px] gap-2 px-3 py-1 items-center border-b hover:bg-gray-100 cursor-pointer"
                 >
                   {canDraft ? (

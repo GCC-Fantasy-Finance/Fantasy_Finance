@@ -75,6 +75,21 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
   const [stockPrices, setStockPrices] = useState<Record<number, number>>({});
   const [activeUsers, setActiveUsers] = useState<Record<string, any>>({});
 
+  // tab visibility state
+  const [tabVisible, setTabVisible] = useState(true);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      setTabVisible(document.visibilityState === "visible");
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
+
   useEffect(() => {
     const ids = new Set<number>();
     draftPicks.forEach(p => ids.add(p.stock_id));
@@ -132,7 +147,10 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     };
   }, [leagueId]);
 
+  // 🔥 Presence with tab visibility rerun
   useEffect(() => {
+    if (!tabVisible) return;
+
     let channel: any;
     let isMounted = true;
 
@@ -176,7 +194,7 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
         supabase.removeChannel(channel);
       }
     };
-  }, [leagueId]);
+  }, [leagueId, tabVisible]);
 
   useEffect(() => {
     const channel = supabase
@@ -305,19 +323,15 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
 
   const queueStock = async (stockId: number) => {
     if (!myPortfolio) return;
-
-    // Prevent duplicate queue
     if (queuedItems.some((i) => i.stock_id === stockId)) return;
 
-    // --- optimistic item ---
     const tempItem = {
-      wishlist_item_id: -Date.now(), // temporary id
+      wishlist_item_id: -Date.now(),
       portfolio_id: myPortfolio.portfolio_id,
       stock_id: stockId,
       rank: queuedItems.length,
     };
 
-    // Instant UI update
     setQueuedItems((prev) => [...prev, tempItem]);
 
     try {
@@ -326,7 +340,6 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
         stock_id: stockId,
       });
 
-      // Replace temp item with real DB item
       setQueuedItems((prev) =>
         prev.map((item) =>
           item.wishlist_item_id === tempItem.wishlist_item_id
@@ -336,8 +349,6 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
       );
     } catch (err) {
       console.error("Queue failed:", err);
-
-      // Rollback UI
       setQueuedItems((prev) =>
         prev.filter((i) => i.wishlist_item_id !== tempItem.wishlist_item_id)
       );
@@ -356,20 +367,6 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     }
   };
 
-  // const makePick = async (stockId: number) => {
-  //   if (!currentPortfolioId) return;
-
-  //   await fetch(`${SERVER_URL}/draft/${leagueId}/pick`, {
-  //     method: "POST",
-  //     headers: { "Content-Type": "application/json" },
-  //     body: JSON.stringify({
-  //       portfolioId: currentPortfolioId,
-  //       stockId,
-  //       round,
-  //       pickNumber: draftPicks.length + 1,
-  //     }),
-  //   });
-  // };
   const makePick = async (stockId: number) => {
     if (!currentPortfolioId) return;
     if (isMakingPick) return;
@@ -385,17 +382,14 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
       temp: true,
     };
 
-    // --- optimistic draft picks ---
     setDraftPicks(prev => [...prev, tempPick]);
 
-    // --- optimistic drafted ids ---
     setDraftedStockIds(prev => {
       const copy = new Set(prev);
       copy.add(stockId);
       return copy;
     });
 
-    // --- optimistic queue removal (my queue only) ---
     if (myPortfolio?.portfolio_id === currentPortfolioId) {
       setQueuedItems(prev =>
         prev.filter(item => item.stock_id !== stockId)
@@ -415,12 +409,9 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
           pickNumber: draftPicks.length + 1,
         }),
       });
-
-      // realtime will correct state shortly
     } catch (err) {
       console.error("Pick failed:", err);
 
-      // --- rollback ---
       setDraftPicks(prev =>
         prev.filter(p => p !== tempPick)
       );
