@@ -13,6 +13,8 @@ import { getLeagueById, type LeagueRow } from "../lib/leagues";
 
 const SERVER_URL = "https://nonalgebraical-arduously-kylie.ngrok-free.dev";
 
+type PresenceState = "active" | "away" | "offline";
+
 type DraftContextType = {
   users: Portfolio[];
   leagueId: number;
@@ -33,6 +35,7 @@ type DraftContextType = {
   draftedStockIds: Set<number>;
   stockPrices: Record<number, number>;
   activeUsers: Record<string, any>;
+  userPresenceStates: Record<string, PresenceState>;
   isMakingPick: boolean;
   startDraft: () => Promise<void>;
   makePick: (stockId: number) => Promise<void>;
@@ -74,6 +77,7 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
 
   const [stockPrices, setStockPrices] = useState<Record<number, number>>({});
   const [activeUsers, setActiveUsers] = useState<Record<string, any>>({});
+  const [userPresenceStates, setUserPresenceStates] = useState<Record<string, PresenceState>>({});
 
   // tab visibility state
   const [tabVisible, setTabVisible] = useState(true);
@@ -147,10 +151,16 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     };
   }, [leagueId]);
 
-  // 🔥 Presence with tab visibility rerun
-  useEffect(() => {
-    if (!tabVisible) return;
+  // Helper function to determine presence state
+  const getPresenceState = (userId: string): PresenceState => {
+    const presenceArr = activeUsers[userId];
+    if (!presenceArr || presenceArr.length === 0) return "offline";
+    if (presenceArr.some((p: any) => p.tab_visible)) return "active";
+    return "away";
+  };
 
+  // Presence with tab visibility rerun
+  useEffect(() => {
     let channel: any;
     let isMounted = true;
 
@@ -173,13 +183,43 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
         channel.on("presence", { event: "sync" }, () => {
           const state = channel.presenceState() as Record<string, any[]>;
           setActiveUsers({ ...state });
+
+          // Update presence states for all users
+          const states: Record<string, PresenceState> = {};
+          Object.keys(state).forEach(userId => {
+            states[userId] = getPresenceState(userId);
+          });
+          setUserPresenceStates(states);
+        });
+
+        channel.on("presence", { event: "join" }, ({ key, newPresences }: { key: string; newPresences: any[] }) => {
+          setActiveUsers(prev => ({ ...prev, [key]: newPresences }));
+          setUserPresenceStates(prev => ({
+            ...prev,
+            [key]: getPresenceState(key),
+          }));
+        });
+
+        channel.on("presence", { event: "leave" }, ({ key, leftPresences }: { key: string; leftPresences: any[] }) => {
+          setActiveUsers(prev => {
+            const updated = { ...prev };
+            if (leftPresences.length === 0) delete updated[key];
+            else updated[key] = leftPresences;
+            return updated;
+          });
+          setUserPresenceStates(prev => ({
+            ...prev,
+            [key]: getPresenceState(key),
+          }));
         });
 
         await channel.subscribe();
 
+        // Track presence with tab visibility
         await channel.track({
           user_id: user.id,
           online_at: new Date().toISOString(),
+          tab_visible: tabVisible,
         });
       } catch (err) {
         console.error("Presence setup failed:", err);
@@ -448,6 +488,7 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
         draftedStockIds,
         stockPrices,
         activeUsers,
+        userPresenceStates,
         isMakingPick,
         startDraft,
         makePick,

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useDraft } from "../../context/DraftContext";
 import { getDraftPicksByLeague, type DraftPickRow } from "../../lib/draftpicks";
 import { supabase } from "@/lib/supabase";
-import { Check } from "lucide-react";
+import { Check, Minus, X } from "lucide-react";
 
 import {
   Tooltip,
@@ -13,6 +13,7 @@ import {
 
 const SLOT_HEIGHT = 24;
 const SLOT_GAP = 2;
+const USER_COLUMN_WIDTH = 100; // fixed width per user column
 
 interface DraftResultsPanelProps {
   onStockClick: (stockId: number) => void;
@@ -82,189 +83,122 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
   const slotsContainerHeight =
     draftRounds * SLOT_HEIGHT + (draftRounds - 1) * SLOT_GAP;
 
+  // Helper to determine presence state
+  const getPresenceState = (userId: string) => {
+    const presenceArr = activeUsers[userId];
+    if (!presenceArr || presenceArr.length === 0) return "offline";
+    if (presenceArr.some((p: any) => p.tab_visible)) return "active";
+    return "away";
+  };
+
   return (
     <TooltipProvider delayDuration={200}>
-      <div
-        style={{
-          display: "flex",
-          gap: "4px",
-          padding: "0 12px",
-          boxSizing: "border-box",
-          alignItems: "flex-start",
-        }}
-      >
+      {/* Full-width flex container */}
+      <div className="flex w-full gap-1 px-3 items-start overflow-x-auto">
         {users.map((user, userIdx) => {
           const isMe = user.portfolio_id === myPortfolio?.portfolio_id;
-          const isActive = !!activeUsers[user.user_id];
+          const presence = getPresenceState(user.user_id);
           const username = user?.Profiles?.username ?? "Name not found";
+
+          // Choose color, icon, and tooltip based on presence state
+          let bgColor = "bg-red-500";
+          let presenceIcon = <X size={10} className="text-white" strokeWidth={3} />;
+          let presenceTooltip = "Not present";
+          
+          if (presence === "active") {
+            bgColor = "bg-green-500";
+            presenceIcon = <Check size={10} className="text-white" strokeWidth={4} />;
+            presenceTooltip = "Active in draft room";
+          } else if (presence === "away") {
+            bgColor = "bg-yellow-400";
+            presenceIcon = <Minus size={10} className="text-white" strokeWidth={4} />;
+            presenceTooltip = "Draft room open in background";
+          }
 
           return (
             <div
               key={user.portfolio_id}
-              style={{
-                flex: "1 1 0",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                minWidth: 0,
-                background: isMe ? "rgba(34,197,94,0.08)" : "transparent",
-                borderRadius: isMe ? "8px" : undefined,
-                padding: isMe ? "4px" : undefined,
-                boxShadow: isMe
-                  ? "inset 0 0 0 1px rgba(34,197,94,0.25)"
-                  : undefined,
-              }}
+              className={`flex flex-col items-center flex-1`}
+              style={{ minWidth: USER_COLUMN_WIDTH }}
             >
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      fontWeight: isMe ? "bold" : "normal",
-                      marginBottom: "4px",
-                      fontSize: "0.8rem",
-                      textAlign: "center",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      width: "100%",
-                      justifyContent: "center",
-                      color: isMe ? "#166534" : undefined,
-                      cursor: isActive ? "pointer" : "default",
-                    }}
-                  >
-                    {isActive && (
-                      <Check
-                        size={14}
-                        strokeWidth={3}
-                        style={{
-                          color: "#16a34a",
-                          flexShrink: 0,
-                        }}
-                      />
-                    )}
-
-                    <span
-                      style={{
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      {username}
-                    </span>
-                  </div>
-                </TooltipTrigger>
-
-                {isActive && (
-                  <TooltipContent>
-                    {username} is in the draft room!
-                  </TooltipContent>
-                )}
-              </Tooltip>
-              
               <div
-                style={{
-                  height: `${slotsContainerHeight}px`,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: `${SLOT_GAP}px`,
-                  width: "100%",
-                  flexShrink: 0,
-                }}
+                className={`flex flex-col items-center w-full ${
+                  isMe ? "bg-green-100 rounded-md p-1 shadow-inner" : "p-1"
+                }`}
               >
-                {Array.from({ length: draftRounds }).map((_, idx) => {
-                  const roundNumber = idx + 1;
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div
+                      className={`flex items-center gap-1.5 font-semibold mb-1 text-[0.8rem] text-center w-full justify-center truncate ${
+                        isMe ? "text-green-800" : ""
+                      }`}
+                    >
+                      <div className={`flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center overflow-hidden ${bgColor}`}>
+                        {presenceIcon}
+                      </div>
+                      <span className="truncate">{username}</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>{username}: {presenceTooltip}</TooltipContent>
+                </Tooltip>
 
-                  const pickInRound =
-                    idx % 2 === 0
-                      ? userIdx + 1
-                      : users.length - userIdx;
+                <div
+                  style={{ height: `${slotsContainerHeight}px` }}
+                  className="flex flex-col gap-[2px] w-full flex-shrink-0"
+                >
+                  {Array.from({ length: draftRounds }).map((_, idx) => {
+                    const roundNumber = idx + 1;
+                    const pickInRound =
+                      idx % 2 === 0 ? userIdx + 1 : users.length - userIdx;
 
-                  let isCurrent = false;
-                  let isPast = false;
+                    let isCurrent = false;
+                    let isPast = false;
 
-                  if (draftEnded) {
-                    isPast = true;
-                  } else if (draftStarted) {
-                    if (idx === round - 1) {
-                      if (userIdx === currentPick) isCurrent = true;
-                      else if (
-                        (direction === "forward" && userIdx < currentPick) ||
-                        (direction === "backward" && userIdx > currentPick)
-                      ) {
+                    if (draftEnded) {
+                      isPast = true;
+                    } else if (draftStarted) {
+                      if (idx === round - 1) {
+                        if (userIdx === currentPick) isCurrent = true;
+                        else if (
+                          (direction === "forward" && userIdx < currentPick) ||
+                          (direction === "backward" && userIdx > currentPick)
+                        ) {
+                          isPast = true;
+                        }
+                      } else if (idx < round - 1) {
                         isPast = true;
                       }
-                    } else if (idx < round - 1) {
-                      isPast = true;
                     }
-                  }
 
-                  let background = "#fff";
-                  let color = "#6b7280";
-                  let border = "1px solid #e5e7eb";
+                    const stockId = pickedStocks[user.portfolio_id]?.[idx];
+                    const text = stockId ? stocksMap[stockId] : "";
 
-                  const stockId = pickedStocks[user.portfolio_id]?.[idx];
-                  const text = stockId ? stocksMap[stockId] : "";
+                    const pastPickClass =
+                      stockId && isPast ? "hover:bg-gray-100 cursor-pointer" : "";
 
-                  if (isPast) {
-                    background = "#f3f4f6";
-                    color = "#374151";
-                    border = "1px solid #d1d5db";
-                  }
-
-                  if (isCurrent) {
-                    background = "#166534";
-                    color = "#fff";
-                    border = "2px solid #166534";
-                  }
-
-                  return (
-                    <div
-                      key={idx}
-                      style={{
-                        position: "relative",
-                        height: `${SLOT_HEIGHT}px`,
-                        width: "100%",
-                        background,
-                        border,
-                        borderRadius: "4px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "0.8rem",
-                        fontWeight: isPast || isCurrent ? "bold" : "normal",
-                        color,
-                        overflow: "hidden",
-                        whiteSpace: "nowrap",
-                        textOverflow: "ellipsis",
-                        boxSizing: "border-box",
-                        flexShrink: 0,
-                        cursor: stockId ? "pointer" : "default",
-                      }}
-                      onClick={() => {
-                        if (stockId) onStockClick(stockId);
-                      }}
-                    >
-                      <span
-                        style={{
-                          position: "absolute",
-                          top: "2px",
-                          right: "4px",
-                          fontSize: "0.6rem",
-                          fontWeight: 500,
-                          opacity: 0.7,
-                          pointerEvents: "none",
+                    return (
+                      <div
+                        key={idx}
+                        className={`relative h-6 w-full rounded flex items-center justify-center text-[0.8rem] overflow-hidden truncate font-semibold transition-colors duration-150
+                          ${
+                            isCurrent
+                              ? "bg-green-800 text-white border-2 border-green-800"
+                              : isPast
+                              ? `bg-white text-gray-700 border border-gray-300 ${pastPickClass}`
+                              : "bg-white text-gray-500 border border-gray-300"
+                          }`}
+                        onClick={() => {
+                          if (stockId) onStockClick(stockId);
                         }}
                       >
-                        {roundNumber}.{pickInRound}
-                      </span>
-
-                      {text}
-                    </div>
-                  );
-                })}
+                        <span className="absolute top-0 right-1 text-[0.6rem] font-medium opacity-70 pointer-events-none">
+                          {roundNumber}.{pickInRound}
+                        </span>
+                        {text}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           );
