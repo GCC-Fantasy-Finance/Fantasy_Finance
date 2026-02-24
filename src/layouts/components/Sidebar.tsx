@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
 import {
   Compass,
@@ -71,15 +71,30 @@ export default function Sidebar() {
     return leagues;
   }
 
-  useEffect(() => {
-    const fetchPromise = fetchLeagues();
+  const reloadLeagues = useCallback(async () => {
+    setLoading(true);
     const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve([]), 5000));
 
-    Promise.race([fetchPromise, timeoutPromise])
+    Promise.race([fetchLeagues(), timeoutPromise])
       .then((data) => setLeagues(data as any[]))
       .catch(() => setLeagues([]))
       .finally(() => setLoading(false));
   }, [profile]);
+
+  useEffect(() => {
+    reloadLeagues();
+  }, [reloadLeagues]);
+
+  useEffect(() => {
+    const handleLeaguesUpdated = () => {
+      reloadLeagues();
+    };
+
+    window.addEventListener("ff:leagues-updated", handleLeaguesUpdated);
+    return () => {
+      window.removeEventListener("ff:leagues-updated", handleLeaguesUpdated);
+    };
+  }, [reloadLeagues]);
 
   useEffect(() => {
     if (leagues.length === 0) return;

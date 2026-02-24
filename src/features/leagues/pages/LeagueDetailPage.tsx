@@ -18,6 +18,7 @@ type League = {
   owner_id?: string;
   created_at?: string;
   finish_time?: string;
+  join_code?: string;
 };
 
 type Profile = {
@@ -171,6 +172,11 @@ export default function LeagueDetailPage() {
                   if (error) {
                     alert("Failed to leave league: " + error.message);
                   } else {
+                    window.dispatchEvent(
+                      new CustomEvent("ff:leagues-updated", {
+                        detail: { leagueId: Number(leagueId) },
+                      })
+                    );
                     navigate("/");
                   }
                 });
