@@ -17,6 +17,7 @@ import { getHasDraftStarted, getHasDraftEnded } from "@/lib/drafts";
 import { isWishlisted, addWishlistItemStockPage, removeWishlistItem} from "@/lib/wishlists";
 import { isStockInDraftPicks } from "@/lib/draftpicks";
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { getDayMinMaxStockHistory, getYearMinMaxStockHistory } from "@/lib/stockHistory";
 
 
 interface Stock {
@@ -30,6 +31,7 @@ interface Stock {
   year_range?: any;
   market_cap?: any;
   volume?: any;
+  logo_url?: string;
 }
 
 interface PortfolioWithLeague {
@@ -62,6 +64,16 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
   const [timeFrame, setTimeFrame] = useState("1D");
   const [stockPrice, setStockPrice] = useState<number | null>(null);
   const [isInDraftPicks, setIsInDraftPicks] = useState<boolean>(true);
+  const [detailsLoading, setDetailsLoading] = useState<boolean>(true);
+  const [dayRangeDisplay, setDayRangeDisplay] = useState<string>("-");
+  const [yearRangeDisplay, setYearRangeDisplay] = useState<string>("-");
+
+  const formatRangeFallback = (value: any) => {
+    if (value == null || value === "") return "-";
+    const text = String(value).trim();
+    if (!text) return "-";
+    return text.includes("$") ? text : `$${text}`;
+  };
 
   /* ================= INIT PRICE ================= */
   useEffect(() => {
@@ -97,6 +109,61 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
       supabase.removeChannel(channel);
     };
   }, [stock?.stock_id]);
+
+  /* ================= DAY + YEAR RANGE ================= */
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchRanges = async () => {
+      if (!open || !stock?.stock_id) {
+        if (mounted) {
+          setDetailsLoading(true);
+          setDayRangeDisplay("-");
+          setYearRangeDisplay("-");
+        }
+        return;
+      }
+
+      if (mounted) setDetailsLoading(true);
+
+      try {
+        const [{ min: dayMin, max: dayMax }, { min: yearMin, max: yearMax }] = await Promise.all([
+          getDayMinMaxStockHistory(stock.stock_id),
+          getYearMinMaxStockHistory(stock.stock_id),
+        ]);
+
+        if (!mounted) return;
+
+        if (dayMin != null && dayMax != null) {
+          setDayRangeDisplay(`$${dayMin.toFixed(2)} - $${dayMax.toFixed(2)}`);
+        } else {
+          setDayRangeDisplay(formatRangeFallback(stock.day_range));
+        }
+
+        if (yearMin != null && yearMax != null) {
+          setYearRangeDisplay(`$${yearMin.toFixed(2)} - $${yearMax.toFixed(2)}`);
+        } else {
+          setYearRangeDisplay(formatRangeFallback(stock.year_range));
+        }
+      } catch (err) {
+        console.error("Failed to fetch stock ranges:", err);
+        if (mounted) {
+          setDayRangeDisplay(formatRangeFallback(stock.day_range));
+          setYearRangeDisplay(formatRangeFallback(stock.year_range));
+        }
+      } finally {
+        if (mounted) {
+          setDetailsLoading(false);
+        }
+      }
+    };
+
+    fetchRanges();
+
+    return () => {
+      mounted = false;
+    };
+  }, [open, stock?.stock_id, stock?.day_range, stock?.year_range]);
 
   /* ================= FETCH DATA ================= */
   useEffect(() => {
@@ -142,6 +209,8 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
             };
           })
         );
+
+        enriched.sort((a, b) => Number(b.is_solo) - Number(a.is_solo));
 
         setPortfolios(enriched);
 
@@ -283,17 +352,21 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
     }).format(amount);
   };
 
+  const detailSkeleton = (widthClass: string = "w-28") => (
+    <span className={`inline-block h-3 ${widthClass} rounded bg-gray-200 animate-pulse align-middle`} />
+  );
+
   
 
   const modal = (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${isPinned ? "pr-[350px]" : ""}`}>
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 ${isPinned ? "pr-[350px]" : ""}`}>
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
       <div
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
-        className="relative z-10 w-full max-w-6xl h-[90vh] rounded bg-white shadow-lg flex flex-col"
+        className="relative z-10 w-full max-w-6xl h-[95vh] sm:h-[90vh] rounded bg-white shadow-lg flex flex-col"
       >
         <button
           onClick={onClose}
@@ -303,9 +376,9 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
         </button>
 
         {/* CONTENT */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 min-h-0 flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
           {/* LEFT — CHART */}
-          <div className="w-full flex flex-col border-r border-gray-200 p-6">
+          <div className="w-full min-w-0 flex flex-col border-b lg:border-b-0 lg:border-r border-gray-200 p-4 sm:p-6">
             <div className="mb-2">
               <h2 className="text-2xl font-semibold">
                 {stock.name}{" – "}
@@ -314,23 +387,31 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                   currentValue={stockPrice ?? undefined}
                   previousValue={stock.previous_close ?? undefined}
                 />
+
               </h2>
-              <p className="text-gray-600 text-sm">{stock.stock_symbol}</p>
+              <p className="text-gray-600 text-sm flex items-center gap-2 flex-wrap">
+                <span>{stock.stock_symbol}</span>
+                <img src={stock.logo_url} alt={`${stock.stock_symbol} logo`} className="w-8 h-8 object-cover" />
+              </p>
             </div>
 
-            <div className="flex-1">
-              <Button className="mx-1 my-[5px] h-[30px] w-16"
-                onClick={() => setTimeFrame("1D")}
-                disabled={timeFrame === "1D"}>1 Day</Button>
-              <Button className="mx-1 my-[5px] h-[30px] w-16" 
-                onClick={() => setTimeFrame("1M")}
-                disabled={timeFrame === "1M"}>30 Days</Button>
-              <Button className="mx-1 my-[5px] h-[30px] w-16" 
-                onClick={() => setTimeFrame("1Y")}
-                disabled={timeFrame === "1Y"}>Year</Button>
+            <div className="flex-1 min-h-0">
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <Button className="h-[30px] w-16"
+                  onClick={() => setTimeFrame("1D")}
+                  disabled={timeFrame === "1D"}>1 Day</Button>
+                <Button className="h-[30px] w-16" 
+                  onClick={() => setTimeFrame("1M")}
+                  disabled={timeFrame === "1M"}>30 Days</Button>
+                <Button className="h-[30px] w-16" 
+                  onClick={() => setTimeFrame("1Y")}
+                  disabled={timeFrame === "1Y"}>Year</Button>
+              </div>
 
               <StockChart id={stock.stock_id || 0} timeFrame={timeFrame} />
             </div>
+
+            
 
             {/* AI questions */}
             <div className="border-t">
@@ -371,7 +452,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
           </div>
 
           {/* RIGHT — TRADE + DETAILS */}
-          <div className="w-[1000px] flex flex-col border-l border-gray-200 p-6 bg-gray-50">
+          <div className="w-full lg:w-[460px] xl:w-[520px] shrink-0 flex flex-col border-t lg:border-t-0 lg:border-l border-gray-200 p-4 sm:p-6 bg-gray-50">
             <h3 className="text-lg font-semibold mb-4 shrink-0">Trade</h3>
 
             <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
@@ -441,7 +522,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                                   </span>
                                 </TooltipTrigger>
 
-                                <TooltipContent className="bg-green-700 text-white text-xs rounded px-2 py-1">
+                                <TooltipContent className="bg-green-700 text-white text-xs rounded max-w-56 whitespace-normal break-words px-2 py-1">
                                   Sector {stock.sector} is not allowed in this league.
                                   <br />
                                   Allowed sectors: {portfolio.sectors.join(", ")}
@@ -488,7 +569,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                                   </span>
                                 </TooltipTrigger>
 
-                                <TooltipContent className="bg-green-700 text-white text-xs rounded w-56 px-2 py-1">
+                                <TooltipContent className="bg-green-700 text-white text-xs rounded max-w-56 whitespace-normal break-words px-2 py-1">
                                   Sector {stock.sector} is not allowed in this league.
                                   <br />
                                   Allowed sectors: {portfolio.sectors.join(", ")}
@@ -498,14 +579,16 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
 
                           ) : (
                             <>
-                              <Button
-                                onClick={() => handleSell(portfolio)}
-                                variant="outline"
-                                disabled={!(holdings[portfolio.portfolio_id] > 0)}
-                                className="text-xs h-7 px-2 text-red-600 border-red-300 hover:bg-red-50 disabled:bg-gray-300"
-                              >
-                                – Sell
-                              </Button>
+                              {(portfolio.is_solo || isInDraftPicks) && (
+                                <Button
+                                  onClick={() => handleSell(portfolio)}
+                                  variant="outline"
+                                  disabled={!(holdings[portfolio.portfolio_id] > 0)}
+                                  className="text-xs h-7 px-2 text-red-600 border-red-300 hover:bg-red-50 disabled:bg-gray-300"
+                                >
+                                  – Sell
+                                </Button>
+                              )}
 
                               {!portfolio.is_solo && !isInDraftPicks ? (
                                 <TooltipProvider delayDuration={100}>
@@ -521,8 +604,8 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                                       </span>
                                     </TooltipTrigger>
 
-                                    <TooltipContent className="bg-green-700 text-white text-xs rounded w-56 px-2 py-1">
-                                      This stock is not in your draft picks.
+                                    <TooltipContent className="bg-green-700 text-white text-xs rounded max-w-56 whitespace-normal break-words px-2 py-1">
+                                      This stock is not in your portfolio.
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
@@ -569,7 +652,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                           </TooltipContent>
                         </Tooltip>
                       </td>
-                      <td>${stock.previous_close?.toFixed(2)}</td>
+                      <td>{detailsLoading ? detailSkeleton("w-20") : `$${stock.previous_close?.toFixed(2)}`}</td>
                     </tr>
 
                     <tr>
@@ -586,7 +669,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                           </TooltipContent>
                         </Tooltip>
                       </td>
-                      <td>${stock.day_range ?? "-"}</td>
+                      <td>{detailsLoading ? detailSkeleton("w-36") : dayRangeDisplay}</td>
                     </tr>
 
                     <tr>
@@ -603,7 +686,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                           </TooltipContent>
                         </Tooltip>
                       </td>
-                      <td>${stock.year_range ?? "-"}</td>
+                      <td>{detailsLoading ? detailSkeleton("w-40") : yearRangeDisplay}</td>
                     </tr>
 
                     <tr>
@@ -620,7 +703,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                           </TooltipContent>
                         </Tooltip>
                       </td>
-                      <td>{formatDetails(stock.market_cap)} USD</td>
+                      <td>{detailsLoading ? detailSkeleton("w-24") : `${formatDetails(stock.market_cap)} USD`}</td>
                     </tr>
 
                     <tr>
@@ -637,7 +720,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                           </TooltipContent>
                         </Tooltip>
                       </td>
-                      <td>{formatDetails(stock.volume)}</td>
+                      <td>{detailsLoading ? detailSkeleton("w-20") : formatDetails(stock.volume)}</td>
                     </tr>
 
                   </tbody>

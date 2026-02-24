@@ -2,13 +2,10 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
-import { getLeagueById } from "@/lib/leagues";
-import { getPortfoliosByLeague } from "@/lib/portfolios";
-import { calculatePortfolioValue } from "@/lib/portfolioValue";
 import { useAuth } from "@/context/AuthContext";
-import { getPortfolioHoldings } from "@/lib/potfolioHoldings";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import Leaderboard, { type LeaderboardEntry } from "@/layouts/components/Leaderboard";
+import { fetchLeagueView, getCachedLeagueView } from "@/hooks/fetchLeagueView";
 
 type Profile = {
   id: string;
@@ -30,37 +27,28 @@ export default function LeagueSummaryPage() {
     const fetchSummary = async () => {
       if (!leagueId) return;
 
+      const numericLeagueId = Number(leagueId);
+
+      const cached = getCachedLeagueView(numericLeagueId);
+      if (cached) {
+        setLeague(cached.league);
+        const cachedStandings = cached.leaderboard as LeaderboardEntry[];
+        setStandings(cachedStandings);
+        setSelectedPortfolioId(cachedStandings[0]?.portfolio_id ?? null);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
+
       try {
-        const leagueData = await getLeagueById(parseInt(leagueId));
-        setLeague(leagueData);
+        const result = await fetchLeagueView(numericLeagueId, {
+          useCache: true,
+          forceRefresh: Boolean(cached),
+        });
+        setLeague(result.league);
 
-        const portfolios = await getPortfoliosByLeague(parseInt(leagueId));
-
-        // Calculate final values
-        const standingsData = await Promise.all(
-          portfolios.map(async (portfolio) => {
-            const holdings = await getPortfolioHoldings(portfolio.portfolio_id);
-            const mappedHoldings = holdings.map((h: any) => ({
-              quantity: h.quantity,
-              stock: { current_price: h.Stocks?.current_price },
-            }));
-            const value = calculatePortfolioValue({
-              holdings: mappedHoldings,
-              reserveValue: portfolio.reserve_value,
-            });
-            return {
-              portfolio_id: portfolio.portfolio_id,
-              previous_close_value: portfolio.previous_close_value,
-              live_value: value,
-              user_id: portfolio.user_id,
-              Profiles: portfolio.Profiles,
-            } as LeaderboardEntry;
-          })
-        );
+        const standingsData = result.leaderboard as LeaderboardEntry[];
         setSelectedPortfolioId(standingsData[0]?.portfolio_id ?? null);
-
-        // Sort by final value descending
-        standingsData.sort((a, b) => (b.live_value ?? 0) - (a.live_value ?? 0));
         setStandings(standingsData);
       } catch (err) {
         console.error("Failed to fetch league summary:", err);

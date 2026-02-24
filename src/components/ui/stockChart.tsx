@@ -40,7 +40,7 @@ export default function StockChart({ id, timeFrame }: { id: number, timeFrame: s
 
           const { data: rows, error } = await supabase
             .from("Stock Intraday")
-            .select("*")
+            .select("price, timestamp_of")
             .eq("stock_id", id)
             .gte("timestamp_of", twoDaysAgo.toISOString())
             .order("timestamp_of", { ascending: true })
@@ -192,7 +192,7 @@ export default function StockChart({ id, timeFrame }: { id: number, timeFrame: s
   };
 
   return (
-    <ResponsiveContainer width="100%" height={320}>
+    <ResponsiveContainer width="100%" height={290}>
       <AreaChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
