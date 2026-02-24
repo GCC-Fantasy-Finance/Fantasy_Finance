@@ -101,18 +101,18 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
           const username = user?.Profiles?.username ?? "Name not found";
 
           // Choose color, icon, and tooltip based on presence state
-          let bgColor = "bg-red-500";
+          let bgColor = "bg-gray-500";
           let presenceIcon = <X size={10} className="text-white" strokeWidth={3} />;
-          let presenceTooltip = "Not present";
+          let presenceTooltip = "is not present";
           
           if (presence === "active") {
             bgColor = "bg-green-500";
             presenceIcon = <Check size={10} className="text-white" strokeWidth={4} />;
-            presenceTooltip = "Active in draft room";
+            presenceTooltip = "is in draft room!";
           } else if (presence === "away") {
             bgColor = "bg-yellow-400";
             presenceIcon = <Minus size={10} className="text-white" strokeWidth={4} />;
-            presenceTooltip = "Draft room open in background";
+            presenceTooltip = "will be right back!";
           }
 
           return (
@@ -139,7 +139,7 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
                       <span className="truncate">{username}</span>
                     </div>
                   </TooltipTrigger>
-                  <TooltipContent>{username}: {presenceTooltip}</TooltipContent>
+                  <TooltipContent>{username} {presenceTooltip}</TooltipContent>
                 </Tooltip>
 
                 <div

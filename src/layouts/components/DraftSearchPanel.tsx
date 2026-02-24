@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useDraft } from "../../context/DraftContext";
 import { Button } from "../../components/ui/button";
 import { useAuth } from "../../context/AuthContext";
@@ -62,6 +63,8 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
 
   const [exchangeFilter, setExchangeFilter] = useState<string>("All");
   const [sectorFilter, setSectorFilter] = useState<string>("All");
+
+  const scrollContainer = useRef<HTMLDivElement>(null);
 
   const isMyPick =
     !!user && !!activePortfolio && activePortfolio.user_id === user.id;
@@ -225,6 +228,13 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
     return sorted;
   }, [filteredStocks, sortColumn, sortDirection, stockPrices]);
 
+  const virtualizer = useVirtualizer({
+    count: sortedStocks.length,
+    getScrollElement: () => scrollContainer.current,
+    estimateSize: () => 40,
+    overscan: 10,
+  });
+
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="p-2 flex items-end gap-4">
@@ -276,7 +286,10 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
         </div>
       </div>
 
-      <div className="mx-4 mb-4 flex-1 overflow-auto border border-gray-200 rounded-sm text-xs">
+      <div
+        ref={scrollContainer}
+        className="mx-4 mb-4 flex-1 overflow-auto border border-gray-200 rounded-sm text-xs"
+      >
         <div className="min-w-[900px]">
 
           <div className="grid grid-cols-[90px_44px_90px_1fr_110px_90px_110px_100px_110px] gap-2 px-3 py-1 font-semibold bg-gray-50 border-b sticky top-0 z-10">
@@ -292,108 +305,128 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
             {HeaderCell("Sector", "sector")}
           </div>
 
-          {!loading &&
-            sortedStocks.map((stock) => {
-              const queued = isQueued(stock.stock_id);
+          {!loading && (
+            <div
+              style={{
+                height: `${virtualizer.getTotalSize()}px`,
+                width: "100%",
+                position: "relative",
+              }}
+            >
+              {virtualizer.getVirtualItems().map((virtualItem) => {
+                const stock = sortedStocks[virtualItem.index];
+                const queued = isQueued(stock.stock_id);
 
-              const livePrice =
-                stockPrices[stock.stock_id] ??
-                stock.current_price ??
-                0;
+                const livePrice =
+                  stockPrices[stock.stock_id] ??
+                  stock.current_price ??
+                  0;
 
-              return (
-                <div
-                  key={stock.stock_id}
-                  onClick={() => {
-                    if (!isMakingPick) {
-                      onStockClick(stock.stock_id);
-                    }
-                  }}
-                  className="grid grid-cols-[90px_44px_90px_1fr_110px_90px_110px_100px_110px] gap-2 px-3 py-1 items-center border-b hover:bg-gray-100 cursor-pointer"
-                >
-                  {canDraft ? (
-                    <Button
-                      size="sm"
-                      disabled={isMakingPick}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        makePick(stock.stock_id);
+                return (
+                  <div
+                    key={virtualItem.key}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      transform: `translateY(${virtualItem.start}px)`,
+                    }}
+                  >
+                    <div
+                      onClick={() => {
+                        if (!isMakingPick) {
+                          onStockClick(stock.stock_id);
+                        }
                       }}
+                      className="grid grid-cols-[90px_44px_90px_1fr_110px_90px_110px_100px_110px] gap-2 px-3 py-1 items-center border-b hover:bg-gray-100 cursor-pointer"
                     >
-                      Draft
-                    </Button>
-                  ) : queued ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="border-red-700 text-red-700 bg-white hover:bg-gray-100"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeFromQueue(stock.stock_id);
-                      }}
-                    >
-                      Dequeue
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="border-green-700 text-green-700 bg-white hover:bg-gray-100"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        queueStock(stock.stock_id);
-                      }}
-                    >
-                      Queue
-                    </Button>
-                  )}
+                      {canDraft ? (
+                        <Button
+                          size="sm"
+                          disabled={isMakingPick}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            makePick(stock.stock_id);
+                          }}
+                        >
+                          Draft
+                        </Button>
+                      ) : queued ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-red-700 text-red-700 bg-white hover:bg-gray-100"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeFromQueue(stock.stock_id);
+                          }}
+                        >
+                          Dequeue
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-green-700 text-green-700 bg-white hover:bg-gray-100"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            queueStock(stock.stock_id);
+                          }}
+                        >
+                          Queue
+                        </Button>
+                      )}
 
-                  {stock.logo_url ? (
-                    <img
-                      src={stock.logo_url}
-                      alt={stock.stock_symbol}
-                      className="w-7 h-7 object-contain"
-                    />
-                  ) : (
-                    <div className="w-7 h-7 bg-gray-200 flex items-center justify-center text-gray-500 text-xs">
-                      {stock.stock_symbol[0]}
+                      {stock.logo_url ? (
+                        <img
+                          src={stock.logo_url}
+                          alt={stock.stock_symbol}
+                          className="w-7 h-7 object-contain"
+                        />
+                      ) : (
+                        <div className="w-7 h-7 bg-gray-200 flex items-center justify-center text-gray-500 text-xs">
+                          {stock.stock_symbol[0]}
+                        </div>
+                      )}
+
+                      <div className="font-semibold">
+                        {stock.stock_symbol}
+                      </div>
+
+                      <div className="text-gray-700 truncate">
+                        {stock.name}
+                      </div>
+
+                      <div className="flex justify-end">
+                        <Ticker
+                          currentValue={livePrice}
+                          previousValue={stock.previous_close}
+                          size="small"
+                        />
+                      </div>
+
+                      <div className="font-mono text-right">
+                        ${livePrice.toFixed(2)}
+                      </div>
+
+                      <div className="text-right text-gray-700">
+                        {formatNumber(stock.market_cap)}
+                      </div>
+
+                      <div className="text-right text-gray-700">
+                        {formatNumber(stock.volume)}
+                      </div>
+
+                      <div className="text-gray-500 truncate">
+                        {stock.sector}
+                      </div>
                     </div>
-                  )}
-
-                  <div className="font-semibold">
-                    {stock.stock_symbol}
                   </div>
-
-                  <div className="text-gray-700 truncate">
-                    {stock.name}
-                  </div>
-
-                  <div className="flex justify-end">
-                    <Ticker
-                      currentValue={livePrice}
-                      previousValue={stock.previous_close}
-                      size="small"
-                    />
-                  </div>
-
-                  <div className="font-mono text-right">
-                    ${livePrice.toFixed(2)}
-                  </div>
-
-                  <div className="text-right text-gray-700">
-                    {formatNumber(stock.market_cap)}
-                  </div>
-
-                  <div className="text-right text-gray-700">
-                    {formatNumber(stock.volume)}
-                  </div>
-
-                  <div className="text-gray-500 truncate">
-                    {stock.sector}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
