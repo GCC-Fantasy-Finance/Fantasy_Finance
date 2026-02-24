@@ -180,7 +180,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
       
 
       toast.success("League created");
-      window.location.reload();
+      window.location.href = `/leagues/${data.league_id}`;
       onClose();
     } catch (err: any) {
       setError(err.message || "Failed to create league");
