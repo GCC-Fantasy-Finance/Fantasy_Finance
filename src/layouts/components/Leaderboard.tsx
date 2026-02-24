@@ -58,9 +58,9 @@ export default function Leaderboard({ entries, currentUserId }: Props) {
                 return (
                   <TableRow
                     key={entry.portfolio_id}
-                    onClick={() =>
-                      // onPortfolioClick?.(entry.portfolio_id)
-                    }
+                    // onClick={() =>
+                    //   // onPortfolioClick?.(entry.portfolio_id)
+                    // }
                     className={
                       currentUserId === entry.user_id
                         ? "bg-green-50/60 hover:bg-green-100/60 font-semibold cursor-pointer"

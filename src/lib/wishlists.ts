@@ -34,15 +34,16 @@ export const isWishlisted = async (portfolioId: number, stockId: number): Promis
     .select("wishlist_item_id")
     .eq("portfolio_id", portfolioId)
     .eq("stock_id", stockId)
-    .limit(1);
-    if (error) {
-      // If there is no matching row or some REST error occurs, treat as not wishlisted
-      // console.error("isWishlisted error:", error);
-      return false;
-    }
-    return !!data && data.length > 0;
-  };
+    .maybeSingle();
 
+  if (error) {
+    // If there is no matching row or some REST error occurs, treat as not wishlisted
+    // console.error("isWishlisted error:", error);
+    return false;
+  }
+
+  return !!data;
+};
 //
 // ADD — insert at bottom of queue
 //
