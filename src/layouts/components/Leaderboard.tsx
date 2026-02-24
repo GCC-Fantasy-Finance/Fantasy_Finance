@@ -59,7 +59,7 @@ export default function Leaderboard({ entries, currentUserId }: Props) {
                   <TableRow
                     key={entry.portfolio_id}
                     onClick={() =>
-                      onPortfolioClick?.(entry.portfolio_id)
+                      // onPortfolioClick?.(entry.portfolio_id)
                     }
                     className={
                       currentUserId === entry.user_id

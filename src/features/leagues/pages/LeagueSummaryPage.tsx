@@ -7,11 +7,11 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import Leaderboard, { type LeaderboardEntry } from "@/layouts/components/Leaderboard";
 import { fetchLeagueView, getCachedLeagueView } from "@/hooks/fetchLeagueView";
 
-type Profile = {
-  id: string;
-  username?: string;
-  email?: string;
-};
+// type Profile = {
+//   id: string;
+//   username?: string;
+//   email?: string;
+// };
 
 export default function LeagueSummaryPage() {
   const { leagueId } = useParams<{ leagueId: string }>();
@@ -19,7 +19,7 @@ export default function LeagueSummaryPage() {
   const [standings, setStandings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { profile } = useAuth();
-  const [selectedPortfolioId, setSelectedPortfolioId] = useState<number | null>(null);
+  // const [selectedPortfolioId, setSelectedPortfolioId] = useState<number | null>(null);
 
   usePageTitle(league ? `${league.name} - Results` : "League Results");
 
