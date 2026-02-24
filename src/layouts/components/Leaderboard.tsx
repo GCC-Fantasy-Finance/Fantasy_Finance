@@ -23,6 +23,7 @@ export type LeaderboardEntry = {
 type Props = {
   entries: LeaderboardEntry[];
   currentUserId?: string;
+  onPortfolioClick?: (portfolioId: number) => void;
 };
 
 export default function Leaderboard({ entries, currentUserId }: Props) {
@@ -57,10 +58,13 @@ export default function Leaderboard({ entries, currentUserId }: Props) {
                 return (
                   <TableRow
                     key={entry.portfolio_id}
+                    onClick={() =>
+                      onPortfolioClick?.(entry.portfolio_id)
+                    }
                     className={
                       currentUserId === entry.user_id
-                        ? "bg-green-50/60 hover:bg-green-100/60 font-semibold"
-                        : ""
+                        ? "bg-green-50/60 hover:bg-green-100/60 font-semibold cursor-pointer"
+                        : "cursor-pointer"
                     }
                   >
                     <TableCell className="font-bold text-lg px-4 pl-7 text-green-700">

@@ -15,6 +15,7 @@ import LoginPage from "../features/auth/pages/LoginPage";
 import SignupPage from "../features/auth/pages/SignupPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import LeagueDetailPage from "@/features/leagues/pages/LeagueDetailPage";
+import LeagueSummaryPage from "@/features/leagues/pages/LeagueSummaryPage";
 
 import { LayoutProvider } from "../context/LayoutContext";
 import { AuthProvider } from "../context/AuthContext";
@@ -57,6 +58,7 @@ export default function AppRouter() {
               ],
             },
             { path: "/league/:leagueId", element: <LeagueGuardRoute><LeagueDetailPage /></LeagueGuardRoute> },
+            { path: "/league/:leagueId/results", element: <LeagueGuardRoute><LeagueSummaryPage /></LeagueGuardRoute> },
             {
               path: "/profile",
               element: <ProfileLayout />,

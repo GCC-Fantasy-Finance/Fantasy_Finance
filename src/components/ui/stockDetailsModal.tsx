@@ -15,6 +15,9 @@ import Ticker from "@/components/ui/ticker";
 import { supabase } from "@/lib/supabase";
 import { getHasDraftStarted, getHasDraftEnded } from "@/lib/drafts";
 import { isWishlisted, addWishlistItemStockPage, removeWishlistItem} from "@/lib/wishlists";
+import { isStockInDraftPicks } from "@/lib/draftpicks";
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+
 
 interface Stock {
   stock_id?: number;
@@ -56,8 +59,9 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
   const [portfolios, setPortfolios] = useState<PortfolioWithLeague[]>([]);
   const [loading, setLoading] = useState(false);
   const [holdings, setHoldings] = useState<Record<number, number>>({});
-  const [timeFrame, setTimeFrame] = useState("1M");
+  const [timeFrame, setTimeFrame] = useState("1D");
   const [stockPrice, setStockPrice] = useState<number | null>(null);
+  const [isInDraftPicks, setIsInDraftPicks] = useState<boolean>(true);
 
   /* ================= INIT PRICE ================= */
   useEffect(() => {
@@ -166,6 +170,24 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
 
     fetchPortfolios();
   }, [open, user?.id, stock?.stock_id, isWishlisted]);
+
+  // check whether this stock exists in Draft Picks (used to gate buying)
+  useEffect(() => {
+    const check = async () => {
+      if (!open || !stock?.stock_id) {
+        setIsInDraftPicks(true);
+        return;
+      }
+      try {
+        const exists = await isStockInDraftPicks(stock.stock_id);
+        setIsInDraftPicks(exists);
+      } catch (err) {
+        console.error("Failed to check draft picks for stock:", err);
+        setIsInDraftPicks(true);
+      }
+    };
+    check();
+  }, [open, stock?.stock_id]);
 
   /* ================= LIVE DRAFT STATUS ================= */
   useEffect(() => {
@@ -299,7 +321,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
             <div className="flex-1">
               <Button className="mx-1 my-[5px] h-[30px] w-16"
                 onClick={() => setTimeFrame("1D")}
-                disabled={timeFrame === "1D"}>Today</Button>
+                disabled={timeFrame === "1D"}>1 Day</Button>
               <Button className="mx-1 my-[5px] h-[30px] w-16" 
                 onClick={() => setTimeFrame("1M")}
                 disabled={timeFrame === "1M"}>30 Days</Button>
@@ -374,67 +396,149 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
 
                       {!portfolio.draft_has_ended && !portfolio.is_solo ? (
                         portfolio.wishlisted ? (
-                          <Button
-                            className="text-xs h-7 px-2 bg-orange-700 hover:bg-orange-800 text-white"
-                            onClick={async () => {
-                              setPortfolios(prev =>
-                                prev.map(p =>
-                                  p.portfolio_id === portfolio.portfolio_id
-                                    ? { ...p, wishlisted: false }
-                                    : p
-                                )
-                              );
+                          (!portfolio.sectors.includes("Any") &&
+                            !portfolio.sectors.includes(stock.sector || "")) ? (
+                            <Button
+                              className="text-xs h-7 px-2 bg-gray-400 text-white cursor-not-allowed"
+                              disabled
+                              title={`This stock's sector (${stock.sector}) is not allowed in this league. Allowed sectors: ${portfolio.sectors.join(", ")}`}
+                            >
+                              Unavailable
+                              
+                            </Button>
+                          ) : (
+                            <Button
+                              className="text-xs h-7 px-2 bg-yellow-500 hover:bg-yellow-600 text-white"
+                              onClick={async () => {
+                                setPortfolios(prev =>
+                                  prev.map(p =>
+                                    p.portfolio_id === portfolio.portfolio_id
+                                      ? { ...p, wishlisted: false }
+                                      : p
+                                  )
+                                );
 
-                              await removeWishlistItem(portfolio.portfolio_id, stock.stock_id!);
-                            }}
-                          >
-                            Dequeue
-                          </Button>
+                                await removeWishlistItem(portfolio.portfolio_id, stock.stock_id!);
+                              }}
+                            >
+                              Dequeue
+                            </Button>
+                          )
 
                         ) : (
-                          <Button
-                            className="text-xs h-7 px-2 bg-yellow-500 hover:bg-yellow-600 text-white"
-                            onClick={async () => {
-                              // Optimistically update UI immediately
-                              setPortfolios(prev =>
-                                prev.map(p =>
-                                  p.portfolio_id === portfolio.portfolio_id
-                                    ? { ...p, wishlisted: true }
-                                    : p
-                                )
-                              );
+                          (!portfolio.sectors.includes("Any") &&
+                            !portfolio.sectors.includes(stock.sector || "")) ? (
+                            <TooltipProvider delayDuration={100}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span>
+                                    <Button
+                                      className="text-xs h-7 px-2 bg-gray-400 text-white cursor-not-allowed"
+                                      disabled
+                                    >
+                                      Unavailable
+                                    </Button>
+                                  </span>
+                                </TooltipTrigger>
 
-                              await addWishlistItemStockPage(portfolio.portfolio_id, stock.stock_id!);
-                            }}
-                          >
-                            Queue
-                          </Button>
+                                <TooltipContent className="bg-green-700 text-white text-xs rounded px-2 py-1">
+                                  Sector {stock.sector} is not allowed in this league.
+                                  <br />
+                                  Allowed sectors: {portfolio.sectors.join(", ")}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
 
+                          ) : (
+                            <Button
+                              className="text-xs h-7 px-2 bg-yellow-500 hover:bg-yellow-600 text-white"
+                              onClick={async () => {
+                                // Optimistically update UI immediately
+                                setPortfolios(prev =>
+                                  prev.map(p =>
+                                    p.portfolio_id === portfolio.portfolio_id
+                                      ? { ...p, wishlisted: true }
+                                      : p
+                                  )
+                                );
+
+                                await addWishlistItemStockPage(portfolio.portfolio_id, stock.stock_id!);
+                              }}
+                            >
+                              Queue
+                            </Button>
+                          )
                         )
                       ) : (
                         <>
-                          <Button
-                            onClick={() => handleSell(portfolio)}
-                            variant="outline"
-                            disabled={!(holdings[portfolio.portfolio_id] > 0)}
-                            className="text-xs h-7 px-2 text-red-600 border-red-300 hover:bg-red-50 disabled:bg-gray-300"
-                          >
-                            – Sell
-                          </Button>
+                          {(!portfolio.sectors.includes("Any") &&
+                            !portfolio.is_solo &&
+                            !portfolio.sectors.includes(stock.sector || "")) ? (
 
-                          <Button
-                            onClick={() => handleBuy(portfolio)}
-                            disabled={
-                              portfolio.reserve_value <= 0 ||
-                              (!portfolio.sectors.includes("Any") &&
-                                !portfolio.is_solo &&
-                                !portfolio.sectors.includes(stock.sector || ""))
-                            }
-                            className="text-xs h-7 px-2 bg-green-700 hover:bg-green-800 text-white disabled:bg-gray-300"
-                          >
-                            + Buy
-                          </Button>
+                            <TooltipProvider delayDuration={100}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span>
+                                    <Button
+                                      className="text-xs h-7 px-2 bg-gray-400 text-white cursor-not-allowed"
+                                      disabled
+                                    >
+                                      Unavailable
+                                    </Button>
+                                  </span>
+                                </TooltipTrigger>
+
+                                <TooltipContent className="bg-green-700 text-white text-xs rounded w-56 px-2 py-1">
+                                  Sector {stock.sector} is not allowed in this league.
+                                  <br />
+                                  Allowed sectors: {portfolio.sectors.join(", ")}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+
+                          ) : (
+                            <>
+                              <Button
+                                onClick={() => handleSell(portfolio)}
+                                variant="outline"
+                                disabled={!(holdings[portfolio.portfolio_id] > 0)}
+                                className="text-xs h-7 px-2 text-red-600 border-red-300 hover:bg-red-50 disabled:bg-gray-300"
+                              >
+                                – Sell
+                              </Button>
+
+                              {!portfolio.is_solo && !isInDraftPicks ? (
+                                <TooltipProvider delayDuration={100}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span>
+                                        <Button
+                                          disabled
+                                          className="text-xs h-7 px-2 bg-gray-400 text-white cursor-not-allowed"
+                                        >
+                                          Unavailable
+                                        </Button>
+                                      </span>
+                                    </TooltipTrigger>
+
+                                    <TooltipContent className="bg-green-700 text-white text-xs rounded w-56 px-2 py-1">
+                                      This stock is not in your draft picks.
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              ) : (
+                                <Button
+                                  onClick={() => handleBuy(portfolio)}
+                                  disabled={portfolio.reserve_value <= 0}
+                                  className="text-xs h-7 px-2 bg-green-700 hover:bg-green-800 text-white disabled:bg-gray-300"
+                                >
+                                  + Buy
+                                </Button>
+                              )}
+                            </>
+                          )}
                         </>
+
                       )}
                     </div>
 
@@ -446,30 +550,99 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
             {/* Stock details */}
             <div className="h-[200px] w-full mt-4 pt-4 border-t border-gray-200 shrink-0">
               <h4 className="text-md font-semibold mb-2">Stock Details</h4>
-              <table className="w-full border-separate border-spacing-y-2 text-sm text-gray-900">
-                <tbody>
-                  <tr>
-                    <td className="pr-4 font-medium">Previous Close</td>
-                    <td>{stock.previous_close?.toFixed(2)}</td>
-                  </tr>
-                  <tr>
-                    <td className="pr-4 font-medium">Day Range</td>
-                    <td>{stock.day_range}</td>
-                  </tr>
-                  <tr>
-                    <td className="pr-4 font-medium">Year Range</td>
-                    <td>{stock.year_range}</td>
-                  </tr>
-                  <tr>
-                    <td className="pr-4 font-medium">Market Cap</td>
-                    <td>{formatDetails(stock.market_cap)}</td>
-                  </tr>
-                  <tr>
-                    <td className="pr-4 font-medium">Volume</td>
-                    <td>{formatDetails(stock.volume)}</td>
-                  </tr>
-                </tbody>
-              </table>
+
+              <TooltipProvider delayDuration={100}>
+                <table className="w-full border-separate border-spacing-y-2 text-sm text-gray-900">
+                  <tbody>
+
+                    <tr>
+                      <td className="pr-4 font-medium">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-default ">
+                              Previous Close
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" align="start"
+                            className="bg-green-700 text-white text-xs rounded w-56 px-2 py-1">
+                            The closing price of the stock on the previous trading day.
+                          </TooltipContent>
+                        </Tooltip>
+                      </td>
+                      <td>${stock.previous_close?.toFixed(2)}</td>
+                    </tr>
+
+                    <tr>
+                      <td className="pr-4 font-medium">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-default ">
+                              Day Range
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" align="start"
+                            className="bg-green-700 text-white text-xs rounded w-56 px-2 py-1">
+                            The lowest and highest price the stock traded at during the current trading day.
+                          </TooltipContent>
+                        </Tooltip>
+                      </td>
+                      <td>${stock.day_range ?? "-"}</td>
+                    </tr>
+
+                    <tr>
+                      <td className="pr-4 font-medium">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-default ">
+                              Year Range
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" align="start"
+                            className="bg-green-700 text-white text-xs rounded w-56 px-2 py-1">
+                            The lowest and highest price the stock traded at over the past 52 weeks.
+                          </TooltipContent>
+                        </Tooltip>
+                      </td>
+                      <td>${stock.year_range ?? "-"}</td>
+                    </tr>
+
+                    <tr>
+                      <td className="pr-4 font-medium">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-default ">
+                              Market Cap
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" align="start"
+                            className="bg-green-700 text-white text-xs rounded w-56 px-2 py-1">
+                            The total market value of all outstanding shares of the company.
+                          </TooltipContent>
+                        </Tooltip>
+                      </td>
+                      <td>{formatDetails(stock.market_cap)} USD</td>
+                    </tr>
+
+                    <tr>
+                      <td className="pr-4 font-medium">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-default ">
+                              Volume
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" align="start"
+                            className="bg-green-700 text-white text-xs rounded w-56 px-2 py-1">
+                            The total number of shares traded during the current trading session.
+                          </TooltipContent>
+                        </Tooltip>
+                      </td>
+                      <td>{formatDetails(stock.volume)}</td>
+                    </tr>
+
+                  </tbody>
+                </table>
+              </TooltipProvider>
             </div>
           </div>
         </div>

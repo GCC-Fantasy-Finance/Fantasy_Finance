@@ -55,16 +55,18 @@ export default function Sidebar() {
 
     if (portfoliosError || !portfolios) return [];
 
+    const uniqueLeagueIds = [...new Set(portfolios.map(p => p.league_id).filter(id => id != null))];
+
     const leagues: any[] = [];
 
     // STEP 2 — Fetch each league by ID (super reliable)
-    for (const p of portfolios) {
-      console.log("Fetching league:", p.league_id);
+    for (const id of uniqueLeagueIds) {
+      console.log("Fetching league:", id);
 
       const { data: league, error: leagueError } = await supabase
         .from("Leagues")
         .select("*")
-        .eq("league_id", p.league_id)
+        .eq("league_id", id)
         .maybeSingle();
 
       console.log("LEAGUE RESULT:", league);
@@ -80,8 +82,12 @@ export default function Sidebar() {
   }
 
   useEffect(() => {
-    fetchLeagues()
-      .then((data) => setLeagues(data))
+    const fetchPromise = fetchLeagues();
+    const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve([]), 5000));
+
+    Promise.race([fetchPromise, timeoutPromise])
+      .then((data) => setLeagues(data as any[]))
+      .catch(() => setLeagues([]))
       .finally(() => setLoading(false));
   }, [profile]);
 
@@ -169,7 +175,8 @@ export default function Sidebar() {
           ) : (
             <ul className="space-y-1">
               {leagues.map((league) => {
-                const path = `/league/${league.league_id}`;
+
+                const path = (league.finish_time && new Date(league.finish_time) < new Date()) ? `/league/${league.league_id}/results` : `/league/${league.league_id}`;
                 const active = isActive(path);
                 return (
                   <li key={league.league_id}>
@@ -186,6 +193,7 @@ export default function Sidebar() {
                   </li>
                 );
               })}
+            
             </ul>
           )}
         </div>

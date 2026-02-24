@@ -34,35 +34,72 @@ export default function StockChart({ id, timeFrame }: { id: number, timeFrame: s
 
       try {
         if (timeFrame === "1D") {
-          // intraday: fetch today's intraday rows
-          const start = new Date();
-          start.setHours(0, 0, 0, 0);
-          const startISO = start.toISOString();
+          const now = new Date();
+          const twoDaysAgo = new Date();
+          twoDaysAgo.setDate(now.getDate() - 5); // cover weekends/holidays
 
           const { data: rows, error } = await supabase
             .from("Stock Intraday")
             .select("*")
             .eq("stock_id", id)
-            .gte("timestamp_of", startISO)
+            .gte("timestamp_of", twoDaysAgo.toISOString())
             .order("timestamp_of", { ascending: true })
-            .limit(1000);
+            .limit(5000);
 
           if (error) {
             console.error("Failed fetching intraday:", error);
-            setData([]);
-            setLoading(false);
+            if (mounted.current) {
+              setData([]);
+              setLoading(false);
+            }
             return;
           }
 
           const formatted = (rows ?? []).map((r: any) => {
-            const ts = new Date(r.timestamp_of || r.timestamp || r.time || r.created_at || Date.now());
-            return { date: ts.getTime(), close: Number((r.price ?? r.current_price ?? r.close ?? 0).toFixed(2)) };
+            const ts = new Date(
+              r.timestamp_of ||
+              r.timestamp ||
+              r.time ||
+              r.created_at ||
+              Date.now()
+            );
+            return {
+              date: ts.getTime(),
+              close: Number(
+                (r.price ?? r.current_price ?? r.close ?? 0).toFixed(2)
+              ),
+            };
           });
 
+          // ---- GROUP BY DAY ----
+          const groupedByDay: Record<string, PricePoint[]> = {};
+
+          formatted.forEach(point => {
+            const d = new Date(point.date);
+            const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+            if (!groupedByDay[key]) groupedByDay[key] = [];
+            groupedByDay[key].push(point);
+          });
+
+          const today = new Date();
+          const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
+
+          let finalData: PricePoint[] = [];
+
+          if (groupedByDay[todayKey]?.length > 0) {
+            finalData = groupedByDay[todayKey]; 
+          } else {
+            
+            const sortedDays = Object.keys(groupedByDay).sort();
+            const latestDay = sortedDays[sortedDays.length - 1];
+            finalData = groupedByDay[latestDay] ?? [];
+          }
+
           if (mounted.current) {
-            setData(formatted);
+            setData(finalData);
             setLoading(false);
           }
+
           return;
         }
 
@@ -183,8 +220,8 @@ export default function StockChart({ id, timeFrame }: { id: number, timeFrame: s
         />
         <YAxis domain={["auto", "auto"]} />
         <Tooltip
-          labelFormatter={(val: number) => {
-            const d = new Date(val);
+          labelFormatter={(val: any) => {
+            const d = new Date(val as number);
             if (timeFrame === "1D") return `${d.getHours()}:${d.getMinutes().toString().padStart(2, "0")}`;
             return d.toLocaleDateString();
           }}

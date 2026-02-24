@@ -15,6 +15,7 @@ type League = {
   name: string;
   owner_id?: string;
   created_at?: string;
+  finish_time?: string;
 };
 
 type Profile = {
