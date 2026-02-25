@@ -533,3 +533,11 @@ export const useDraft = () => {
   if (!ctx) throw new Error("useDraft must be used within DraftProvider");
   return ctx;
 };
+
+export const useDraftOptional = () => {
+  try {
+    return useContext(DraftContext);
+  } catch {
+    return undefined;
+  }
+};
