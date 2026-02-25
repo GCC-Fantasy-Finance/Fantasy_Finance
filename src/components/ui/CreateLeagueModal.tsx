@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "./button";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
@@ -27,7 +28,7 @@ type Props = {
 };
 
 function defaultStart() {
-  const d = new Date();
+  const d = new Date(Date.now() + 24 * 60 * 60 * 1000);
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
     d.getDate()
@@ -44,6 +45,7 @@ function defaultEnd() {
 
 export default function CreateLeagueModal({ open, onClose }: Props) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const nameRef = useRef<HTMLInputElement | null>(null);
   const startDateRef = useRef<HTMLInputElement | null>(null);
   const endDateRef = useRef<HTMLInputElement | null>(null);
@@ -174,7 +176,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
 
       if (error) throw error;
 
-      await supabase.from("Portfolios").insert([
+      const { error: portfolioError } = await supabase.from("Portfolios").insert([
         {
           league_id: data.league_id,
           user_id: user.id,
@@ -184,9 +186,10 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
           last_recalculated: new Date().toISOString(),
         },
       ]);
+      if (portfolioError) throw portfolioError;
 
       
-      await supabase.from("Drafts").insert([
+      const { error: draftError } = await supabase.from("Drafts").insert([
           {
             league_id: data.league_id,
             current_round: 0,
@@ -201,11 +204,17 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
             
           },
         ]);
+      if (draftError) throw draftError;
       
 
       toast.success("League created");
-      window.location.href = `/leagues/${data.league_id}`;
+      window.dispatchEvent(
+        new CustomEvent("ff:leagues-updated", {
+          detail: { leagueId: data.league_id },
+        })
+      );
       onClose();
+      navigate(`/league/${data.league_id}`);
     } catch (err: any) {
       setError(err.message || "Failed to create league");
       setErrorField(null);

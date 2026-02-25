@@ -9,6 +9,7 @@ export type LeagueView = {
   owner_id?: string;
   created_at?: string;
   finish_time?: string;
+  join_code?: string;
 };
 
 export type LeagueOwner = {
@@ -79,7 +80,7 @@ export async function fetchLeagueView(
   const request = (async () => {
     const { data: leagueData, error: leagueErr } = await supabase
       .from("Leagues")
-      .select("league_id,name,owner_id,created_at,finish_time")
+      .select("league_id,name,owner_id,created_at,finish_time,join_code")
       .eq("league_id", leagueId)
       .maybeSingle();
 
