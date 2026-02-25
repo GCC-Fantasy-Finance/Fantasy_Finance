@@ -42,6 +42,8 @@ type DraftContextType = {
   queueStock: (stockId: number) => Promise<void>;
   removeFromQueue: (stockId: number) => Promise<void>;
   reorderQueue: (from: number, to: number) => void;
+  addToQueueUI: (stockId: number, portfolioId: number) => void;
+  removeFromQueueUI: (stockId: number, portfolioId: number) => void;
 };
 
 const DraftContext = createContext<DraftContextType | undefined>(undefined);
@@ -328,6 +330,28 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     });
   };
 
+  const addToQueueUI = (stockId: number, portfolioId: number) => {
+  // Only update if this portfolio belongs to the current league
+  if (portfolioId === myPortfolio?.portfolio_id) {
+    setQueuedItems(prev => {
+      if (prev.some(i => i.stock_id === stockId)) return prev;
+      return [...prev, {
+        wishlist_item_id: -Date.now(),
+        portfolio_id: portfolioId,
+        stock_id: stockId,
+        rank: prev.length,
+      }];
+    });
+  }
+};
+
+const removeFromQueueUI = (stockId: number, portfolioId: number) => {
+  // Only update if this portfolio belongs to the current league
+  if (portfolioId === myPortfolio?.portfolio_id) {
+    setQueuedItems(prev => prev.filter(item => item.stock_id !== stockId));
+  }
+};
+
   useEffect(() => {
     if (currentPortfolioId == null || users.length === 0) return;
     const idx = users.findIndex(u => u.portfolio_id === currentPortfolioId);
@@ -495,6 +519,8 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
         queueStock,
         removeFromQueue,
         reorderQueue,
+        addToQueueUI,
+        removeFromQueueUI,
       }}
     >
       {children}
