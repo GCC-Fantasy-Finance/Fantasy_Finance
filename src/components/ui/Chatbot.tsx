@@ -809,7 +809,7 @@ export default function Chatbot({
                 <History className="inline-block h-4 w-4 mr-1" />
                 History
               </span>
-              {state === "small" && <span className="text-xs">History</span>}
+              {/* {state === "small" && <span className="text-xs">History</span>} */}
             </Button>
             {conversationId && (
               <Button
