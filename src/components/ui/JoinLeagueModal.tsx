@@ -59,11 +59,17 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
     setLoading(true);
 
     try {
-      const { data: leagueData } = await supabase
+      const { data: leagueData, error: leagueError } = await supabase
         .from("Leagues")
         .select("league_id")
         .eq("join_code", joinCode)
         .single();
+
+      if (leagueError) {
+        setError("Invalid or expired join code.");
+        setLoading(false);
+        return;
+      }
 
       console.log("League data found:", leagueData);
 

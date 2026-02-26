@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { toast } from "sonner";
-import { fetchPortfolioView } from "@/hooks/fetchPortfolio";
+import { fetchPortfolioView, getCachedPortfolioView } from "@/hooks/fetchPortfolio";
 import { useTradeModal } from "@/context/TradeModalContext";
 import StockDetailsModal from "@/components/ui/stockDetailsModal";
 import PortfolioChart from "@/components/ui/portfolioChart";
@@ -55,37 +55,63 @@ function SoloPortfolioPage() {
   const [selectedStock, setSelectedStock] = useState<Stock | null>(null); // ✅ FIX
 
   const loadHoldings = useCallback(async () => {
-    setLoading(true);
     if (!auth.user) {
       setHoldings([]);
       setTotals(null);
+      setPortfolio(null);
       setLoading(false);
       return;
     }
 
-    try {
-      const {
-        portfolio: pf,
-        totals,
-        holdings,
-      } = await fetchPortfolioView({
-        userId: auth.user.id,
-        isSolo: true,
-      });
+    const params = {
+      userId: auth.user.id,
+      isSolo: true,
+    };
 
-      if (!pf) {
+    const applyPortfolioState = (result: {
+      portfolio: { portfolio_id: number } | null;
+      totals: { previous_close_value: number; reserve_value: number } | null;
+      holdings: HoldingView[];
+    }) => {
+      if (!result.portfolio) {
         setHoldings([]);
         setTotals(null);
         setPortfolio(null);
-      } else {
-        setTotals(totals);
-        setHoldings(holdings as HoldingView[]);
-        setPortfolio({ portfolio_id: pf.portfolio_id });
+        return;
       }
+
+      setTotals(result.totals);
+      setHoldings(result.holdings);
+      setPortfolio({ portfolio_id: result.portfolio.portfolio_id });
+    };
+
+    const cached = getCachedPortfolioView(params);
+    if (cached) {
+      applyPortfolioState(cached as {
+        portfolio: { portfolio_id: number } | null;
+        totals: { previous_close_value: number; reserve_value: number } | null;
+        holdings: HoldingView[];
+      });
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
+    try {
+      const result = await fetchPortfolioView(params, {
+        useCache: true,
+        forceRefresh: Boolean(cached),
+      });
+      applyPortfolioState(result as {
+        portfolio: { portfolio_id: number } | null;
+        totals: { previous_close_value: number; reserve_value: number } | null;
+        holdings: HoldingView[];
+      });
     } catch (err) {
       console.error("Error loading holdings:", err);
       setHoldings([]);
       setTotals(null);
+      setPortfolio(null);
     } finally {
       setLoading(false);
     }
