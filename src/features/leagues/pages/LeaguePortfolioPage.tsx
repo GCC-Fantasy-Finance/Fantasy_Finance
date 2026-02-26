@@ -1,12 +1,18 @@
 import { useEffect, useState, useCallback } from "react";
+import { useParams } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { toast } from "sonner";
-import { fetchPortfolioView, getCachedPortfolioView } from "@/hooks/fetchPortfolio";
+import { fetchPortfolioView } from "@/hooks/fetchPortfolio";
 import { useTradeModal } from "@/context/TradeModalContext";
 import StockDetailsModal from "@/components/ui/stockDetailsModal";
 import PortfolioChart from "@/components/ui/portfolioChart";
 import { getStockById } from "@/lib/stocks";
+import { getLeagueById } from "@/lib/leagues";
+import { getDraftByLeague } from "@/lib/drafts";
+import { getDraftPicksByLeague } from "@/lib/draftpicks";
+import { supabase } from "@/lib/supabase";
+import PageContent from "@/layouts/components/PageContent";
 import { calculateStockPercentChange } from "@/lib/utils";
 import {
   calculateInvestedValue,
@@ -38,8 +44,10 @@ interface Stock {
   sector: string;
 }
 
-function SoloPortfolioPage() {
-  usePageTitle("Solo Portfolio");
+export default function LeaguePortfolioPage() {
+  usePageTitle("League Portfolio");
+
+  const { leagueId } = useParams<{ leagueId: string }>();
   const auth = useAuth();
   const [loading, setLoading] = useState(true);
   const [holdings, setHoldings] = useState<HoldingView[]>([]);
@@ -47,76 +55,128 @@ function SoloPortfolioPage() {
     previous_close_value?: number;
     reserve_value?: number;
   } | null>(null);
+  const [hasDrafting, setHasDrafting] = useState(false);
+  const [draftedStockNames, setDraftedStockNames] = useState<string[]>([]);
   const [portfolio, setPortfolio] = useState<{ portfolio_id: number } | null>(
     null,
   );
   const { openSell, openBuy } = useTradeModal();
 
   const [stockDetailsModalOpen, setStockDetailsModalOpen] = useState(false);
-  const [selectedStock, setSelectedStock] = useState<Stock | null>(null); // ✅ FIX
+  const [selectedStock, setSelectedStock] = useState<Stock | null>(null);
 
   const loadHoldings = useCallback(async () => {
-    if (!auth.user) {
+    setLoading(true);
+
+    if (!auth.user || !leagueId) {
       setHoldings([]);
       setTotals(null);
+      setHasDrafting(false);
+      setDraftedStockNames([]);
       setPortfolio(null);
       setLoading(false);
       return;
     }
 
-    const params = {
-      userId: auth.user.id,
-      isSolo: true,
-    };
-
-    const applyPortfolioState = (result: {
-      portfolio: { portfolio_id: number } | null;
-      totals: { previous_close_value: number; reserve_value: number } | null;
-      holdings: HoldingView[];
-    }) => {
-      if (!result.portfolio) {
-        setHoldings([]);
-        setTotals(null);
-        setPortfolio(null);
-        return;
-      }
-
-      setTotals(result.totals);
-      setHoldings(result.holdings);
-      setPortfolio({ portfolio_id: result.portfolio.portfolio_id });
-    };
-
-    const cached = getCachedPortfolioView(params);
-    if (cached) {
-      applyPortfolioState(cached as {
-        portfolio: { portfolio_id: number } | null;
-        totals: { previous_close_value: number; reserve_value: number } | null;
-        holdings: HoldingView[];
-      });
+    const leagueIdAsNumber = Number(leagueId);
+    if (!Number.isFinite(leagueIdAsNumber)) {
+      setHoldings([]);
+      setTotals(null);
+      setHasDrafting(false);
+      setDraftedStockNames([]);
+      setPortfolio(null);
       setLoading(false);
-    } else {
-      setLoading(true);
+      return;
     }
 
     try {
-      const result = await fetchPortfolioView(params, {
-        useCache: true,
-        forceRefresh: Boolean(cached),
+      const {
+        portfolio: pf,
+        totals,
+        holdings,
+      } = await fetchPortfolioView({
+        userId: auth.user.id,
+        isSolo: false,
+        leagueId: leagueIdAsNumber,
       });
-      applyPortfolioState(result as {
-        portfolio: { portfolio_id: number } | null;
-        totals: { previous_close_value: number; reserve_value: number } | null;
-        holdings: HoldingView[];
-      });
+
+      if (!pf) {
+        setHoldings([]);
+        setTotals(null);
+        setHasDrafting(false);
+        setDraftedStockNames([]);
+        setPortfolio(null);
+      } else {
+        setTotals(totals);
+        setHoldings(holdings as HoldingView[]);
+        setPortfolio({ portfolio_id: pf.portfolio_id });
+
+        const league = await getLeagueById(leagueIdAsNumber);
+        const draftingEnabled = Boolean(league?.has_drafting);
+        setHasDrafting(draftingEnabled);
+
+        if (draftingEnabled) {
+          const draft = await getDraftByLeague(leagueIdAsNumber);
+
+          if (!draft?.id) {
+            setDraftedStockNames([]);
+          } else {
+            const picks = await getDraftPicksByLeague(draft.id);
+            const myPickStockIds = picks
+              .filter((pick) => pick.portfolio_id === pf.portfolio_id)
+              .map((pick) => Number(pick.stock_id));
+
+            const uniqueStockIds = Array.from(
+              new Set(myPickStockIds.filter((stockId) => Number.isFinite(stockId))),
+            );
+
+            if (uniqueStockIds.length === 0) {
+              setDraftedStockNames([]);
+            } else {
+              const { data: stockRows, error: stockRowsError } = await supabase
+                .from("Stocks")
+                .select("stock_id,name")
+                .in("stock_id", uniqueStockIds);
+
+              if (stockRowsError) {
+                console.error("Failed to load drafted stock names:", stockRowsError);
+                setDraftedStockNames([]);
+              } else {
+                const stockNameById = new Map<number, string>();
+                for (const stockRow of stockRows ?? []) {
+                  stockNameById.set(
+                    Number((stockRow as { stock_id: number }).stock_id),
+                    (stockRow as { name?: string | null }).name?.trim() ||
+                      `Stock #${(stockRow as { stock_id: number }).stock_id}`,
+                  );
+                }
+
+                const orderedNames = Array.from(
+                  new Set(
+                    myPickStockIds
+                      .map((stockId) => stockNameById.get(stockId) ?? `Stock #${stockId}`),
+                  ),
+                );
+
+                setDraftedStockNames(orderedNames);
+              }
+            }
+          }
+        } else {
+          setDraftedStockNames([]);
+        }
+      }
     } catch (err) {
-      console.error("Error loading holdings:", err);
+      console.error("Error loading league holdings:", err);
       setHoldings([]);
       setTotals(null);
+      setHasDrafting(false);
+      setDraftedStockNames([]);
       setPortfolio(null);
     } finally {
       setLoading(false);
     }
-  }, [auth.user]);
+  }, [auth.user, leagueId]);
 
   useEffect(() => {
     loadHoldings();
@@ -169,7 +229,6 @@ function SoloPortfolioPage() {
     });
   }
 
-  // ✅ NEW: extracted + typed stock modal opener
   const handleOpenStockDetails = async (stockId?: number) => {
     if (!stockId) return;
 
@@ -192,7 +251,7 @@ function SoloPortfolioPage() {
   });
 
   return (
-    <>
+    <PageContent>
       {loading ? (
         <p className="text-gray-600">Loading portfolio...</p>
       ) : (
@@ -217,6 +276,17 @@ function SoloPortfolioPage() {
 
             {portfolio && <PortfolioChart id={portfolio.portfolio_id} timeFrame="1M" />}
           </div>
+
+          {hasDrafting && (
+            <div className="mb-6 rounded-lg border border-gray-300 bg-white px-4 py-3">
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">Drafted Stocks</h3>
+              {draftedStockNames.length === 0 ? (
+                <p className="text-sm text-gray-600">No drafted stocks yet.</p>
+              ) : (
+                <p className="text-sm text-gray-700">{draftedStockNames.join(", ")}</p>
+              )}
+            </div>
+          )}
 
           <h3 className="text-lg font-semibold mb-3">My Stocks</h3>
 
@@ -320,8 +390,6 @@ function SoloPortfolioPage() {
           </div>
         </div>
       )}
-    </>
+    </PageContent>
   );
 }
-
-export default SoloPortfolioPage;

@@ -191,7 +191,7 @@ export default function SellStockModal() {
                 onChange={() => setMode("all")}
               />
               <label htmlFor="sell-all" className="text-sm text-gray-700">Sell All</label>
-              <span className="ml-auto text-xs text-gray-600">{availableShares.toFixed(6)} shares</span>
+              <span className="ml-auto text-xs text-gray-600">${(availableShares * price).toFixed(2)}</span>
             </div>
           </div>
 
