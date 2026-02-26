@@ -55,3 +55,19 @@ export async function insertDraftPick(
     throw error;
   }
 }
+
+// check whether a stock exists in any draft pick
+export async function isStockInDraftPicks(stockId: number): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("Draft Picks")
+    .select("stock_id")
+    .eq("stock_id", stockId)
+    .limit(1);
+
+  if (error) {
+    console.error("Failed to check draft picks for stock:", error);
+    return false;
+  }
+
+  return Array.isArray(data) && data.length > 0;
+}

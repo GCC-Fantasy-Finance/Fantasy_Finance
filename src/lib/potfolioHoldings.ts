@@ -16,3 +16,18 @@ export async function getPortfolioHoldingsByPortfolioIdAndStockId(portfolioId: n
 
   return data.length > 0 ? data[0].quantity : 0;
 }
+
+// get all holdings for a portfolio
+export async function getPortfolioHoldings(portfolioId: number) {
+  const { data, error } = await supabase
+    .from("Portfolio Holdings")
+    .select("*")
+    .eq("portfolio_id", portfolioId);
+    
+  if (error) {
+    console.error("Error fetching portfolio holdings:", error);
+    return [];
+  }
+
+  return data;
+}
