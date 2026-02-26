@@ -23,6 +23,7 @@ export interface StockRow {
   stock_symbol: string | null;
   name: string | null;
   current_price: number | null;
+  previous_close: number | null;
 }
 
 export interface HoldingView {
@@ -159,7 +160,7 @@ export async function fetchPortfolioHoldingsWithStocks(
     if (stockIds.length > 0) {
       const { data: stockRows, error: stockError } = await supabase
         .from("Stocks")
-        .select("stock_id,stock_symbol,name,current_price")
+        .select("stock_id,stock_symbol,name,current_price,previous_close")
         .in("stock_id", stockIds);
 
       if (stockError) {

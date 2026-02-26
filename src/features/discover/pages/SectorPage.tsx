@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import PageContent from "../../../layouts/components/PageContent";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { getAllStocks } from "@/lib/stocks";
+import { calculateStockPercentChange } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import StockDetailsModal from "@/components/ui/stockDetailsModal";
 import {
@@ -20,6 +21,7 @@ interface SectorStock {
   stock_symbol: string;
   name: string;
   current_price: number;
+  previous_close: number;
   sector?: string;
 }
 
@@ -101,6 +103,20 @@ function SectorPage() {
     );
   }, [searchQuery, stocks]);
 
+  const trendingStocks = useMemo(() => {
+    return stocks
+      .map((stock) => ({
+        ...stock,
+        percentChange: calculateStockPercentChange(
+          stock.current_price,
+          stock.previous_close,
+        ),
+      }))
+      .filter((stock) => stock.percentChange > 0)
+      .sort((left, right) => right.percentChange - left.percentChange)
+      .slice(0, 3);
+  }, [stocks]);
+
   return (
     <PageContent>
       <div className="space-y-6">
@@ -116,6 +132,44 @@ function SectorPage() {
         </div>
 
         <div className="space-y-4">
+          <h2 className="text-2xl font-semibold text-gray-900">Trending</h2>
+          <p className="text-gray-700">
+            Top 3 {displaySector} stocks by daily percentage gain.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {loading ? (
+              <div className="md:col-span-3 border border-gray-300 rounded-md px-4 py-6 text-center text-gray-600 bg-white">
+                Loading trending stocks...
+              </div>
+            ) : trendingStocks.length === 0 ? (
+              <div className="md:col-span-3 border border-gray-300 rounded-md px-4 py-6 text-center text-gray-600 bg-white">
+                No positive movers found.
+              </div>
+            ) : (
+              trendingStocks.map((stock) => (
+                <button
+                  key={stock.stock_id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedStock(stock);
+                    setShowStockModal(true);
+                  }}
+                  className="border border-gray-300 rounded-md px-4 py-3 text-left bg-white hover:bg-gray-50 transition-colors"
+                >
+                  <p className="font-semibold text-gray-900 truncate">{stock.name}</p>
+                  <p className="text-sm text-gray-600">{stock.stock_symbol}</p>
+                  <p className="text-sm text-gray-900 mt-2">
+                    ${stock.current_price.toFixed(2)}
+                  </p>
+                  <p className="text-sm font-semibold text-green-700">
+                    +{calculateStockPercentChange(stock.current_price, stock.previous_close).toFixed(2)}%
+                  </p>
+                </button>
+              ))
+            )}
+          </div>
+
           <h2 className="text-2xl font-semibold text-gray-900">
             All {displaySector} Stocks
           </h2>
@@ -136,38 +190,58 @@ function SectorPage() {
                   <TableHead>Name</TableHead>
                   <TableHead>Symbol</TableHead>
                   <TableHead className="text-right">Price</TableHead>
+                  <TableHead className="text-right">% Change</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center text-gray-600 py-6">
+                    <TableCell colSpan={4} className="text-center text-gray-600 py-6">
                       Loading stocks...
                     </TableCell>
                   </TableRow>
                 ) : visibleStocks.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center text-gray-600 py-6">
+                    <TableCell colSpan={4} className="text-center text-gray-600 py-6">
                       No stocks found.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  visibleStocks.map((stock) => (
-                    <TableRow
-                      key={stock.stock_id}
-                      className="cursor-pointer"
-                      onClick={() => {
-                        setSelectedStock(stock);
-                        setShowStockModal(true);
-                      }}
-                    >
-                      <TableCell className="font-medium">{stock.name}</TableCell>
-                      <TableCell>{stock.stock_symbol}</TableCell>
-                      <TableCell className="text-right">
-                        ${stock.current_price.toFixed(2)}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  visibleStocks.map((stock) => {
+                    const percentChange = calculateStockPercentChange(
+                      stock.current_price,
+                      stock.previous_close,
+                    );
+
+                    return (
+                      <TableRow
+                        key={stock.stock_id}
+                        className="cursor-pointer"
+                        onClick={() => {
+                          setSelectedStock(stock);
+                          setShowStockModal(true);
+                        }}
+                      >
+                        <TableCell className="font-medium">{stock.name}</TableCell>
+                        <TableCell>{stock.stock_symbol}</TableCell>
+                        <TableCell className="text-right">
+                          ${stock.current_price.toFixed(2)}
+                        </TableCell>
+                        <TableCell
+                          className={`text-right font-medium ${
+                            percentChange < 0
+                              ? "text-red-700"
+                              : percentChange > 0
+                                ? "text-green-700"
+                                : "text-gray-700"
+                          }`}
+                        >
+                          {percentChange > 0 ? "+" : ""}
+                          {percentChange.toFixed(2)}%
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
