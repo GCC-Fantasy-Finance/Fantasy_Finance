@@ -8,13 +8,13 @@ import { getPortfoliosByUser } from "@/lib/portfolios";
 import { getLeagueById } from "@/lib/leagues";
 import { getPortfolioHoldingsByPortfolioIdAndStockId } from "@/lib/potfolioHoldings";
 import StockChart from "./stockChart";
-import { Sparkles } from "lucide-react";
 import { getSectorByLeagueId } from "@/lib/leagues";
 import { useTradeModal } from "@/context/TradeModalContext";
 import Ticker from "@/components/ui/ticker";
 import { supabase } from "@/lib/supabase";
 import { getHasDraftStarted, getHasDraftEnded } from "@/lib/drafts";
-import { isWishlisted} from "@/lib/wishlists";
+import { isWishlisted } from "@/lib/wishlists";
+import AIQuestionChip from "./AIQuestionChip";
 
 interface Stock {
   stock_id?: number;
@@ -50,7 +50,8 @@ type Props = {
 
 export default function StockDetailsModal({ open, stock, onClose }: Props) {
   const { user } = useAuth();
-  const { setChatbotState, setIsPinned, setInitialMessage, isPinned } = useChatbot();
+  const { setChatbotState, setIsPinned, setInitialMessage, isPinned } =
+    useChatbot();
   const { openBuy, openSell } = useTradeModal();
 
   const [portfolios, setPortfolios] = useState<PortfolioWithLeague[]>([]);
@@ -85,7 +86,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
             current_price: number;
           };
           setStockPrice(updated.current_price);
-        }
+        },
       )
       .subscribe();
 
@@ -105,7 +106,9 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
 
       setLoading(true);
       try {
-        const userPortfolios = await getPortfoliosByUser(user.id as unknown as number);
+        const userPortfolios = await getPortfoliosByUser(
+          user.id as unknown as number,
+        );
 
         const enriched = await Promise.all(
           userPortfolios.map(async (portfolio) => {
@@ -114,15 +117,19 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                 ? (await getLeagueById(portfolio.league_id))?.name
                 : undefined;
 
-            const sectors =
-              portfolio.league_id
-                ? await getSectorByLeagueId(portfolio.league_id)
-                : [];
+            const sectors = portfolio.league_id
+              ? await getSectorByLeagueId(portfolio.league_id)
+              : [];
 
-            const hasDraftStarted = await getHasDraftStarted(portfolio.league_id);
+            const hasDraftStarted = await getHasDraftStarted(
+              portfolio.league_id,
+            );
             const hasDraftEnded = await getHasDraftEnded(portfolio.league_id);
 
-            const wishlisted =  await isWishlisted(portfolio.portfolio_id, stock?.stock_id ?? 0);
+            const wishlisted = await isWishlisted(
+              portfolio.portfolio_id,
+              stock?.stock_id ?? 0,
+            );
 
             return {
               portfolio_id: portfolio.portfolio_id,
@@ -136,7 +143,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
               wishlisted: wishlisted,
               draft_has_ended: hasDraftEnded,
             };
-          })
+          }),
         );
 
         setPortfolios(enriched);
@@ -145,13 +152,12 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
           const map: Record<number, number> = {};
           await Promise.all(
             enriched.map(async (portfolio) => {
-              const qty =
-                await getPortfolioHoldingsByPortfolioIdAndStockId(
-                  portfolio.portfolio_id,
-                  stock.stock_id!
-                );
+              const qty = await getPortfolioHoldingsByPortfolioIdAndStockId(
+                portfolio.portfolio_id,
+                stock.stock_id!,
+              );
               map[portfolio.portfolio_id] = qty ?? 0;
-            })
+            }),
           );
           setHoldings(map);
         }
@@ -196,10 +202,10 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
             prev.map((p) =>
               p.league_id === updated.league_id
                 ? { ...p, has_started: updated.is_started }
-                : p
-            )
+                : p,
+            ),
           );
-        }
+        },
       )
       .subscribe();
 
@@ -253,16 +259,18 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
   };
 
   const formatDetails = (amount: number): string => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'decimal',
+    return new Intl.NumberFormat("en-US", {
+      style: "decimal",
       maximumFractionDigits: 1,
-      notation: 'compact', 
-      compactDisplay: 'long',
+      notation: "compact",
+      compactDisplay: "long",
     }).format(amount);
   };
 
   const modal = (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${isPinned ? "pr-[350px]" : ""}`}>
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${isPinned ? "pr-[350px]" : ""}`}
+    >
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
       <div
@@ -284,8 +292,11 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
           <div className="w-full flex flex-col border-r border-gray-200 p-6">
             <div className="mb-2">
               <h2 className="text-2xl font-semibold">
-                {stock.name}{" – "}
-                {stockPrice != null ? `$${stockPrice.toFixed(2)}` : "Loading..."}
+                {stock.name}
+                {" – "}
+                {stockPrice != null
+                  ? `$${stockPrice.toFixed(2)}`
+                  : "Loading..."}
                 <Ticker
                   currentValue={stockPrice ?? undefined}
                   previousValue={stock.previous_close ?? undefined}
@@ -295,51 +306,59 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
             </div>
 
             <div className="flex-1">
-              <Button className="mx-1 my-[5px] h-[30px] w-16" 
+              <Button
+                className="mx-1 my-[5px] h-[30px] w-16"
                 onClick={() => setTimeFrame("1M")}
-                disabled={timeFrame === "1M"}>30 Days</Button>
-              <Button className="mx-1 my-[5px] h-[30px] w-16" 
+                disabled={timeFrame === "1M"}
+              >
+                30 Days
+              </Button>
+              <Button
+                className="mx-1 my-[5px] h-[30px] w-16"
                 onClick={() => setTimeFrame("1Y")}
-                disabled={timeFrame === "1Y"}>Year</Button>
-              
+                disabled={timeFrame === "1Y"}
+              >
+                Year
+              </Button>
+
               <StockChart id={stock.stock_id || 0} timeFrame={timeFrame} />
             </div>
 
             {/* AI questions */}
             <div className="border-t">
-              <button
-                className="cursor-pointer mt-2 ml-2 px-2 py-[3px] text-green-700 rounded hover:bg-green-100 border-green-300 border"
+              <AIQuestionChip
+                className="mt-2 ml-2"
+                label="Is this stock volatile?"
                 onClick={() => {
-                  setInitialMessage(`Is ${stock.name} (${stock.stock_symbol}) a volatile stock?`);
+                  setInitialMessage(
+                    `Is ${stock.name} (${stock.stock_symbol}) a volatile stock?`,
+                  );
                   setChatbotState("expanded");
                   setIsPinned(true);
                 }}
-              >
-                <Sparkles className="size-4 inline mb-1 mr-1 text-green-700" />
-                <span>Is this stock volatile?</span>
-              </button>
-              <button
-                className="cursor-pointer mt-2 ml-2 px-2 py-[3px] text-green-700 rounded hover:bg-green-100 border-green-300 border"
+              />
+              <AIQuestionChip
+                className="mt-2 ml-2"
+                label="What is the future outlook for this stock?"
                 onClick={() => {
-                  setInitialMessage(`What is the future outlook for ${stock.name} (${stock.stock_symbol})?`);
+                  setInitialMessage(
+                    `What is the future outlook for ${stock.name} (${stock.stock_symbol})?`,
+                  );
                   setChatbotState("expanded");
                   setIsPinned(true);
                 }}
-              >
-                <Sparkles className="size-4 inline mb-1 mr-1 text-green-700" />
-                <span>What is the future outlook for this stock?</span>
-              </button>
-              <button
-                className="cursor-pointer mt-2 ml-2 px-2 py-[3px] text-green-700 rounded hover:bg-green-100 border-green-300 border"
+              />
+              <AIQuestionChip
+                className="mt-2 ml-2"
+                label="Tell me more?"
                 onClick={() => {
-                  setInitialMessage(`Tell me more about ${stock.name} (${stock.stock_symbol})?`);
+                  setInitialMessage(
+                    `Tell me more about ${stock.name} (${stock.stock_symbol})?`,
+                  );
                   setChatbotState("expanded");
                   setIsPinned(true);
                 }}
-              >
-                <Sparkles className="size-4 inline mb-1 mr-1 text-green-700" />
-                <span>Tell me more?</span>
-              </button>
+              />
             </div>
           </div>
 
@@ -359,7 +378,9 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                     className="bg-white border border-gray-200 rounded p-3 flex items-center justify-between gap-2"
                   >
                     <p className="font-medium text-sm truncate">
-                      {portfolio.is_solo ? "Solo" : portfolio.league_name || "Unknown League"}
+                      {portfolio.is_solo
+                        ? "Solo"
+                        : portfolio.league_name || "Unknown League"}
                     </p>
 
                     <div className="flex items-center gap-2">
@@ -367,7 +388,8 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                         ${portfolio.reserve_value.toFixed(2)}
                       </span>
 
-                      {portfolio.draft_has_started && !portfolio.draft_has_ended ? (
+                      {portfolio.draft_has_started &&
+                      !portfolio.draft_has_ended ? (
                         portfolio.wishlisted ? (
                           <Button className="text-xs h-7 px-2 bg-yellow-500 hover:bg-yellow-600 text-white">
                             Dequeue
@@ -403,7 +425,6 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                         </>
                       )}
                     </div>
-
                   </div>
                 ))
               )}
