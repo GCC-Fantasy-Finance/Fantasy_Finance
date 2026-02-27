@@ -4,33 +4,25 @@ import { X } from "lucide-react";
 import { Button } from "./button";
 import { useAuth } from "@/context/AuthContext";
 import { useChatbot } from "@/context/ChatbotContext";
-import { getPortfoliosByUser } from "@/lib/portfolios";
-import { getLeagueById } from "@/lib/leagues";
-import { getPortfolioHoldingsByPortfolioIdAndStockId } from "@/lib/potfolioHoldings";
 import StockChart from "./stockChart";
-import { getSectorByLeagueId } from "@/lib/leagues";
+
+// import Sparkles from "@/components/icons/Sparkles";
 import { useTradeModal } from "@/context/TradeModalContext";
 import Ticker from "@/components/ui/ticker";
 import { supabase } from "@/lib/supabase";
-import { getHasDraftStarted, getHasDraftEnded } from "@/lib/drafts";
+
 import {
-  isWishlisted,
+  
   addWishlistItemStockPage,
   removeWishlistItem,
 } from "@/lib/wishlists";
 import { isStockInDraftPicks } from "@/lib/draftpicks";
-import {
-  Tooltip,
-  TooltipProvider,
-  TooltipTrigger,
-  TooltipContent,
-} from "@/components/ui/tooltip";
-import {
-  getDayMinMaxStockHistory,
-  getYearMinMaxStockHistory,
-} from "@/lib/stockHistory";
-
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { getDayMinMaxStockHistory, getYearMinMaxStockHistory } from "@/lib/stockHistory";
 import AIQuestionChip from "./AIQuestionChip";
+import { getPortfoliosByUser } from "@/lib/portfolios";
+import { getPortfolioHoldingsByPortfolioIdAndStockId } from "@/lib/potfolioHoldings";
+import { useDraftOptional } from "@/context/DraftContext";
 
 interface Stock {
   stock_id?: number;
@@ -55,6 +47,7 @@ interface PortfolioWithLeague {
   is_solo: boolean;
   reserve_value: number;
   previous_close_value: number;
+  created_at?: string;
   sectors: string[];
   wishlisted: boolean;
 }
@@ -70,6 +63,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
   const { setChatbotState, setIsPinned, setInitialMessage, isPinned } =
     useChatbot();
   const { openBuy, openSell } = useTradeModal();
+  const draft = useDraftOptional();
 
   const [portfolios, setPortfolios] = useState<PortfolioWithLeague[]>([]);
   const [loading, setLoading] = useState(false);
@@ -196,45 +190,121 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
           user.id as unknown as number,
         );
 
-        const enriched = await Promise.all(
-          userPortfolios.map(async (portfolio) => {
-            const league_name =
-              portfolio.league_id && !portfolio.is_solo
-                ? (await getLeagueById(portfolio.league_id))?.name
-                : undefined;
+        const portfolioRows = (userPortfolios ?? []) as Array<{
+          portfolio_id: number;
+          league_id?: number | null;
+          is_solo: boolean;
+          reserve_value?: number | null;
+          previous_close_value?: number | null;
+          created_at?: string | null;
+        }>;
 
-            const sectors = portfolio.league_id
-              ? await getSectorByLeagueId(portfolio.league_id)
-              : [];
-
-            const hasDraftStarted = await getHasDraftStarted(
-              portfolio.league_id,
-            );
-            const hasDraftEnded = await getHasDraftEnded(portfolio.league_id);
-
-            const wishlisted = await isWishlisted(
-              portfolio.portfolio_id,
-              stock?.stock_id ?? 0,
-            );
-
-            return {
-              portfolio_id: portfolio.portfolio_id,
-              league_id: portfolio.league_id,
-              league_name,
-              is_solo: portfolio.is_solo,
-              reserve_value: portfolio.reserve_value || 0,
-              previous_close_value: portfolio.previous_close_value || 0,
-              sectors,
-              draft_has_started: hasDraftStarted,
-              wishlisted: wishlisted,
-              draft_has_ended: hasDraftEnded,
-            };
-          }),
+        const portfolioIds = portfolioRows.map((portfolio) =>
+          Number(portfolio.portfolio_id)
+        );
+        const leagueIds = Array.from(
+          new Set(
+            portfolioRows
+              .map((portfolio) => Number(portfolio.league_id))
+              .filter((leagueId) => Number.isFinite(leagueId))
+          )
         );
 
-        enriched.sort((a, b) => Number(b.is_solo) - Number(a.is_solo));
+        const [leaguesResult, draftsResult, wishlistsResult, holdingsResult] =
+          await Promise.all([
+            leagueIds.length > 0
+              ? supabase
+                  .from("Leagues")
+                  .select("league_id,name,sectors")
+                  .in("league_id", leagueIds)
+              : Promise.resolve({ data: [], error: null }),
+            leagueIds.length > 0
+              ? supabase
+                  .from("Drafts")
+                  .select("league_id,is_started,is_ended")
+                  .in("league_id", leagueIds)
+              : Promise.resolve({ data: [], error: null }),
+            stock?.stock_id && portfolioIds.length > 0
+              ? supabase
+                  .from("Wishlist Items")
+                  .select("portfolio_id")
+                  .in("portfolio_id", portfolioIds)
+                  .eq("stock_id", stock.stock_id)
+              : Promise.resolve({ data: [], error: null }),
+            stock?.stock_id && portfolioIds.length > 0
+              ? supabase
+                  .from("Portfolio Holdings")
+                  .select("portfolio_id,quantity")
+                  .in("portfolio_id", portfolioIds)
+                  .eq("stock_id", stock.stock_id)
+              : Promise.resolve({ data: [], error: null }),
+          ]);
+
+        if (leaguesResult.error) throw leaguesResult.error;
+        if (draftsResult.error) throw draftsResult.error;
+        if (wishlistsResult.error) throw wishlistsResult.error;
+        if (holdingsResult.error) throw holdingsResult.error;
+
+        const leagueById = new Map<number, { name?: string; sectors?: string[] }>();
+        for (const league of (leaguesResult.data ?? []) as any[]) {
+          leagueById.set(Number(league.league_id), {
+            name: league.name,
+            sectors: Array.isArray(league.sectors) ? league.sectors : [],
+          });
+        }
+
+        const draftByLeagueId = new Map<
+          number,
+          { is_started?: boolean; is_ended?: boolean }
+        >();
+        for (const draft of (draftsResult.data ?? []) as any[]) {
+          draftByLeagueId.set(Number(draft.league_id), {
+            is_started: Boolean(draft.is_started),
+            is_ended: Boolean(draft.is_ended),
+          });
+        }
+
+        const wishlistedPortfolioIds = new Set<number>(
+          ((wishlistsResult.data ?? []) as any[]).map((row) =>
+            Number(row.portfolio_id)
+          )
+        );
+
+        const holdingsMap: Record<number, number> = {};
+        for (const row of (holdingsResult.data ?? []) as any[]) {
+          const portfolioId = Number(row.portfolio_id);
+          holdingsMap[portfolioId] = Number(row.quantity ?? 0);
+        }
+
+        const enriched: PortfolioWithLeague[] = portfolioRows.map((portfolio) => {
+          const leagueId = Number(portfolio.league_id);
+          const league = leagueById.get(leagueId);
+          const draft = draftByLeagueId.get(leagueId);
+          const portfolioId = Number(portfolio.portfolio_id);
+
+          return {
+            portfolio_id: portfolioId,
+            league_id: Number.isFinite(leagueId) ? leagueId : undefined,
+            league_name: league?.name,
+            is_solo: Boolean(portfolio.is_solo),
+            reserve_value: Number(portfolio.reserve_value ?? 0),
+            previous_close_value: Number(portfolio.previous_close_value ?? 0),
+            created_at: portfolio.created_at ?? undefined,
+            sectors: league?.sectors ?? [],
+            draft_has_started: Boolean(draft?.is_started),
+            draft_has_ended: Boolean(draft?.is_ended),
+            wishlisted: wishlistedPortfolioIds.has(portfolioId),
+          };
+        });
+
+        enriched.sort((a, b) => {
+          const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+          return aTime - bTime;
+        });
 
         setPortfolios(enriched);
+        // setHoldings(holdingsMap);
 
         if (stock?.stock_id) {
           const map: Record<number, number> = {};
@@ -259,7 +329,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
     };
 
     fetchPortfolios();
-  }, [open, user?.id, stock?.stock_id, isWishlisted]);
+  }, [open, user?.id, stock?.stock_id]);
 
   // check whether this stock exists in Draft Picks (used to gate buying)
   useEffect(() => {
@@ -539,10 +609,8 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                                   ),
                                 );
 
-                                await removeWishlistItem(
-                                  portfolio.portfolio_id,
-                                  stock.stock_id!,
-                                );
+                                await removeWishlistItem(portfolio.portfolio_id, stock.stock_id!);
+                                draft?.removeFromQueueUI(stock.stock_id!, portfolio.portfolio_id);
                               }}
                             >
                               Dequeue
@@ -562,10 +630,8 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                                   </Button>
                                 </span>
                               </TooltipTrigger>
-
                               <TooltipContent className="bg-green-700 text-white text-xs rounded max-w-56 whitespace-normal break-words px-2 py-1">
-                                Sector {stock.sector} is not allowed in this
-                                league.
+                                Sector {stock.sector} is not allowed in this league.
                                 <br />
                                 Allowed sectors: {portfolio.sectors.join(", ")}
                               </TooltipContent>
@@ -575,19 +641,16 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                           <Button
                             className="text-xs h-7 px-2 bg-yellow-500 hover:bg-yellow-600 text-white"
                             onClick={async () => {
-                              // Optimistically update UI immediately
-                              setPortfolios((prev) =>
-                                prev.map((p) =>
+                              setPortfolios(prev =>
+                                prev.map(p =>
                                   p.portfolio_id === portfolio.portfolio_id
                                     ? { ...p, wishlisted: true }
-                                    : p,
-                                ),
+                                    : p
+                                )
                               );
 
-                              await addWishlistItemStockPage(
-                                portfolio.portfolio_id,
-                                stock.stock_id!,
-                              );
+                              await addWishlistItemStockPage(portfolio.portfolio_id, stock.stock_id!);
+                              draft?.addToQueueUI(stock.stock_id!, portfolio.portfolio_id);
                             }}
                           >
                             Queue
@@ -610,13 +673,10 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                                     </Button>
                                   </span>
                                 </TooltipTrigger>
-
                                 <TooltipContent className="bg-green-700 text-white text-xs rounded max-w-56 whitespace-normal break-words px-2 py-1">
-                                  Sector {stock.sector} is not allowed in this
-                                  league.
+                                  Sector {stock.sector} is not allowed in this league.
                                   <br />
-                                  Allowed sectors:{" "}
-                                  {portfolio.sectors.join(", ")}
+                                  Allowed sectors: {portfolio.sectors.join(", ")}
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
@@ -648,7 +708,6 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                                         </Button>
                                       </span>
                                     </TooltipTrigger>
-
                                     <TooltipContent className="bg-green-700 text-white text-xs rounded max-w-56 whitespace-normal break-words px-2 py-1">
                                       This stock is not in your portfolio.
                                     </TooltipContent>
