@@ -18,13 +18,23 @@ import {
   Stars,
   ArrowUpRight,
   Search,
+  Paperclip,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "./button";
 import { Input } from "./input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./dropdown-menu";
+import { Checkbox } from "./checkbox";
 import AIQuestionChip from "./AIQuestionChip";
 import { useAuth } from "@/context/AuthContext";
 import { useChatbot } from "@/context/ChatbotContext";
+import { supabase } from "@/lib/supabase";
 import {
   createConversation,
   addMessage,
@@ -41,7 +51,7 @@ interface ChatbotProps {
   onPinnedChange?: (pinned: boolean) => void;
 }
 
-// type ChatbotState = "closed" | "small" | "expanded";
+// type ChatbotState = "closed" | "floating";
 type ViewMode = "chat" | "history";
 
 interface Message {
@@ -49,6 +59,39 @@ interface Message {
   text: string;
   sender: "user" | "ai";
   timestamp: Date;
+}
+
+interface PortfolioContextOption {
+  id: number;
+  name: string;
+}
+
+interface PortfolioContextSnapshot {
+  selectedAt: string;
+  portfolioCount: number;
+  portfolios: Array<{
+    portfolioId: number;
+    name: string;
+    isSolo: boolean;
+    reserveValue: number;
+    previousCloseValue: number;
+    currentInvestedValue: number;
+    estimatedCurrentTotalValue: number;
+    holdings: Array<{
+      stockId: number;
+      symbol: string;
+      name: string;
+      quantity: number;
+      averageBuyPrice: number;
+      currentPrice: number;
+      positionValue: number;
+      allocationPct: number;
+    }>;
+    history: Array<{
+      time: string;
+      value: number;
+    }>;
+  }>;
 }
 
 export default function Chatbot({
@@ -81,6 +124,12 @@ export default function Chatbot({
   const [activeHighlightQuery, setActiveHighlightQuery] = useState("");
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [loadingSearchIndex, setLoadingSearchIndex] = useState(false);
+  const [portfolioContextOptions, setPortfolioContextOptions] = useState<
+    PortfolioContextOption[]
+  >([]);
+  const [selectedPortfolioContextIds, setSelectedPortfolioContextIds] =
+    useState<number[]>([]);
+  const [loadingPortfolioContext, setLoadingPortfolioContext] = useState(false);
   const [loadingAI, setLoadingAI] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const chatbotRef = useRef<HTMLDivElement>(null);
@@ -206,6 +255,382 @@ export default function Chatbot({
       return total + (matches?.length ?? 0);
     }, 0);
   }, [activeHighlightQuery, messages, escapeRegExp, getVisibleTextForCounting]);
+
+  const selectedPortfolioContextNames = useMemo(() => {
+    if (selectedPortfolioContextIds.length === 0) return [];
+
+    const selectedIds = new Set(selectedPortfolioContextIds);
+    return portfolioContextOptions
+      .filter((portfolio) => selectedIds.has(portfolio.id))
+      .map((portfolio) => portfolio.name);
+  }, [portfolioContextOptions, selectedPortfolioContextIds]);
+
+  const shareablePortfolioContextNames = useMemo(() => {
+    return portfolioContextOptions.map(
+      (portfolio) => `${portfolio.name} (id: ${portfolio.id})`,
+    );
+  }, [portfolioContextOptions]);
+
+  const buildSelectedPortfolioContext = useCallback(async () => {
+    if (!user || selectedPortfolioContextIds.length === 0) {
+      return null;
+    }
+
+    const { data: portfolios, error: portfoliosError } = await supabase
+      .from("Portfolios")
+      .select(
+        "portfolio_id, league_id, is_solo, reserve_value, previous_close_value",
+      )
+      .eq("user_id", user.id)
+      .in("portfolio_id", selectedPortfolioContextIds);
+
+    if (portfoliosError || !portfolios || portfolios.length === 0) {
+      console.error(
+        "Failed to load selected portfolio context details:",
+        portfoliosError,
+      );
+      return null;
+    }
+
+    const portfolioIds = portfolios.map((portfolio) => portfolio.portfolio_id);
+    const leagueIds = [
+      ...new Set(
+        portfolios
+          .map((portfolio) => portfolio.league_id)
+          .filter((leagueId): leagueId is number => leagueId !== null),
+      ),
+    ];
+
+    let leagueNameById: Record<number, string> = {};
+    if (leagueIds.length > 0) {
+      const { data: leagues, error: leaguesError } = await supabase
+        .from("Leagues")
+        .select("league_id, name")
+        .in("league_id", leagueIds);
+
+      if (leaguesError) {
+        console.error(
+          "Failed to load league names for selected portfolio context:",
+          leaguesError,
+        );
+      } else if (leagues) {
+        leagueNameById = Object.fromEntries(
+          leagues.map((league) => [league.league_id, league.name]),
+        );
+      }
+    }
+
+    const { data: holdingsRows, error: holdingsError } = await supabase
+      .from("Portfolio Holdings")
+      .select(
+        "portfolio_id, stock_id, quantity, average_buy_price, portfolio_holding_id",
+      )
+      .in("portfolio_id", portfolioIds);
+
+    if (holdingsError) {
+      console.error(
+        "Failed to load holdings for selected portfolio context:",
+        holdingsError,
+      );
+    }
+
+    const stockIds = [
+      ...new Set((holdingsRows ?? []).map((row) => Number(row.stock_id))),
+    ].filter((stockId) => Number.isFinite(stockId));
+
+    let stockById = new Map<
+      number,
+      {
+        stock_symbol: string | null;
+        name: string | null;
+        current_price: number | null;
+      }
+    >();
+    if (stockIds.length > 0) {
+      const { data: stocks, error: stocksError } = await supabase
+        .from("Stocks")
+        .select("stock_id, stock_symbol, name, current_price")
+        .in("stock_id", stockIds);
+
+      if (stocksError) {
+        console.error(
+          "Failed to load stock details for selected portfolio context:",
+          stocksError,
+        );
+      } else if (stocks) {
+        stockById = new Map(
+          stocks.map((stock) => [
+            Number(stock.stock_id),
+            {
+              stock_symbol: stock.stock_symbol,
+              name: stock.name,
+              current_price: stock.current_price,
+            },
+          ]),
+        );
+      }
+    }
+
+    const { data: historyRows, error: historyError } = await supabase
+      .from("Portfolio Histories")
+      .select("portfolio_id, time, value")
+      .in("portfolio_id", portfolioIds)
+      .order("time", { ascending: false });
+
+    if (historyError) {
+      console.error(
+        "Failed to load portfolio history for selected portfolio context:",
+        historyError,
+      );
+    }
+
+    const holdingsByPortfolioId = (holdingsRows ?? []).reduce(
+      (acc, row) => {
+        const current = acc.get(row.portfolio_id) ?? [];
+        current.push(row);
+        acc.set(row.portfolio_id, current);
+        return acc;
+      },
+      new Map<
+        number,
+        Array<{
+          portfolio_id: number;
+          stock_id: number;
+          quantity: number | null;
+          average_buy_price: number | null;
+          portfolio_holding_id: number;
+        }>
+      >(),
+    );
+
+    const historyByPortfolioId = (historyRows ?? []).reduce(
+      (acc, row) => {
+        const current = acc.get(row.portfolio_id) ?? [];
+        if (current.length < 12) {
+          current.push(row);
+        }
+        acc.set(row.portfolio_id, current);
+        return acc;
+      },
+      new Map<
+        number,
+        Array<{
+          portfolio_id: number;
+          time: string;
+          value: number | null;
+        }>
+      >(),
+    );
+
+    const nameByPortfolioId = new Map(
+      portfolioContextOptions.map((portfolio) => [
+        portfolio.id,
+        portfolio.name,
+      ]),
+    );
+
+    const orderedPortfolios = [...portfolios].sort(
+      (a, b) =>
+        selectedPortfolioContextIds.indexOf(a.portfolio_id) -
+        selectedPortfolioContextIds.indexOf(b.portfolio_id),
+    );
+
+    const portfolioSnapshots: PortfolioContextSnapshot["portfolios"] =
+      orderedPortfolios.map((portfolio) => {
+        const rawHoldings =
+          holdingsByPortfolioId.get(portfolio.portfolio_id) ?? [];
+
+        const holdings = rawHoldings
+          .map((holding) => {
+            const stock = stockById.get(Number(holding.stock_id));
+            const quantity = Number(holding.quantity ?? 0);
+            const currentPrice = Number(stock?.current_price ?? 0);
+            const averageBuyPrice = Number(holding.average_buy_price ?? 0);
+            const positionValue = quantity * currentPrice;
+
+            return {
+              stockId: Number(holding.stock_id),
+              symbol: stock?.stock_symbol || "UNKNOWN",
+              name: stock?.name || "Unknown Stock",
+              quantity,
+              averageBuyPrice,
+              currentPrice,
+              positionValue,
+            };
+          })
+          .sort((a, b) => b.positionValue - a.positionValue);
+
+        const currentInvestedValue = holdings.reduce(
+          (sum, holding) => sum + holding.positionValue,
+          0,
+        );
+        const reserveValue = Number(portfolio.reserve_value ?? 0);
+        const previousCloseValue = Number(portfolio.previous_close_value ?? 0);
+        const estimatedCurrentTotalValue = currentInvestedValue + reserveValue;
+        const denominator =
+          estimatedCurrentTotalValue > 0 ? estimatedCurrentTotalValue : 1;
+
+        const holdingsWithAllocation = holdings.map((holding) => ({
+          ...holding,
+          allocationPct: (holding.positionValue / denominator) * 100,
+        }));
+
+        const history = (historyByPortfolioId.get(portfolio.portfolio_id) ?? [])
+          .slice()
+          .sort(
+            (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime(),
+          )
+          .map((entry) => ({
+            time: entry.time,
+            value: Number(entry.value ?? 0),
+          }));
+
+        const leagueName =
+          (portfolio.league_id && leagueNameById[portfolio.league_id]) || null;
+
+        return {
+          portfolioId: portfolio.portfolio_id,
+          name:
+            nameByPortfolioId.get(portfolio.portfolio_id) ||
+            (portfolio.is_solo
+              ? "Solo Portfolio"
+              : leagueName || "League Portfolio"),
+          isSolo: Boolean(portfolio.is_solo),
+          reserveValue,
+          previousCloseValue,
+          currentInvestedValue,
+          estimatedCurrentTotalValue,
+          holdings: holdingsWithAllocation,
+          history,
+        };
+      });
+
+    return {
+      selectedAt: new Date().toISOString(),
+      portfolioCount: portfolioSnapshots.length,
+      portfolios: portfolioSnapshots,
+    } as PortfolioContextSnapshot;
+  }, [user, selectedPortfolioContextIds, portfolioContextOptions]);
+
+  useEffect(() => {
+    if (!user) {
+      setPortfolioContextOptions([]);
+      setSelectedPortfolioContextIds([]);
+      return;
+    }
+
+    let isCancelled = false;
+
+    const fetchPortfolioContextOptions = async () => {
+      setLoadingPortfolioContext(true);
+
+      const { data: portfolios, error: portfoliosError } = await supabase
+        .from("Portfolios")
+        .select("portfolio_id, is_solo, league_id")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true });
+
+      if (isCancelled) return;
+
+      if (portfoliosError || !portfolios) {
+        console.error(
+          "Failed to load portfolios for chatbot context:",
+          portfoliosError,
+        );
+        setPortfolioContextOptions([]);
+        setSelectedPortfolioContextIds([]);
+        setLoadingPortfolioContext(false);
+        return;
+      }
+
+      const leagueIds = [
+        ...new Set(
+          portfolios
+            .map((portfolio) => portfolio.league_id)
+            .filter((id): id is number => id !== null),
+        ),
+      ];
+
+      let leagueNameById: Record<number, string> = {};
+      if (leagueIds.length > 0) {
+        const { data: leagues, error: leaguesError } = await supabase
+          .from("Leagues")
+          .select("league_id, name")
+          .in("league_id", leagueIds);
+
+        if (leaguesError) {
+          console.error(
+            "Failed to load league names for chatbot context:",
+            leaguesError,
+          );
+        } else if (leagues) {
+          leagueNameById = Object.fromEntries(
+            leagues.map((league) => [league.league_id, league.name]),
+          );
+        }
+      }
+
+      const nextOptions: PortfolioContextOption[] = portfolios.map(
+        (portfolio) => {
+          if (portfolio.is_solo) {
+            return {
+              id: portfolio.portfolio_id,
+              name: "Solo Portfolio",
+            };
+          }
+
+          const leagueName =
+            (portfolio.league_id && leagueNameById[portfolio.league_id]) ||
+            "League Portfolio";
+
+          return {
+            id: portfolio.portfolio_id,
+            name: leagueName,
+          };
+        },
+      );
+
+      setPortfolioContextOptions(nextOptions);
+      setSelectedPortfolioContextIds((prev) =>
+        prev.filter((portfolioId) =>
+          nextOptions.some((portfolio) => portfolio.id === portfolioId),
+        ),
+      );
+      setLoadingPortfolioContext(false);
+    };
+
+    void fetchPortfolioContextOptions();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [user]);
+
+  const toggleAllPortfolioContext = useCallback(() => {
+    setSelectedPortfolioContextIds((prev) => {
+      if (prev.length === portfolioContextOptions.length) {
+        return [];
+      }
+
+      return portfolioContextOptions.map((portfolio) => portfolio.id);
+    });
+  }, [portfolioContextOptions]);
+
+  const togglePortfolioContextItem = useCallback((portfolioId: number) => {
+    setSelectedPortfolioContextIds((prev) => {
+      if (prev.includes(portfolioId)) {
+        return prev.filter((id) => id !== portfolioId);
+      }
+
+      return [...prev, portfolioId];
+    });
+  }, []);
+
+  const removePortfolioContextItem = useCallback((portfolioId: number) => {
+    setSelectedPortfolioContextIds((prev) =>
+      prev.filter((id) => id !== portfolioId),
+    );
+  }, []);
 
   useEffect(() => {
     if (conversationId) {
@@ -371,6 +796,16 @@ export default function Chatbot({
     if (state === "closed" || isPinned) return;
 
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isDropdownInteraction = Boolean(
+        target?.closest('[data-slot="dropdown-menu-content"]') ||
+        target?.closest('[data-slot="dropdown-menu-trigger"]'),
+      );
+
+      if (isDropdownInteraction) {
+        return;
+      }
+
       if (
         chatbotRef.current &&
         !chatbotRef.current.contains(event.target as Node)
@@ -383,17 +818,16 @@ export default function Chatbot({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [state, isPinned]);
 
-  // Auto-focus input whenever chat view is opened (small/expanded/pinned)
+  // Auto-focus input when floating window opens
   useEffect(() => {
-    if (state !== "closed" && viewMode === "chat") {
-      const timer = setTimeout(() => inputRef.current?.focus(), 0);
-      return () => clearTimeout(timer);
+    if (state === "floating" && viewMode === "chat") {
+      setTimeout(() => inputRef.current?.focus(), 0);
     }
-  }, [state, viewMode, isPinned]);
+  }, [state, viewMode]);
 
   // Auto-send initial message when set from stock details modal
   useEffect(() => {
-    if (initialMessage && state === "expanded" && !isStreaming) {
+    if (initialMessage && state === "floating" && !isStreaming) {
       // Use a small delay to ensure the message state is updated
       const timer = setTimeout(() => {
         handleSendWithMessage(initialMessage);
@@ -405,11 +839,11 @@ export default function Chatbot({
 
   const handleToggle = () => {
     if (state === "closed") {
-      // Opening small window - start fresh
+      // Opening floating window - start fresh
       setMessages([]);
       setConversationId(null);
       setViewMode("chat");
-      setState("small");
+      setState("floating");
     } else {
       // Closing window
       setState("closed");
@@ -431,7 +865,7 @@ export default function Chatbot({
       };
 
       setMessages((prev) => [...prev, userMessage]);
-      setState("expanded");
+      setState("floating");
 
       // Clear the initial message after sending it
       if (initialMessage) {
@@ -486,41 +920,44 @@ export default function Chatbot({
         }));
 
         // Define your system prompt / instructions here
+        const selectedPortfolioContext = await buildSelectedPortfolioContext();
         const systemPrompt = {
           role: "system",
           content: `
-            You are the Fantasy Finance assistant — a helpful, decisive coach for a STOCK TRADING GAME.
-            Your job: help users learn finance and make better in-game portfolio decisions.
+            You are the Fantasy Finance portfolio assistant.
+            You help users manage portfolios in a stock trading game.
 
-            Context:
-            - This is a game/simulation. Users may request predictions and specific buy/sell/hold suggestions.
-            - You may give “financial advice” in the game context, including forecasts and recommendations.
-            - If portfolio holdings / cash / constraints are provided, you MUST use them in your reasoning.
+            Core game model:
+            - A portfolio = reserve cash + stock holdings.
+            - Each holding includes symbol, quantity, current price, and dollar position value.
+            - Portfolio context may include history points over time.
+            - Users will often ask things like: "analyze my portfolios", "what should I buy", "what should I sell", "which portfolio is riskiest".
 
-            Important UI context:
-            - Assume the user can already see stock details (price chart, company info, key stats) for any stock they ask about.
-            - Do NOT repeat obvious stock details or restate large blocks of fundamentals/metrics unless the user explicitly asks.
-            - Instead, interpret what the details imply and translate them into an action plan.
+            Hard rules:
+            - Treat this as a game assistant. Give actionable recommendations.
+            - Do not give generic textbook-only answers when portfolio context is provided.
+            - If portfolio context is provided, use that exact data in your analysis.
+            - If no detailed portfolio context is shared, say you cannot see portfolio details yet and ask the user to share portfolios with the Add Context button.
+            - If user asks about a specific portfolio that is not currently shared, explicitly say it is not currently visible and ask them to share that one.
+            - Never claim to see data that is not in the provided context.
 
-            Primary goals (in order):
-            1) Provide a clear recommendation (what to do next).
-            2) Explain WHY with concise reasoning grounded in market/finance concepts and any web findings.
-            3) Provide a confidence level and key assumptions.
-            4) Offer 1–3 concrete alternatives if the user has different risk preferences.
+            How to respond to common intents:
+            - "Analyze my portfolios":
+              - If shared context exists: compare the shared portfolios directly (cash level, top positions, concentration, diversification, recent trend from history), then give concrete next actions.
+              - If no shared context: say you can list available portfolios but need the user to share one or more via Add Context for analysis.
+            - "List my portfolios":
+              - List the available portfolio names from the shareable list.
+              - Clearly label which are currently shared vs not shared.
+            - Buy/sell questions:
+              - Give a direct action first, then a short rationale tied to the user’s portfolio exposures and cash.
 
-            Web / evidence behavior:
-            - When you rely on web findings, summarize them and list sources at the end as bullet links (publisher + URL).
-            - Do not fabricate sources, quotes, or “news”. If you cannot confirm something via web findings, label it as an assumption.
-            - Prefer recent, reputable sources (SEC filings, earnings releases, major financial news, company IR pages).
-
-            Decision quality rules:
-            - Don’t just say “I don’t know” or “no one can predict.” If uncertain, still provide a best-effort plan with low confidence, and explain what would change your mind.
-            - Be explicit about time horizon (e.g., days/weeks vs months/years) and risk level (conservative/balanced/aggressive).
-            - Consider diversification, position sizing, downside risk, catalysts (earnings, guidance, macro data), and valuation vs growth narratives.
-
-            Portfolio-aware output (when portfolio data exists):
-            - Refer to the user’s current positions, concentration, cash, and constraints.
-            - If data is missing (e.g., position sizes, cost basis, time horizon), ask up to 3 targeted questions, BUT still give a provisional recommendation based on stated assumptions.
+            Output quality:
+            - Be concise, practical, and specific.
+            - Prefer bullets and short sections.
+            - Include confidence (high/medium/low) for recommendation-style answers.
+            - Mention key risk flags (concentration, low cash, overexposure to one stock/theme).
+            - Avoid long stock/company overviews unless asked.
+            - Do not include legal/financial disclaimers.
 
             Style:
             - Be concise, structured, and practical.
@@ -543,6 +980,20 @@ export default function Chatbot({
               - Sources
 
             Today’s date: ${new Date().toLocaleDateString()}
+
+            Available portfolios user can share via Add Context:
+            ${shareablePortfolioContextNames.length > 0 ? shareablePortfolioContextNames.join(", ") : "None found"}
+
+            Currently shared portfolio context names:
+            ${selectedPortfolioContextNames.length > 0 ? selectedPortfolioContextNames.join(", ") : "None shared"}
+            
+            ${
+              selectedPortfolioContext
+                ? `\nSelected portfolio context snapshot (JSON):\n${JSON.stringify(selectedPortfolioContext, null, 2)}`
+                : selectedPortfolioContextNames.length > 0
+                  ? `\nSelected portfolio context names: ${selectedPortfolioContextNames.join(", ")}`
+                  : ""
+            }
             `.trim(),
         };
 
@@ -615,7 +1066,16 @@ export default function Chatbot({
         setLoadingAI(false);
       }
     },
-    [user, conversationId, messages, initialMessage, setInitialMessage],
+    [
+      user,
+      conversationId,
+      messages,
+      initialMessage,
+      setInitialMessage,
+      buildSelectedPortfolioContext,
+      shareablePortfolioContextNames,
+      selectedPortfolioContextNames,
+    ],
   );
 
   const handleSend = async () => {
@@ -653,7 +1113,7 @@ export default function Chatbot({
     if (!user) return;
 
     setViewMode("history");
-    setState("expanded");
+    setState("floating");
     setHistorySearchQuery("");
     setLoadingHistory(true);
 
@@ -803,14 +1263,14 @@ export default function Chatbot({
               variant="outline"
               size="sm"
               onClick={handleShowHistory}
-              // className={`h-8 ${state === "small" ? "px-2" : "w-8 p-0"}`}
+              // className={`h-8 ${state === "floating" ? "px-2" : "w-8 p-0"}`}
               className="h-8 px-2"
             >
               <span className="text-xs flex items-center">
                 <History className="inline-block h-4 w-4 mr-1" />
                 History
               </span>
-              {/* {state === "small" && <span className="text-xs">History</span>} */}
+              {/* {state === "floating" && <span className="text-xs">History</span>} */}
             </Button>
             {conversationId && (
               <Button
@@ -850,7 +1310,7 @@ export default function Chatbot({
             </span>
           </Button>
         )}
-        {state !== "small" && (
+        {isPinned && (
           <Button
             variant="outline"
             size="sm"
@@ -867,6 +1327,87 @@ export default function Chatbot({
   // Render input area (shared between pinned and floating modes)
   const renderInput = (className = "") => (
     <div className={className}>
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-7 px-2 text-xs">
+              <Paperclip className="h-4 w-4" />
+              Add Context ({selectedPortfolioContextIds.length})
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-64 z-70">
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onSelect={(event) => {
+                event.preventDefault();
+                toggleAllPortfolioContext();
+              }}
+            >
+              <Checkbox
+                checked={
+                  portfolioContextOptions.length > 0 &&
+                  selectedPortfolioContextIds.length ===
+                    portfolioContextOptions.length
+                }
+                className="pointer-events-none"
+              />
+              <span>All</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {portfolioContextOptions.map((portfolio) => (
+              <DropdownMenuItem
+                key={portfolio.id}
+                className="cursor-pointer"
+                onSelect={(event) => {
+                  event.preventDefault();
+                  togglePortfolioContextItem(portfolio.id);
+                }}
+              >
+                <Checkbox
+                  checked={selectedPortfolioContextIds.includes(portfolio.id)}
+                  className="pointer-events-none"
+                />
+                <span>{portfolio.name}</span>
+              </DropdownMenuItem>
+            ))}
+            {portfolioContextOptions.length === 0 && (
+              <div className="px-2 py-1.5 text-sm text-gray-500">
+                {loadingPortfolioContext
+                  ? "Loading portfolios..."
+                  : "No portfolios found."}
+              </div>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {selectedPortfolioContextIds.map((portfolioId) => {
+          const portfolio = portfolioContextOptions.find(
+            (option) => option.id === portfolioId,
+          );
+
+          if (!portfolio) return null;
+
+          return (
+            <div
+              key={portfolio.id}
+              className="h-7 inline-flex items-center gap-1 rounded-sm bg-gray-100 pl-2 pr-1 text-xs text-gray-700"
+            >
+              <span className="max-w-28 truncate" title={portfolio.name}>
+                {portfolio.name}
+              </span>
+              <button
+                type="button"
+                onClick={() => removePortfolioContextItem(portfolio.id)}
+                className="inline-flex h-5 w-5 items-center justify-center cursor-pointer text-gray-500 hover:text-gray-700"
+                aria-label={`Remove ${portfolio.name} context`}
+                title={`Remove ${portfolio.name}`}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          );
+        })}
+      </div>
       <div className="flex gap-2 items-center h-9">
         <Input
           ref={inputRef}
@@ -1285,35 +1826,29 @@ export default function Chatbot({
 
   return (
     <div ref={chatbotRef} className="fixed bottom-6 right-6 z-60">
-      {/* Floating Window - Small or Expanded */}
+      {/* Floating Window */}
       {state !== "closed" && (
         <div
-          className={`absolute bottom-18 right-0 bg-white rounded-lg shadow-2xl border border-gray-300 transition-all duration-300 ${
-            state === "small" ? "w-80 h-32" : "w-96 flex flex-col"
-          }`}
+          className="absolute bottom-18 right-0 bg-white rounded-lg shadow-2xl border border-gray-300 transition-all duration-300 w-96 flex flex-col"
           style={{
-            height: state === "expanded" ? "calc(100vh - 120px)" : undefined,
+            height: "calc(100vh - 120px)",
           }}
         >
           {/* Window Header */}
-          {renderHeader(state === "expanded")}
+          {renderHeader(true)}
           {viewMode === "chat" && renderUnhighlightButton()}
 
-          {/* Messages area - only show in expanded state */}
-          {state === "expanded" && (
-            <div
-              className="flex-1 overflow-auto p-4 pr-2 chatbot-scroll"
-              ref={floatingMessagesRef}
-            >
-              {viewMode === "history" ? renderHistory() : renderMessages()}
-            </div>
-          )}
+          {/* Messages area */}
+          <div
+            className="flex-1 overflow-auto p-4 pr-2 chatbot-scroll"
+            ref={floatingMessagesRef}
+          >
+            {viewMode === "history" ? renderHistory() : renderMessages()}
+          </div>
 
           {/* Input area - only show in chat mode */}
           {viewMode === "chat" &&
-            renderInput(
-              `${state === "expanded" ? "border-t" : ""} p-4 border-gray-300 bg-white rounded-b-lg`,
-            )}
+            renderInput("border-t p-4 border-gray-300 bg-white rounded-b-lg")}
         </div>
       )}
 

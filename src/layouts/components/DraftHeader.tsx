@@ -175,7 +175,7 @@ const DraftHeader = () => {
           <div
             onClick={() => {
               setResumeRequested(Boolean(lastConversationId));
-              setChatbotState("expanded");
+              setChatbotState("floating");
               setIsPinned(true);
             }}
             className="w-48 flex flex-col gap-0.5 justify-center px-4 text-sm border-b border-l border-gray-300 hover:bg-gray-100 cursor-pointer"

@@ -1,3 +1,11 @@
+//
+//
+// ATTENTION:
+//
+// OUTDATED, some variables missing/updated
+//
+//
+
 export interface Chat_Conversations {
   created_at: string;
   title?: string | null;

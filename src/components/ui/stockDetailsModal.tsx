@@ -461,7 +461,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                   setInitialMessage(
                     `Is ${stock.name} (${stock.stock_symbol}) a volatile stock?`,
                   );
-                  setChatbotState("expanded");
+                  setChatbotState("floating");
                   setIsPinned(true);
                 }}
               />
@@ -472,7 +472,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                   setInitialMessage(
                     `What is the future outlook for ${stock.name} (${stock.stock_symbol})?`,
                   );
-                  setChatbotState("expanded");
+                  setChatbotState("floating");
                   setIsPinned(true);
                 }}
               />
@@ -483,7 +483,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                   setInitialMessage(
                     `Tell me more about ${stock.name} (${stock.stock_symbol})?`,
                   );
-                  setChatbotState("expanded");
+                  setChatbotState("floating");
                   setIsPinned(true);
                 }}
               />
