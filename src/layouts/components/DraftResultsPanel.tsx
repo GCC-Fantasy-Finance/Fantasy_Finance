@@ -175,7 +175,7 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
                     const text = stockId ? stocksMap[stockId] : "";
 
                     const pastPickClass =
-                      stockId && isPast ? "hover:bg-gray-100 cursor-pointer" : "";
+                      stockId && isPast ? "hover:bg-green-100/60 cursor-pointer" : "";
 
                     return (
                       <div

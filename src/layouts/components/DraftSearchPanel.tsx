@@ -339,7 +339,7 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
                           onStockClick(stock.stock_id);
                         }
                       }}
-                      className="grid grid-cols-[90px_44px_90px_1fr_110px_90px_110px_100px_110px] gap-2 px-3 py-1 items-center border-b hover:bg-gray-100 cursor-pointer"
+                      className="grid grid-cols-[90px_44px_90px_1fr_110px_90px_110px_100px_110px] gap-2 px-3 py-1 items-center border-b hover:bg-green-100/60 cursor-pointer"
                     >
                       {canDraft ? (
                         <Button

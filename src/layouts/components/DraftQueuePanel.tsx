@@ -100,7 +100,7 @@ const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
                 relative flex items-center justify-between
                 mb-2 border-b px-2 py-1 rounded
                 cursor-pointer
-                hover:bg-gray-100
+                hover:bg-green-100/60
                 ${index === hoverIndex ? "bg-gray-100" : ""}
                 ${isTopItem ? "outline outline-2 outline-dashed outline-green-500 -outline-offset-2" : ""}
               `}

@@ -22,6 +22,7 @@ import { getDayMinMaxStockHistory, getYearMinMaxStockHistory } from "@/lib/stock
 import AIQuestionChip from "./AIQuestionChip";
 import { getPortfoliosByUser } from "@/lib/portfolios";
 import { getPortfolioHoldingsByPortfolioIdAndStockId } from "@/lib/potfolioHoldings";
+import { useDraftOptional } from "@/context/DraftContext";
 
 interface Stock {
   stock_id?: number;
@@ -62,7 +63,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
   const { setChatbotState, setIsPinned, setInitialMessage, isPinned } =
     useChatbot();
   const { openBuy, openSell } = useTradeModal();
-  const draftContext = useDraftOptional(); 
+  const draft = useDraftOptional();
 
   const [portfolios, setPortfolios] = useState<PortfolioWithLeague[]>([]);
   const [loading, setLoading] = useState(false);
@@ -609,6 +610,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                                 );
 
                                 await removeWishlistItem(portfolio.portfolio_id, stock.stock_id!);
+                                draft?.removeFromQueueUI(stock.stock_id!, portfolio.portfolio_id);
                               }}
                             >
                               Dequeue
@@ -628,34 +630,31 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                                   </Button>
                                 </span>
                               </TooltipTrigger>
+                              <TooltipContent className="bg-green-700 text-white text-xs rounded max-w-56 whitespace-normal break-words px-2 py-1">
+                                Sector {stock.sector} is not allowed in this league.
+                                <br />
+                                Allowed sectors: {portfolio.sectors.join(", ")}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <Button
+                            className="text-xs h-7 px-2 bg-yellow-500 hover:bg-yellow-600 text-white"
+                            onClick={async () => {
+                              setPortfolios(prev =>
+                                prev.map(p =>
+                                  p.portfolio_id === portfolio.portfolio_id
+                                    ? { ...p, wishlisted: true }
+                                    : p
+                                )
+                              );
 
-                                <TooltipContent className="bg-green-700 text-white text-xs rounded max-w-56 whitespace-normal break-words px-2 py-1">
-                                  Sector {stock.sector} is not allowed in this league.
-                                  <br />
-                                  Allowed sectors: {portfolio.sectors.join(", ")}
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-
-                          ) : (
-                            <Button
-                              className="text-xs h-7 px-2 bg-yellow-500 hover:bg-yellow-600 text-white"
-                              onClick={async () => {
-                                // Optimistically update UI immediately
-                                setPortfolios(prev =>
-                                  prev.map(p =>
-                                    p.portfolio_id === portfolio.portfolio_id
-                                      ? { ...p, wishlisted: true }
-                                      : p
-                                  )
-                                );
-
-                                await addWishlistItemStockPage(portfolio.portfolio_id, stock.stock_id!);
-                              }}
-                            >
-                              Queue
-                            </Button>
-                          )
+                              await addWishlistItemStockPage(portfolio.portfolio_id, stock.stock_id!);
+                              draft?.addToQueueUI(stock.stock_id!, portfolio.portfolio_id);
+                            }}
+                          >
+                            Queue
+                          </Button>
                         )
                       ) : (
                         <>
@@ -674,13 +673,10 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                                     </Button>
                                   </span>
                                 </TooltipTrigger>
-
                                 <TooltipContent className="bg-green-700 text-white text-xs rounded max-w-56 whitespace-normal break-words px-2 py-1">
-                                  Sector {stock.sector} is not allowed in this
-                                  league.
+                                  Sector {stock.sector} is not allowed in this league.
                                   <br />
-                                  Allowed sectors:{" "}
-                                  {portfolio.sectors.join(", ")}
+                                  Allowed sectors: {portfolio.sectors.join(", ")}
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
@@ -712,7 +708,6 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                                         </Button>
                                       </span>
                                     </TooltipTrigger>
-
                                     <TooltipContent className="bg-green-700 text-white text-xs rounded max-w-56 whitespace-normal break-words px-2 py-1">
                                       This stock is not in your portfolio.
                                     </TooltipContent>
