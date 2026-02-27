@@ -9,7 +9,11 @@ export type StockRow = {
   name: string;
   current_price: number;
   previous_close: number;
+  market_cap: number;
+  volume: number;
   sector: string;
+  exchange: string;
+  logo_url: string;
 };
 
 
