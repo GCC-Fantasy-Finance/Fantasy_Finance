@@ -188,7 +188,7 @@ function SoloLeaderboardPage() {
     async function loadSoloLeaderboard() {
       if (!profile?.id) return;
 
-      const cached = getCachedSoloLeaderboard(profile.id);
+      const cached = getCachedSoloLeaderboard(Number(profile.id));
       if (cached) {
         setEntries(cached.entries);
         setLoading(false);
@@ -197,7 +197,7 @@ function SoloLeaderboardPage() {
       }
 
       try {
-        const data = await getSoloLeaderboard(profile.id, {
+        const data = await getSoloLeaderboard(Number(profile.id), {
           forceRefresh: Boolean(cached),
         });
         if (mounted) {
