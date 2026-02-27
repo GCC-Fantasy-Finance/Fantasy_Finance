@@ -128,8 +128,7 @@ export default function LeagueSummaryPage() {
   const [standings, setStandings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { profile } = useAuth();
-  const [selectedPortfolioId, setSelectedPortfolioId] = useState<number | null>(null);
-
+  
   usePageTitle(league ? `${league.name} - Results` : "League Results");
 
   useEffect(() => {
@@ -191,7 +190,7 @@ export default function LeagueSummaryPage() {
           <SummaryPageLeaderboard
             entries={standings}
             currentUserId={profile?.id}
-            onPortfolioClick={(portfolioId) => setSelectedPortfolioId(portfolioId)}
+            // onPortfolioClick={(portfolioId) => setSelectedPortfolioId(portfolioId)}
           />
         </div>
         <div className="flex-1 w-full">

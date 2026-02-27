@@ -5,14 +5,14 @@ import { Button } from "./button";
 import { useAuth } from "@/context/AuthContext";
 import { useChatbot } from "@/context/ChatbotContext";
 import StockChart from "./stockChart";
-import { getSectorByLeagueId } from "@/lib/leagues";
+
 // import Sparkles from "@/components/icons/Sparkles";
 import { useTradeModal } from "@/context/TradeModalContext";
 import Ticker from "@/components/ui/ticker";
 import { supabase } from "@/lib/supabase";
-import { getHasDraftStarted, getHasDraftEnded } from "@/lib/drafts";
+
 import {
-  isWishlisted,
+  
   addWishlistItemStockPage,
   removeWishlistItem,
 } from "@/lib/wishlists";

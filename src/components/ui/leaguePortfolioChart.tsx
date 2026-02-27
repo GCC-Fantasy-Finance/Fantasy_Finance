@@ -133,7 +133,7 @@ export default function LeaguePortfolioChart({
               borderRadius: "4px",
             }}
           />
-          {portfolios.map((portfolio, index) => (
+          {portfolios.map((portfolio) => (
             <Line
               key={portfolio.portfolio_id}
               type="linear"
