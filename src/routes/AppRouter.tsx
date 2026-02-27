@@ -11,6 +11,7 @@ import DiscoverPage from "../features/discover/pages/DiscoverPage";
 import ProfileLayout from "../features/profile/ProfileLayout";
 import ProfilePage from "../features/profile/pages/ProfilePage";
 import FriendsPage from "../features/profile/pages/FriendsPage";
+import BadgesPage from "../features/profile/pages/BadgesPage";
 import LoginPage from "../features/auth/pages/LoginPage";
 import SignupPage from "../features/auth/pages/SignupPage";
 import NotFoundPage from "../pages/NotFoundPage";
@@ -65,6 +66,7 @@ export default function AppRouter() {
               children: [
                 { index: true, element: <ProfilePage /> },
                 { path: "friends", element: <FriendsPage /> },
+                { path: "badges", element: <BadgesPage />},
               ],
             },
           ],
