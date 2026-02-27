@@ -76,14 +76,26 @@ export default function SummaryPageLeaderboard({
 											}`}
 										>
 											{index + 1}
+
+                                            <span className="inline-flex w-8 items-end justify-center shrink-0 ml-4">
+													{isFirstPlace ? (
+														<img
+															src="/crown.png"
+															alt="Winner crown"
+															className="w-6 h-6 translate-y-1.25 object-contain "
+														/>
+													) : null}
+												</span>
 										</TableCell>
+                                        
 
 										<TableCell className="px-4 py-3">
 											<button
 												type="button"
-												className="flex items-center gap-2 w-full text-left"
+												className="flex items-center gap-3 w-full text-left cursor-pointer"
 												onClick={() => onPortfolioClick?.(entry.portfolio_id)}
 											>
+												
 												{entry.Profiles?.avatar_url ? (
 													<img
 														src={entry.Profiles.avatar_url}
@@ -95,7 +107,7 @@ export default function SummaryPageLeaderboard({
 														{(entry.Profiles?.username?.[0] ?? "U").toUpperCase()}
 													</div>
 												)}
-												<span className="underline-offset-2 hover:underline">
+												<span className="underline-offset-2 ">
 													{entry.Profiles?.username ?? "Unknown User"}
 												</span>
 											</button>
