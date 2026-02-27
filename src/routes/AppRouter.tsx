@@ -8,6 +8,7 @@ import LeagueGuardRoute from "./LeagueGuardRoute";
 
 import Home from "../features/home/pages/HomePage";
 import DiscoverPage from "../features/discover/pages/DiscoverPage";
+import SectorPage from "../features/discover/pages/SectorPage";
 import ProfileLayout from "../features/profile/ProfileLayout";
 import ProfilePage from "../features/profile/pages/ProfilePage";
 import FriendsPage from "../features/profile/pages/FriendsPage";
@@ -17,6 +18,8 @@ import SignupPage from "../features/auth/pages/SignupPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import LeagueDetailPage from "@/features/leagues/pages/LeagueDetailPage";
 import LeagueSummaryPage from "@/features/leagues/pages/LeagueSummaryPage";
+import LeagueLayout from "@/features/leagues/LeagueLayout";
+import LeaguePortfolioPage from "@/features/leagues/pages/LeaguePortfolioPage";
 
 import { LayoutProvider } from "../context/LayoutContext";
 import { AuthProvider } from "../context/AuthContext";
@@ -50,6 +53,7 @@ export default function AppRouter() {
           children: [
             { path: "/", element: <Home /> },
             { path: "/discover", element: <DiscoverPage /> },
+            { path: "/discover/sector/:sector", element: <SectorPage /> },
             {
               path: "/solo",
               element: <SoloLayout />,
@@ -58,8 +62,26 @@ export default function AppRouter() {
                 { path: "global-leaderboard", element: <SoloLeaderboardPage /> },
               ],
             },
-            { path: "/league/:leagueId", element: <LeagueGuardRoute><LeagueDetailPage /></LeagueGuardRoute> },
-            { path: "/league/:leagueId/results", element: <LeagueGuardRoute><LeagueSummaryPage /></LeagueGuardRoute> },
+            {
+              path: "/league/:leagueId",
+              element: (
+                <LeagueGuardRoute>
+                  <LeagueLayout />
+                </LeagueGuardRoute>
+              ),
+              children: [
+                { index: true, element: <LeagueDetailPage /> },
+                { path: "portfolio", element: <LeaguePortfolioPage /> },
+              ],
+            },
+            {
+              path: "/league/:leagueId/results",
+              element: (
+                <LeagueGuardRoute>
+                  <LeagueSummaryPage />
+                </LeagueGuardRoute>
+              ),
+            },
             {
               path: "/profile",
               element: <ProfileLayout />,

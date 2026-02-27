@@ -1,5 +1,5 @@
 import { Minus, TrendingDown, TrendingUp } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { calculateStockDelta, calculateStockPercentChange, cn } from "@/lib/utils";
 
 type TickerProps = {
   currentValue: number | null | undefined;
@@ -23,10 +23,8 @@ export default function Ticker({
   size = "normal",
   className,
 }: TickerProps) {
-  const current = Number(currentValue ?? 0);
-  const previous = Number(previousValue ?? 0);
-  const delta = current - previous;
-  const percentDelta = previous === 0 ? 0 : (delta / previous) * 100;
+  const delta = calculateStockDelta(currentValue, previousValue);
+  const percentDelta = calculateStockPercentChange(currentValue, previousValue);
   const movementThreshold = 0.01;
 
   const isUp = delta > movementThreshold;

@@ -1,9 +1,12 @@
 import {
+  Fragment,
+  type ReactNode,
   useState,
   useRef,
   useEffect,
   useLayoutEffect,
   useCallback,
+  useMemo,
 } from "react";
 import {
   X,
@@ -14,10 +17,12 @@ import {
   Plus,
   Stars,
   ArrowUpRight,
+  Search,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "./button";
 import { Input } from "./input";
+import AIQuestionChip from "./AIQuestionChip";
 import { useAuth } from "@/context/AuthContext";
 import { useChatbot } from "@/context/ChatbotContext";
 import {
@@ -66,7 +71,16 @@ export default function Chatbot({
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("chat");
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
+  const [historySearchQuery, setHistorySearchQuery] = useState("");
+  const [conversationSearchIndex, setConversationSearchIndex] = useState<
+    Record<number, string>
+  >({});
+  const [conversationSearchSource, setConversationSearchSource] = useState<
+    Record<number, string>
+  >({});
+  const [activeHighlightQuery, setActiveHighlightQuery] = useState("");
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [loadingSearchIndex, setLoadingSearchIndex] = useState(false);
   const [loadingAI, setLoadingAI] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const chatbotRef = useRef<HTMLDivElement>(null);
@@ -83,6 +97,115 @@ export default function Chatbot({
   const sidebarRef = useRef<HTMLDivElement>(null);
   const prevStreamingRef = useRef(false);
   const { user } = useAuth();
+
+  const escapeRegExp = useCallback((value: string) => {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }, []);
+
+  const getPreviewSnippetWithOccurrence = useCallback(
+    (sourceText: string, query: string) => {
+      const trimmedQuery = query.trim();
+      if (!trimmedQuery) return null;
+      const lowerQuery = trimmedQuery.toLowerCase();
+
+      const lowerSource = sourceText.toLowerCase();
+      const idx = lowerSource.indexOf(lowerQuery);
+      if (idx === -1) return null;
+
+      const maxSnippetLength = 72;
+      const matchEnd = idx + trimmedQuery.length;
+      const availableContext = Math.max(
+        0,
+        maxSnippetLength - trimmedQuery.length,
+      );
+      const leftContext = Math.floor(availableContext / 2);
+      const rightContext = availableContext - leftContext;
+
+      const snippetStart = Math.max(0, idx - leftContext);
+      const snippetEnd = Math.min(sourceText.length, matchEnd + rightContext);
+
+      let snippet = sourceText
+        .slice(snippetStart, snippetEnd)
+        .replace(/\s+/g, " ")
+        .trim();
+
+      if (snippetStart > 0) {
+        snippet = `...${snippet}`;
+      }
+
+      if (snippetEnd < sourceText.length) {
+        snippet = `${snippet}...`;
+      }
+
+      return snippet;
+    },
+    [],
+  );
+
+  const renderHighlightedText = useCallback(
+    (text: string, query: string) => {
+      const trimmedQuery = query.trim();
+      if (!trimmedQuery) return text;
+
+      const pattern = new RegExp(`(${escapeRegExp(trimmedQuery)})`, "gi");
+      const parts = text.split(pattern);
+      const queryLower = trimmedQuery.toLowerCase();
+
+      return parts.map((part, index) =>
+        part.toLowerCase() === queryLower ? (
+          <mark
+            key={`${part}-${index}`}
+            className="bg-yellow-200 rounded px-0.5"
+          >
+            {part}
+          </mark>
+        ) : (
+          <Fragment key={`${part}-${index}`}>{part}</Fragment>
+        ),
+      );
+    },
+    [escapeRegExp],
+  );
+
+  const renderHighlightedNode = useCallback(
+    (node: ReactNode, query: string): ReactNode => {
+      if (!query.trim()) return node;
+
+      if (typeof node === "string") {
+        return renderHighlightedText(node, query);
+      }
+
+      if (Array.isArray(node)) {
+        return node.map((child, index) => (
+          <Fragment key={index}>{renderHighlightedNode(child, query)}</Fragment>
+        ));
+      }
+
+      return node;
+    },
+    [renderHighlightedText],
+  );
+
+  const getVisibleTextForCounting = useCallback((text: string) => {
+    return text
+      .replace(/^\s*\[[^\]]+\]:\s+\S+.*$/gm, "")
+      .replace(/!\[([^\]]*)\]\((?:\\.|[^\\)])*\)/g, "$1")
+      .replace(/\[([^\]]+)\]\((?:\\.|[^\\)])*\)/g, "$1")
+      .replace(/\[([^\]]+)\]\[[^\]]*\]/g, "$1");
+  }, []);
+
+  const activeHighlightCount = useMemo(() => {
+    const query = activeHighlightQuery.trim();
+    if (!query) return 0;
+
+    const pattern = new RegExp(escapeRegExp(query), "gi");
+
+    return messages.reduce((total, msg) => {
+      const visibleText = getVisibleTextForCounting(msg.text);
+      const matches = visibleText.match(pattern);
+      return total + (matches?.length ?? 0);
+    }, 0);
+  }, [activeHighlightQuery, messages, escapeRegExp, getVisibleTextForCounting]);
 
   useEffect(() => {
     if (conversationId) {
@@ -522,6 +645,7 @@ export default function Chatbot({
     }
     setState("closed");
     setViewMode("chat");
+    setActiveHighlightQuery("");
   };
 
   const handleShowHistory = async () => {
@@ -529,6 +653,7 @@ export default function Chatbot({
 
     setViewMode("history");
     setState("expanded");
+    setHistorySearchQuery("");
     setLoadingHistory(true);
 
     const { data, error } = await getUserConversations(user.id);
@@ -537,12 +662,58 @@ export default function Chatbot({
       console.error("Failed to load conversations:", error);
     } else if (data) {
       setConversations(data);
+
+      const initialIndex: Record<number, string> = {};
+      const initialSource: Record<number, string> = {};
+      for (const conversation of data) {
+        initialIndex[conversation.conversation_id] =
+          conversation.title.toLowerCase();
+        initialSource[conversation.conversation_id] = conversation.title;
+      }
+      setConversationSearchIndex(initialIndex);
+      setConversationSearchSource(initialSource);
+
+      setLoadingSearchIndex(true);
+      const indexEntries = await Promise.all(
+        data.map(async (conversation) => {
+          const { data: conversationMessages } = await getConversationMessages(
+            conversation.conversation_id,
+          );
+
+          const messageText = (conversationMessages ?? [])
+            .map((msg) => msg.message_text)
+            .join(" ");
+
+          const combinedText = `${conversation.title} ${messageText}`.trim();
+
+          return [
+            conversation.conversation_id,
+            {
+              searchableText: combinedText.toLowerCase(),
+              sourceText: combinedText,
+            },
+          ] as const;
+        }),
+      );
+
+      const nextIndex: Record<number, string> = {};
+      const nextSource: Record<number, string> = {};
+      for (const [id, texts] of indexEntries) {
+        nextIndex[id] = texts.searchableText;
+        nextSource[id] = texts.sourceText;
+      }
+      setConversationSearchIndex(nextIndex);
+      setConversationSearchSource(nextSource);
+      setLoadingSearchIndex(false);
     }
 
     setLoadingHistory(false);
   };
 
-  const handleLoadConversation = async (conversation: ChatConversation) => {
+  const handleLoadConversation = async (
+    conversation: ChatConversation,
+    highlightQuery = "",
+  ) => {
     setLoadingHistory(true);
 
     const { data, error } = await getConversationMessages(
@@ -564,6 +735,7 @@ export default function Chatbot({
       setConversationId(conversation.conversation_id);
     }
 
+    setActiveHighlightQuery(highlightQuery.trim());
     setLoadingHistory(false);
     setViewMode("chat");
   };
@@ -572,6 +744,7 @@ export default function Chatbot({
     setMessages([]);
     setConversationId(null);
     setViewMode("chat");
+    setActiveHighlightQuery("");
 
     requestAnimationFrame(() => {
       inputRef.current?.focus();
@@ -629,17 +802,21 @@ export default function Chatbot({
               variant="outline"
               size="sm"
               onClick={handleShowHistory}
-              className={`h-8 ${state === "small" ? "px-2" : "w-8 p-0"}`}
+              // className={`h-8 ${state === "small" ? "px-2" : "w-8 p-0"}`}
+              className="h-8 px-2"
             >
-              <History className="h-4 w-4" />
-              {state === "small" && <span className="text-xs">History</span>}
+              <span className="text-xs flex items-center">
+                <History className="inline-block h-4 w-4 mr-1" />
+                History
+              </span>
+              {/* {state === "small" && <span className="text-xs">History</span>} */}
             </Button>
             {conversationId && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleNewChat}
-                className="h-8 px-2"
+                className="h-8 px-2 text-green-700"
               >
                 <span className="text-xs flex items-center">
                   <Plus className="inline-block h-4 w-4 mr-1" />
@@ -664,7 +841,7 @@ export default function Chatbot({
             variant="outline"
             size="sm"
             onClick={handleNewChat}
-            className="h-8 px-2"
+            className="h-8 px-2 text-green-700"
           >
             <span className="text-xs flex items-center">
               <Plus className="inline-block h-4 w-4 mr-1" />
@@ -717,6 +894,16 @@ export default function Chatbot({
 
   // Render history list
   const renderHistory = () => {
+    const normalizedQuery = historySearchQuery.trim().toLowerCase();
+    const filteredConversations = normalizedQuery
+      ? conversations.filter((conv) => {
+          const searchableText =
+            conversationSearchIndex[conv.conversation_id] ??
+            conv.title.toLowerCase();
+          return searchableText.includes(normalizedQuery);
+        })
+      : conversations;
+
     if (loadingHistory) {
       return <p className="text-gray-500 text-sm">Loading conversations...</p>;
     }
@@ -728,25 +915,113 @@ export default function Chatbot({
     }
 
     return (
-      <div className="space-y-2 pr-2">
-        {conversations.map((conv) => (
-          <button
-            key={conv.conversation_id}
-            onClick={() => handleLoadConversation(conv)}
-            className="w-full text-left p-3 rounded hover:bg-gray-100 transition-colors border border-gray-300 cursor-pointer"
+      <div className="space-y-3 pr-2">
+        <div className="space-y-1">
+          <div className="relative">
+            <Input
+              type="text"
+              value={historySearchQuery}
+              onChange={(e) => setHistorySearchQuery(e.target.value)}
+              placeholder="Search chats..."
+              className="h-9 pr-8 pl-8"
+            />
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
+            {historySearchQuery && (
+              <button
+                type="button"
+                onClick={() => setHistorySearchQuery("")}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          {loadingSearchIndex && (
+            <p className="text-xs text-gray-500">
+              Indexing messages for search...
+            </p>
+          )}
+        </div>
+
+        {filteredConversations.length === 0 ? (
+          <p className="text-gray-500 text-sm">No chats match your search.</p>
+        ) : (
+          <div className="space-y-2">
+            {filteredConversations.map((conv) =>
+              (() => {
+                const previewText = normalizedQuery
+                  ? getPreviewSnippetWithOccurrence(
+                      conversationSearchSource[conv.conversation_id] ??
+                        conv.title,
+                      normalizedQuery,
+                    )
+                  : null;
+
+                return (
+                  <button
+                    key={conv.conversation_id}
+                    onClick={() =>
+                      handleLoadConversation(conv, normalizedQuery)
+                    }
+                    className="w-full text-left rounded-sm bg-gray-100 hover:bg-gray-200 px-3 py-2 shadow-none transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] cursor-pointer"
+                  >
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {conv.title}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(conv.created_at).toLocaleDateString()} at{" "}
+                      {new Date(conv.created_at).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                    {previewText && (
+                      <p
+                        className="text-xs text-gray-700 mt-1 truncate whitespace-nowrap"
+                        title={previewText}
+                      >
+                        {renderHighlightedText(previewText, normalizedQuery)}
+                      </p>
+                    )}
+                  </button>
+                );
+              })(),
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderUnhighlightButton = () => {
+    if (!activeHighlightQuery) return null;
+
+    return (
+      <div className="px-4 h-12 border-b border-gray-300 bg-gray-100 flex justify-between items-center gap-4">
+        <div className="flex items-end gap-2 min-w-0 flex-1">
+          <p
+            className="font-medium text-gray-700 min-w-0 flex items-end"
+            title={activeHighlightQuery}
           >
-            <p className="text-sm font-medium text-gray-900 truncate">
-              {conv.title}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              {new Date(conv.created_at).toLocaleDateString()} at{" "}
-              {new Date(conv.created_at).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </p>
-          </button>
-        ))}
+            <span className="shrink-0">"</span>
+            <span className="truncate whitespace-nowrap min-w-0">
+              {activeHighlightQuery}
+            </span>
+            <span className="shrink-0">"</span>
+          </p>
+          <p className="text-xs text-gray-500 whitespace-nowrap shrink-0 -translate-y-0.5">
+            {activeHighlightCount}{" "}
+            {activeHighlightCount === 1 ? "result" : "results"}
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setActiveHighlightQuery("")}
+        >
+          Unhighlight
+        </Button>
       </div>
     );
   };
@@ -761,11 +1036,28 @@ export default function Chatbot({
     );
 
     if (messages.length === 0) {
+      const starterQuestions = [
+        "How should I diversify my portfolio right now?",
+        "What are 3 stocks I should research this week?",
+        "How do I balance risk vs reward in this game?",
+      ];
+
       return (
         <div className="h-full flex flex-col">
           {disclaimer}
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-lg text-center">What's on your mind?</p>
+          <div className="flex-1 flex flex-col items-center justify-center gap-4">
+            <p className="text-lg text-center">Let's learn something new!</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {starterQuestions.map((question) => (
+                <AIQuestionChip
+                  key={question}
+                  label={question}
+                  onClick={() => {
+                    void handleSendWithMessage(question);
+                  }}
+                />
+              ))}
+            </div>
           </div>
         </div>
       );
@@ -801,13 +1093,22 @@ export default function Chatbot({
             >
               {msg.sender === "user" ? (
                 <div className="bg-chat-user-bubble text-black rounded-2xl px-4 py-2 max-w-[80%]">
-                  <p className="text-sm">{msg.text}</p>
+                  <p className="text-sm">
+                    {renderHighlightedText(msg.text, activeHighlightQuery)}
+                  </p>
                 </div>
               ) : (
                 <div className="text-sm text-gray-800">
                   <ReactMarkdown
                     components={{
-                      p: (props) => <p className="mb-2" {...props} />,
+                      p: ({ children, ...props }) => (
+                        <p className="mb-2" {...props}>
+                          {renderHighlightedNode(
+                            children,
+                            activeHighlightQuery,
+                          )}
+                        </p>
+                      ),
                       ul: (props) => (
                         <ul
                           className="list-disc list-outside mb-2 pl-5"
@@ -820,42 +1121,86 @@ export default function Chatbot({
                           {...props}
                         />
                       ),
-                      li: (props) => (
-                        <li
-                          className="mb-1 [&>p]:inline [&>p]:mb-0"
-                          {...props}
-                        />
+                      li: ({ children, ...props }) => (
+                        <li className="mb-1 [&>p]:inline [&>p]:mb-0" {...props}>
+                          {renderHighlightedNode(
+                            children,
+                            activeHighlightQuery,
+                          )}
+                        </li>
                       ),
-                      code: (props) => (
+                      code: ({ children, ...props }) => (
                         <code
                           className="bg-gray-100 px-1.5 py-0.5 rounded text-xs font-mono"
                           {...props}
-                        />
+                        >
+                          {renderHighlightedNode(
+                            children,
+                            activeHighlightQuery,
+                          )}
+                        </code>
                       ),
-                      pre: (props) => (
+                      pre: ({ children, ...props }) => (
                         <pre
                           className="bg-gray-100 p-2 rounded overflow-x-auto mb-2"
                           {...props}
-                        />
+                        >
+                          {renderHighlightedNode(
+                            children,
+                            activeHighlightQuery,
+                          )}
+                        </pre>
                       ),
-                      blockquote: (props) => (
+                      blockquote: ({ children, ...props }) => (
                         <blockquote
                           className="border-l-4 border-gray-300 pl-3 italic mb-2"
                           {...props}
-                        />
+                        >
+                          {renderHighlightedNode(
+                            children,
+                            activeHighlightQuery,
+                          )}
+                        </blockquote>
                       ),
-                      strong: (props) => (
-                        <strong className="font-semibold" {...props} />
+                      strong: ({ children, ...props }) => (
+                        <strong className="font-semibold" {...props}>
+                          {renderHighlightedNode(
+                            children,
+                            activeHighlightQuery,
+                          )}
+                        </strong>
                       ),
-                      em: (props) => <em className="italic" {...props} />,
-                      h1: (props) => (
-                        <h1 className="text-lg font-bold mb-2" {...props} />
+                      em: ({ children, ...props }) => (
+                        <em className="italic" {...props}>
+                          {renderHighlightedNode(
+                            children,
+                            activeHighlightQuery,
+                          )}
+                        </em>
                       ),
-                      h2: (props) => (
-                        <h2 className="text-base font-bold mb-2" {...props} />
+                      h1: ({ children, ...props }) => (
+                        <h1 className="text-lg font-bold mb-2" {...props}>
+                          {renderHighlightedNode(
+                            children,
+                            activeHighlightQuery,
+                          )}
+                        </h1>
                       ),
-                      h3: (props) => (
-                        <h3 className="text-sm font-bold mb-2" {...props} />
+                      h2: ({ children, ...props }) => (
+                        <h2 className="text-base font-bold mb-2" {...props}>
+                          {renderHighlightedNode(
+                            children,
+                            activeHighlightQuery,
+                          )}
+                        </h2>
+                      ),
+                      h3: ({ children, ...props }) => (
+                        <h3 className="text-sm font-bold mb-2" {...props}>
+                          {renderHighlightedNode(
+                            children,
+                            activeHighlightQuery,
+                          )}
+                        </h3>
                       ),
                       a: ({ href, children, ...props }) => (
                         <a
@@ -865,7 +1210,12 @@ export default function Chatbot({
                           className="inline-flex items-center gap-1 text-blue-600 underline underline-offset-2 hover:text-blue-700"
                           {...props}
                         >
-                          <span>{children}</span>
+                          <span>
+                            {renderHighlightedNode(
+                              children,
+                              activeHighlightQuery,
+                            )}
+                          </span>
                           <ArrowUpRight className="h-3.5 w-3.5" />
                         </a>
                       ),
@@ -902,7 +1252,7 @@ export default function Chatbot({
     return (
       <div
         ref={sidebarRef}
-        className={`relative h-full bg-white border-l border-gray-300 flex flex-col z-[60] ${
+        className={`relative h-full bg-white border-l border-gray-300 flex flex-col z-60 ${
           sidebarWidth ? "" : "w-64 lg:w-80 xl:w-[400px]"
         } min-w-64 lg:min-w-80 xl:min-w-[400px] max-w-[90vw] md:max-w-[600px] xl:max-w-[800px]`}
         style={sidebarWidth ? { width: sidebarWidth } : undefined}
@@ -916,6 +1266,7 @@ export default function Chatbot({
           <div className="w-px h-full bg-transparent group-hover:bg-gray-400 transition-colors" />
         </div>
         {renderHeader()}
+        {viewMode === "chat" && renderUnhighlightButton()}
 
         {/* Messages area */}
         <div
@@ -932,7 +1283,7 @@ export default function Chatbot({
   }
 
   return (
-    <div ref={chatbotRef} className="fixed bottom-6 right-6 z-[60]">
+    <div ref={chatbotRef} className="fixed bottom-6 right-6 z-60">
       {/* Floating Window - Small or Expanded */}
       {state !== "closed" && (
         <div
@@ -945,6 +1296,7 @@ export default function Chatbot({
         >
           {/* Window Header */}
           {renderHeader(state === "expanded")}
+          {viewMode === "chat" && renderUnhighlightButton()}
 
           {/* Messages area - only show in expanded state */}
           {state === "expanded" && (

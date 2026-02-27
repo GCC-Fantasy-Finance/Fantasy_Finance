@@ -144,10 +144,10 @@ export default function Header({ title }: HeaderProps) {
           onClose={() => setShowModal(false)}
         />
       </header>
-      {chatbotState === "closed" && lastConversationId && (
+      {chatbotState === "closed" && (
         <div
           onClick={() => {
-            setResumeRequested(true);
+            setResumeRequested(Boolean(lastConversationId));
             setChatbotState("expanded");
             setIsPinned(true);
           }}
@@ -155,10 +155,14 @@ export default function Header({ title }: HeaderProps) {
         >
           <div className="flex gap-1 items-center">
             <Sparkles className="w-3 h-3 text-green-700" />
-            <p className="text-green-700 text-xs font-medium">Resume Chat</p>
+            <p className="text-green-700 text-xs font-medium">
+              {lastConversationId ? "Resume Chat" : "New Chat"}
+            </p>
           </div>
           <p className="text-gray-700 text-xs truncate">
-            {conversationTitle || "Loading..."}
+            {lastConversationId
+              ? conversationTitle || "Loading..."
+              : "Start a new conversation"}
           </p>
         </div>
       )}

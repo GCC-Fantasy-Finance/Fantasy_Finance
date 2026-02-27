@@ -24,10 +24,17 @@ const DraftHeader = () => {
   } = useDraft();
 
   const navigate = useNavigate();
-  const { chatbotState, setChatbotState, lastConversationId, setIsPinned } =
-    useChatbot();
+  const {
+    chatbotState,
+    setChatbotState,
+    lastConversationId,
+    setIsPinned,
+    setResumeRequested,
+  } = useChatbot();
 
-  const [conversationTitle, setConversationTitle] = useState<string | null>(null);
+  const [conversationTitle, setConversationTitle] = useState<string | null>(
+    null,
+  );
   const [league, setLeague] = useState<LeagueRow | null>(null);
   const [countdown, setCountdown] = useState(0);
   const [nextAutoStock, setNextAutoStock] = useState<StockRow | null>(null);
@@ -128,7 +135,6 @@ const DraftHeader = () => {
           <div className="flex items-stretch gap-3">
             {draftStarted && !draftEnded && (
               <div className="flex items-center gap-3 whitespace-nowrap text-sm font-medium">
-                
                 {/* Next Auto Draft Badge */}
                 {nextAutoStock && (
                   <div className="border-2 border-dashed border-[#FFD1B3] rounded-md px-2 py-0.5 text-xs font-semibold text-[#FF8C42] bg-white">
@@ -165,9 +171,10 @@ const DraftHeader = () => {
         </header>
 
         {/* Resume Chat */}
-        {chatbotState === "closed" && lastConversationId && (
+        {chatbotState === "closed" && (
           <div
             onClick={() => {
+              setResumeRequested(Boolean(lastConversationId));
               setChatbotState("expanded");
               setIsPinned(true);
             }}
@@ -175,10 +182,14 @@ const DraftHeader = () => {
           >
             <div className="flex gap-1 items-center">
               <Sparkles className="w-3 h-3 text-green-700" />
-              <p className="text-green-700 text-xs font-medium">Resume Chat</p>
+              <p className="text-green-700 text-xs font-medium">
+                {lastConversationId ? "Resume Chat" : "New Chat"}
+              </p>
             </div>
             <p className="text-gray-700 text-xs truncate">
-              {conversationTitle || "Loading..."}
+              {lastConversationId
+                ? conversationTitle || "Loading..."
+                : "Start a new conversation"}
             </p>
           </div>
         )}
