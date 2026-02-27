@@ -383,12 +383,13 @@ export default function Chatbot({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [state, isPinned]);
 
-  // Auto-focus input when small window opens
+  // Auto-focus input whenever chat view is opened (small/expanded/pinned)
   useEffect(() => {
-    if (state === "small" && viewMode === "chat") {
-      setTimeout(() => inputRef.current?.focus(), 0);
+    if (state !== "closed" && viewMode === "chat") {
+      const timer = setTimeout(() => inputRef.current?.focus(), 0);
+      return () => clearTimeout(timer);
     }
-  }, [state, viewMode]);
+  }, [state, viewMode, isPinned]);
 
   // Auto-send initial message when set from stock details modal
   useEffect(() => {
