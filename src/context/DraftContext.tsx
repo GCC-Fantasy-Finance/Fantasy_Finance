@@ -11,8 +11,9 @@ import {
 } from "../lib/wishlists";
 import { getLeagueById, type LeagueRow } from "../lib/leagues";
 
-// ngrok url that references the school VM
 const SERVER_URL = "https://nonalgebraical-arduously-kylie.ngrok-free.dev";
+
+type PresenceState = "active" | "away" | "offline";
 
 type DraftContextType = {
   users: Portfolio[];
@@ -29,15 +30,20 @@ type DraftContextType = {
   myPortfolio: Portfolio | undefined;
   isOwner: boolean;
   queuedItems: WishlistItem[];
+  queuedLoaded: boolean;
   draftPicks: any[];
   draftedStockIds: Set<number>;
   stockPrices: Record<number, number>;
   activeUsers: Record<string, any>;
+  userPresenceStates: Record<string, PresenceState>;
+  isMakingPick: boolean;
   startDraft: () => Promise<void>;
   makePick: (stockId: number) => Promise<void>;
   queueStock: (stockId: number) => Promise<void>;
   removeFromQueue: (stockId: number) => Promise<void>;
   reorderQueue: (from: number, to: number) => void;
+  addToQueueUI: (stockId: number, portfolioId: number) => void;
+  removeFromQueueUI: (stockId: number, portfolioId: number) => void;
 };
 
 const DraftContext = createContext<DraftContextType | undefined>(undefined);
@@ -58,6 +64,7 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
   const [draftStarted, setDraftStarted] = useState(false);
   const [draftEnded, setDraftEnded] = useState(false);
   const [draftRounds, setDraftRounds] = useState(0);
+  const [isMakingPick, setIsMakingPick] = useState(false);
 
   const intervalRef = useRef<number | null>(null);
 
@@ -66,10 +73,28 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
   const [league, setLeague] = useState<LeagueRow | null>(null);
 
   const isOwner = !!league && !!myPortfolio && league.owner_id === myPortfolio.user_id;
-  const [queuedItems, setQueuedItems] = useState<WishlistItem[]>([]);
-  const [stockPrices, setStockPrices] = useState<Record<number, number>>({});
 
+  const [queuedItems, setQueuedItems] = useState<WishlistItem[]>([]);
+  const [queuedLoaded, setQueuedLoaded] = useState(false);
+
+  const [stockPrices, setStockPrices] = useState<Record<number, number>>({});
   const [activeUsers, setActiveUsers] = useState<Record<string, any>>({});
+  const [userPresenceStates, setUserPresenceStates] = useState<Record<string, PresenceState>>({});
+
+  // tab visibility state
+  const [tabVisible, setTabVisible] = useState(true);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      setTabVisible(document.visibilityState === "visible");
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
 
   useEffect(() => {
     const ids = new Set<number>();
@@ -128,6 +153,15 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     };
   }, [leagueId]);
 
+  // Helper function to determine presence state
+  const getPresenceState = (userId: string): PresenceState => {
+    const presenceArr = activeUsers[userId];
+    if (!presenceArr || presenceArr.length === 0) return "offline";
+    if (presenceArr.some((p: any) => p.tab_visible)) return "active";
+    return "away";
+  };
+
+  // Presence with tab visibility rerun
   useEffect(() => {
     let channel: any;
     let isMounted = true;
@@ -140,8 +174,6 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
 
         if (!user || !isMounted) return;
 
-        // console.log("My user id:", user.id);
-
         channel = supabase.channel(`draft-room-${leagueId}`, {
           config: {
             presence: {
@@ -150,31 +182,46 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
           },
         });
 
-        channel
-          .on("presence", { event: "sync" }, () => {
-            const state = channel.presenceState() as Record<string, any[]>;
-            // console.log("Presence sync:", state);
-            setActiveUsers({ ...state }); // new reference = triggers React render
-          })
-          // .on("presence", { event: "sync" }, () => {
-          //   const state = channel.presenceState();
-          //   console.log("Presence sync:", state);
-          //   setActiveUsers(state);
-          // })
-          // .on("presence", { event: "join" }, (payload: any) => {
-          //   console.log("Presence join:", payload);
-          // })
-          // .on("presence", { event: "leave" }, (payload: any) => {
-          //   console.log("Presence leave:", payload);
-          // });
+        channel.on("presence", { event: "sync" }, () => {
+          const state = channel.presenceState() as Record<string, any[]>;
+          setActiveUsers({ ...state });
+
+          // Update presence states for all users
+          const states: Record<string, PresenceState> = {};
+          Object.keys(state).forEach(userId => {
+            states[userId] = getPresenceState(userId);
+          });
+          setUserPresenceStates(states);
+        });
+
+        channel.on("presence", { event: "join" }, ({ key, newPresences }: { key: string; newPresences: any[] }) => {
+          setActiveUsers(prev => ({ ...prev, [key]: newPresences }));
+          setUserPresenceStates(prev => ({
+            ...prev,
+            [key]: getPresenceState(key),
+          }));
+        });
+
+        channel.on("presence", { event: "leave" }, ({ key, leftPresences }: { key: string; leftPresences: any[] }) => {
+          setActiveUsers(prev => {
+            const updated = { ...prev };
+            if (leftPresences.length === 0) delete updated[key];
+            else updated[key] = leftPresences;
+            return updated;
+          });
+          setUserPresenceStates(prev => ({
+            ...prev,
+            [key]: getPresenceState(key),
+          }));
+        });
 
         await channel.subscribe();
 
-        // console.log("Tracking presence now");
-
+        // Track presence with tab visibility
         await channel.track({
           user_id: user.id,
           online_at: new Date().toISOString(),
+          tab_visible: tabVisible,
         });
       } catch (err) {
         console.error("Presence setup failed:", err);
@@ -189,12 +236,7 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
         supabase.removeChannel(channel);
       }
     };
-  }, [leagueId]);
-
-  useEffect(() => {
-    // console.log("Active users updated:", activeUsers);
-    // console.log("Online user IDs:", Object.keys(activeUsers));
-  }, [activeUsers]);
+  }, [leagueId, tabVisible]);
 
   useEffect(() => {
     const channel = supabase
@@ -242,8 +284,10 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     if (!myPortfolio?.portfolio_id) return;
 
     const refreshQueue = async () => {
+      setQueuedLoaded(false);
       const updated = await getWishlistByPortfolio(myPortfolio.portfolio_id);
       setQueuedItems(updated ?? []);
+      setQueuedLoaded(true);
     };
 
     refreshQueue();
@@ -286,6 +330,28 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     });
   };
 
+  const addToQueueUI = (stockId: number, portfolioId: number) => {
+  // Only update if this portfolio belongs to the current league
+  if (portfolioId === myPortfolio?.portfolio_id) {
+    setQueuedItems(prev => {
+      if (prev.some(i => i.stock_id === stockId)) return prev;
+      return [...prev, {
+        wishlist_item_id: -Date.now(),
+        portfolio_id: portfolioId,
+        stock_id: stockId,
+        rank: prev.length,
+      }];
+    });
+  }
+};
+
+const removeFromQueueUI = (stockId: number, portfolioId: number) => {
+  // Only update if this portfolio belongs to the current league
+  if (portfolioId === myPortfolio?.portfolio_id) {
+    setQueuedItems(prev => prev.filter(item => item.stock_id !== stockId));
+  }
+};
+
   useEffect(() => {
     if (currentPortfolioId == null || users.length === 0) return;
     const idx = users.findIndex(u => u.portfolio_id === currentPortfolioId);
@@ -320,18 +386,36 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
   };
 
   const queueStock = async (stockId: number) => {
-    if (!myPortfolio?.portfolio_id) return;
-    if (queuedItems.some(i => i.stock_id === stockId)) return;
+    if (!myPortfolio) return;
+    if (queuedItems.some((i) => i.stock_id === stockId)) return;
+
+    const tempItem = {
+      wishlist_item_id: -Date.now(),
+      portfolio_id: myPortfolio.portfolio_id,
+      stock_id: stockId,
+      rank: queuedItems.length,
+    };
+
+    setQueuedItems((prev) => [...prev, tempItem]);
 
     try {
-      const newItem = await addWishlistItem({
+      const inserted = await addWishlistItem({
         portfolio_id: myPortfolio.portfolio_id,
         stock_id: stockId,
       });
 
-      setQueuedItems(prev => [...prev, newItem]);
+      setQueuedItems((prev) =>
+        prev.map((item) =>
+          item.wishlist_item_id === tempItem.wishlist_item_id
+            ? inserted
+            : item
+        )
+      );
     } catch (err) {
-      console.error("Failed to queue stock", err);
+      console.error("Queue failed:", err);
+      setQueuedItems((prev) =>
+        prev.filter((i) => i.wishlist_item_id !== tempItem.wishlist_item_id)
+      );
     }
   };
 
@@ -349,17 +433,61 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
 
   const makePick = async (stockId: number) => {
     if (!currentPortfolioId) return;
+    if (isMakingPick) return;
 
-    await fetch(`${SERVER_URL}/draft/${leagueId}/pick`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        portfolioId: currentPortfolioId,
-        stockId,
-        round,
-        pickNumber: draftPicks.length + 1,
-      }),
+    setIsMakingPick(true);
+
+    const tempPick = {
+      draft_id: leagueId,
+      portfolio_id: currentPortfolioId,
+      stock_id: stockId,
+      round_number: round,
+      pick_number: draftPicks.length + 1,
+      temp: true,
+    };
+
+    setDraftPicks(prev => [...prev, tempPick]);
+
+    setDraftedStockIds(prev => {
+      const copy = new Set(prev);
+      copy.add(stockId);
+      return copy;
     });
+
+    if (myPortfolio?.portfolio_id === currentPortfolioId) {
+      setQueuedItems(prev =>
+        prev.filter(item => item.stock_id !== stockId)
+      );
+    }
+
+    try {
+      await fetch(`${SERVER_URL}/draft/${leagueId}/pick`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          portfolioId: currentPortfolioId,
+          stockId,
+          round,
+          pickNumber: draftPicks.length + 1,
+        }),
+      });
+    } catch (err) {
+      console.error("Pick failed:", err);
+
+      setDraftPicks(prev =>
+        prev.filter(p => p !== tempPick)
+      );
+
+      setDraftedStockIds(prev => {
+        const copy = new Set(prev);
+        copy.delete(stockId);
+        return copy;
+      });
+    }
+
+    setIsMakingPick(false);
   };
 
   return (
@@ -379,15 +507,20 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
         myPortfolio,
         isOwner,
         queuedItems,
+        queuedLoaded,
         draftPicks,
         draftedStockIds,
         stockPrices,
         activeUsers,
+        userPresenceStates,
+        isMakingPick,
         startDraft,
         makePick,
         queueStock,
         removeFromQueue,
         reorderQueue,
+        addToQueueUI,
+        removeFromQueueUI,
       }}
     >
       {children}
@@ -399,4 +532,12 @@ export const useDraft = () => {
   const ctx = useContext(DraftContext);
   if (!ctx) throw new Error("useDraft must be used within DraftProvider");
   return ctx;
+};
+
+export const useDraftOptional = () => {
+  try {
+    return useContext(DraftContext);
+  } catch {
+    return undefined;
+  }
 };

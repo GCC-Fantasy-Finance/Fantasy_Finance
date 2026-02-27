@@ -10,7 +10,14 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:5173',                    // Local development
+    'https://fantasy-finance.vercel.app'        // Production
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+}));
 app.use(express.json());
 
 const server = http.createServer(app);
@@ -128,9 +135,9 @@ app.post('/draft/:leagueId/start', async (req, res) => {
   }
 });
 
-// app.get("/", (req, res) => {
-//   res.send("Draft server is running");
-// });
+app.get("/", (req, res) => {
+  res.send("Draft server is running");
+});
 
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, "0.0.0.0", () => {
