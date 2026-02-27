@@ -139,7 +139,8 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
                       <span className="truncate">{username}</span>
                     </div>
                   </TooltipTrigger>
-                  <TooltipContent>{username} {presenceTooltip}</TooltipContent>
+                  <TooltipContent className="bg-green-700 text-white text-xs rounded max-w-56 whitespace-normal break-words px-2 py-1">
+                    {username} {presenceTooltip}</TooltipContent>
                 </Tooltip>
 
                 <div
