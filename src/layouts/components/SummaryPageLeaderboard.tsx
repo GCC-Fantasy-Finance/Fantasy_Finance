@@ -69,7 +69,11 @@ export default function SummaryPageLeaderboard({
 										: "";
 
 								return (
-									<TableRow key={entry.portfolio_id} className={rowClass}>
+									<TableRow
+										key={entry.portfolio_id}
+										className={`${rowClass} ${onPortfolioClick ? "cursor-pointer" : ""}`}
+										onClick={() => onPortfolioClick?.(entry.portfolio_id)}
+									>
 										<TableCell
 											className={`font-bold text-lg px-4 pl-7 ${
 												isFirstPlace ? "text-yellow-700" : "text-green-700"
@@ -90,11 +94,7 @@ export default function SummaryPageLeaderboard({
                                         
 
 										<TableCell className="px-4 py-3">
-											<button
-												type="button"
-												className="flex items-center gap-3 w-full text-left cursor-pointer"
-												onClick={() => onPortfolioClick?.(entry.portfolio_id)}
-											>
+											<div className="flex items-center gap-3 w-full text-left">
 												
 												{entry.Profiles?.avatar_url ? (
 													<img
@@ -110,7 +110,7 @@ export default function SummaryPageLeaderboard({
 												<span className="underline-offset-2 ">
 													{entry.Profiles?.username ?? "Unknown User"}
 												</span>
-											</button>
+											</div>
 										</TableCell>
 
 										<TableCell

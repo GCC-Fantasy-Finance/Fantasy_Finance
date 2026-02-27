@@ -9,6 +9,8 @@ import SummaryPageLeaderboard from "@/layouts/components/SummaryPageLeaderboard"
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import LeaguePortfolioChart from "@/components/ui/leaguePortfolioChart";
+import LeagueMemberPortfolioModal from "@/components/ui/LeagueMemberPortfolioModal";
+import { calculatePortfolioValue } from "@/lib/portfolioValue";
 import { getLeagueById } from "@/lib/leagues";
 import { getPortfoliosByLeague } from "@/lib/portfolios";
 import { getLatestPortfolioHistoryValues } from "@/lib/portfolioHistory";
@@ -126,6 +128,7 @@ export default function LeagueSummaryPage() {
   const navigate = useNavigate();
   const [league, setLeague] = useState<any>(null);
   const [standings, setStandings] = useState<any[]>([]);
+  const [selectedPortfolioId, setSelectedPortfolioId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const { profile } = useAuth();
   
@@ -174,6 +177,10 @@ export default function LeagueSummaryPage() {
     (entry) => entry.user_id === profile?.id
   )?.portfolio_id;
 
+  const selectedEntry = standings.find(
+    (entry) => entry.portfolio_id === selectedPortfolioId
+  );
+
   return (
     <div className="p-6">
       
@@ -190,13 +197,30 @@ export default function LeagueSummaryPage() {
           <SummaryPageLeaderboard
             entries={standings}
             currentUserId={profile?.id}
-            // onPortfolioClick={(portfolioId) => setSelectedPortfolioId(portfolioId)}
+            onPortfolioClick={(portfolioId) => setSelectedPortfolioId(portfolioId)}
           />
         </div>
         <div className="flex-1 w-full">
           <LeaguePortfolioChart portfolios={chartPortfolios} currentUserPortfolioId={Number(currentUserPortfolioId)} />
         </div>
       </div>
+
+      <LeagueMemberPortfolioModal
+        open={selectedPortfolioId != null}
+        portfolioId={selectedPortfolioId}
+        memberName={selectedEntry?.Profiles?.username ?? "Unknown User"}
+        memberAvatarUrl={selectedEntry?.Profiles?.avatar_url}
+        fallbackNetValue={
+          selectedEntry
+            ? calculatePortfolioValue({
+                netValue:
+                  selectedEntry.live_value ?? selectedEntry.previous_close_value,
+              })
+            : undefined
+        }
+        onClose={() => setSelectedPortfolioId(null)}
+      />
+
       <br/>
       {/* {selectedPortfolioId ? (
         <p className="text-sm text-gray-500 mb-2">
