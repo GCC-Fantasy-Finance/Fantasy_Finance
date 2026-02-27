@@ -91,6 +91,7 @@
 - last_recalculated: timestamp
 - user_id: uuid
 - is_solo: bool
+- previous_close_value: float8
 
 ### Profiles
 
