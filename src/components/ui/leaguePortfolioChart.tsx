@@ -118,7 +118,7 @@ export default function LeaguePortfolioChart({
       <ResponsiveContainer width="100%" height={400}>
         <LineChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="date" angle={-45} textAnchor="end" height={80} />
+          <XAxis dataKey="date"  textAnchor="end" height={80} />
           <YAxis domain={["auto", "auto"]} />
           <Tooltip
             formatter={(value: any) => {

@@ -178,9 +178,13 @@ export default function LeagueSummaryPage() {
   return (
     <div className="p-6">
       
-      
-
-      <h2 className="text-xl font-bold mb-4 text-green-600">Winner: {standings[0]?.Profiles?.username ?? "Unknown"}</h2>
+      <div className="mb-6 w-full flex justify-center">
+      {standings[0]?.portfolio_id === currentUserPortfolioId ? (
+        <h2 className="bg-green-100 text-xl font-bold mb-4 text-green-600 text-center border border-green-600 rounded px-4 py-2">Congratulations, you won the league!</h2>
+      ) : (
+        <h2 className="text-xl font-bold mb-4 text-gray-700 text-center border border-green-600 rounded px-4 py-2">Better luck next time!</h2>
+      )}
+      </div>
       
       <div className="w-full flex gap-8">
         <div className="flex-1">
@@ -195,11 +199,11 @@ export default function LeagueSummaryPage() {
         </div>
       </div>
       <br/>
-      {selectedPortfolioId ? (
+      {/* {selectedPortfolioId ? (
         <p className="text-sm text-gray-500 mb-2">
           Selected portfolio ID: {selectedPortfolioId}
         </p>
-      ) : null}
+      ) : null} */}
       <p className="text-sm text-gray-500 mb-2">Finished_at: {new Date(league.finish_time).toLocaleString()}</p>
 
       <Button
