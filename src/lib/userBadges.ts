@@ -7,6 +7,10 @@ export type UserBadgeView = {
     image_path?: string;
 };
 
+export type BadgeWithEarned = UserBadgeView & {
+    earned: boolean;
+};
+
 function toBadgeImageUrl(imagePath?: string) {
     const rawPath = String(imagePath ?? "").trim();
     if (!rawPath) return "";
@@ -38,6 +42,49 @@ function toBadgeImageUrl(imagePath?: string) {
     }
 
     return normalizedPath;
+}
+
+export async function getAllFixedBadges(): Promise<UserBadgeView[]> {
+    const { data: fixedBadges, error } = await supabase
+        .from("Fixed Badges")
+        .select("id,title,description,image_path")
+        .order("id", { ascending: true });
+
+    if (error) {
+        console.error("Error fetching fixed badges:", error);
+        return [];
+    }
+
+    return (fixedBadges ?? []).map((badge: any) => ({
+        fixed_badge_id: String(badge.id),
+        name: String(badge.title ?? "Badge"),
+        description: String(badge.description ?? ""),
+        image_path: toBadgeImageUrl(String(badge.image_path ?? "")),
+    }));
+}
+
+export async function getAllBadgesWithEarned(userId: string): Promise<BadgeWithEarned[]> {
+    const allBadges = await getAllFixedBadges();
+
+    const { data: userBadges, error: userBadgesError } = await supabase
+        .from("User Badges")
+        .select("fixed_badge_id")
+        .eq("user_id", userId);
+
+    if (userBadgesError) {
+        console.error("Error fetching user badges:", userBadgesError);
+        return allBadges.map((badge) => ({ ...badge, earned: false }));
+    }
+
+    const earnedBadgeIds = new Set(
+        (userBadges ?? [])
+            .map((row: any) => String(row.fixed_badge_id))
+    );
+
+    return allBadges.map((badge) => ({
+        ...badge,
+        earned: earnedBadgeIds.has(badge.fixed_badge_id),
+    }));
 }
 
 export async function getBadgesbyUserBadges(userId: string): Promise<UserBadgeView[]> {

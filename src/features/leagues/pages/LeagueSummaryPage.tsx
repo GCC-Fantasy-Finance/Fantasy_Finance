@@ -181,7 +181,7 @@ export default function LeagueSummaryPage() {
       {standings[0]?.portfolio_id === currentUserPortfolioId ? (
         <h2 className="bg-green-100 text-xl font-bold mb-4 text-green-600 text-center border border-green-600 rounded px-4 py-2">Congratulations, you won the league!</h2>
       ) : (
-        <h2 className="text-xl font-bold mb-4 text-gray-700 text-center border border-green-600 rounded px-4 py-2">Better luck next time!</h2>
+        <h2 className="bg-red-100 text-xl font-bold mb-4 text-red-600 text-center border border-red-600 rounded px-4 py-2">Better luck next time!</h2>
       )}
       </div>
       
