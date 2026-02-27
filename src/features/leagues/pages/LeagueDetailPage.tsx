@@ -7,6 +7,8 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "../../../components/ui/button";
 import { type DraftRow } from "@/lib/drafts";
 import Leaderboard from "@/layouts/components/Leaderboard";
+import LeagueMemberPortfolioModal from "@/components/ui/LeagueMemberPortfolioModal";
+import { calculatePortfolioValue } from "@/lib/portfolioValue";
 import {
   fetchLeagueView,
   getCachedLeagueView,
@@ -48,6 +50,8 @@ export default function LeagueDetailPage() {
   const [owner, setOwner] = useState<Profile | null>(null);
   const [draft, setDraft] = useState<DraftRow | null>(null);
   const [leaderboard, setLeaderboard] = useState<PortfolioWithUser[]>([]);
+  const [selectedPortfolio, setSelectedPortfolio] =
+    useState<PortfolioWithUser | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -136,8 +140,36 @@ export default function LeagueDetailPage() {
           </Button>
         )}
         <div className="my-6">
-          <Leaderboard entries={leaderboard} currentUserId={profile?.id} />
+          <Leaderboard
+            entries={leaderboard}
+            currentUserId={profile?.id}
+            onPortfolioClick={(portfolioId) => {
+              const selectedEntry = leaderboard.find(
+                (entry) => entry.portfolio_id === portfolioId
+              );
+              if (selectedEntry) {
+                setSelectedPortfolio(selectedEntry);
+              }
+            }}
+          />
         </div>
+
+        <LeagueMemberPortfolioModal
+          open={Boolean(selectedPortfolio)}
+          portfolioId={selectedPortfolio?.portfolio_id ?? null}
+          memberName={selectedPortfolio?.Profiles?.username ?? "Unknown User"}
+          memberAvatarUrl={selectedPortfolio?.Profiles?.avatar_url}
+          fallbackNetValue={
+            selectedPortfolio
+              ? calculatePortfolioValue({
+                  netValue:
+                    selectedPortfolio.live_value ??
+                    selectedPortfolio.previous_close_value,
+                })
+              : undefined
+          }
+          onClose={() => setSelectedPortfolio(null)}
+        />
 
         <p className="text-sm text-gray-500 mb-2">
           Created:{" "}

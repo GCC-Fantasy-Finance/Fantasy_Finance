@@ -202,16 +202,16 @@ function SoloPortfolioPage() {
               <div className="flex justify-between">
                 <span>NET:</span>
                 <span className="text-3xl font-semibold">
-                  {netValue.toFixed(2)}
+                  ${netValue.toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span>INVESTED:</span>
-                <span>{investedValue.toFixed(2)}</span>
+                <span>${investedValue.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span>RESERVE:</span>
-                <span>{reserveValue.toFixed(2)}</span>
+                <span>${reserveValue.toFixed(2)}</span>
               </div>
             </div>
 
@@ -262,7 +262,7 @@ function SoloPortfolioPage() {
                     </div>
 
                     <div className="text-right">
-                      <span className="font-bold">{total.toFixed(2)}</span>
+                      <span className="font-bold">${total.toFixed(2)}</span>
                       <span className="ml-2 text-xs text-gray-500">
                         ({qty} shares)
                       </span>

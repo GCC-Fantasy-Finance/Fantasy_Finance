@@ -44,6 +44,11 @@ interface Stock {
   sector: string;
 }
 
+type DraftedStockItem = {
+  stockId: number;
+  label: string;
+};
+
 export default function LeaguePortfolioPage() {
   usePageTitle("League Portfolio");
 
@@ -56,7 +61,7 @@ export default function LeaguePortfolioPage() {
     reserve_value?: number;
   } | null>(null);
   const [hasDrafting, setHasDrafting] = useState(false);
-  const [draftedStockNames, setDraftedStockNames] = useState<string[]>([]);
+  const [draftedStocks, setDraftedStocks] = useState<DraftedStockItem[]>([]);
   const [portfolio, setPortfolio] = useState<{ portfolio_id: number } | null>(
     null,
   );
@@ -72,7 +77,7 @@ export default function LeaguePortfolioPage() {
       setHoldings([]);
       setTotals(null);
       setHasDrafting(false);
-      setDraftedStockNames([]);
+      setDraftedStocks([]);
       setPortfolio(null);
       setLoading(false);
       return;
@@ -83,7 +88,7 @@ export default function LeaguePortfolioPage() {
       setHoldings([]);
       setTotals(null);
       setHasDrafting(false);
-      setDraftedStockNames([]);
+      setDraftedStocks([]);
       setPortfolio(null);
       setLoading(false);
       return;
@@ -104,7 +109,7 @@ export default function LeaguePortfolioPage() {
         setHoldings([]);
         setTotals(null);
         setHasDrafting(false);
-        setDraftedStockNames([]);
+        setDraftedStocks([]);
         setPortfolio(null);
       } else {
         setTotals(totals);
@@ -118,10 +123,10 @@ export default function LeaguePortfolioPage() {
         if (draftingEnabled) {
           const draft = await getDraftByLeague(leagueIdAsNumber);
 
-          if (!draft?.id) {
-            setDraftedStockNames([]);
+          if (!draft) {
+            setDraftedStocks([]);
           } else {
-            const picks = await getDraftPicksByLeague(draft.id);
+            const picks = await getDraftPicksByLeague(leagueIdAsNumber);
             const myPickStockIds = picks
               .filter((pick) => pick.portfolio_id === pf.portfolio_id)
               .map((pick) => Number(pick.stock_id));
@@ -131,39 +136,51 @@ export default function LeaguePortfolioPage() {
             );
 
             if (uniqueStockIds.length === 0) {
-              setDraftedStockNames([]);
+              setDraftedStocks([]);
             } else {
               const { data: stockRows, error: stockRowsError } = await supabase
                 .from("Stocks")
-                .select("stock_id,name")
+                .select("stock_id,name,stock_symbol")
                 .in("stock_id", uniqueStockIds);
 
               if (stockRowsError) {
                 console.error("Failed to load drafted stock names:", stockRowsError);
-                setDraftedStockNames([]);
+                setDraftedStocks([]);
               } else {
                 const stockNameById = new Map<number, string>();
                 for (const stockRow of stockRows ?? []) {
-                  stockNameById.set(
-                    Number((stockRow as { stock_id: number }).stock_id),
+                  const stockId = Number((stockRow as { stock_id: number }).stock_id);
+                  const stockName =
                     (stockRow as { name?: string | null }).name?.trim() ||
-                      `Stock #${(stockRow as { stock_id: number }).stock_id}`,
+                    `Stock #${stockId}`;
+                  const stockSymbol =
+                    (stockRow as { stock_symbol?: string | null }).stock_symbol?.trim() ||
+                    "";
+
+                  stockNameById.set(
+                    stockId,
+                    stockSymbol ? `${stockSymbol} — ${stockName}` : stockName,
                   );
                 }
 
-                const orderedNames = Array.from(
-                  new Set(
-                    myPickStockIds
-                      .map((stockId) => stockNameById.get(stockId) ?? `Stock #${stockId}`),
-                  ),
-                );
+                const seenStockIds = new Set<number>();
+                const orderedDraftedStocks: DraftedStockItem[] = [];
 
-                setDraftedStockNames(orderedNames);
+                for (const stockId of myPickStockIds) {
+                  if (seenStockIds.has(stockId)) continue;
+                  seenStockIds.add(stockId);
+                  orderedDraftedStocks.push({
+                    stockId,
+                    label: stockNameById.get(stockId) ?? `Stock #${stockId}`,
+                  });
+                }
+
+                setDraftedStocks(orderedDraftedStocks);
               }
             }
           }
         } else {
-          setDraftedStockNames([]);
+          setDraftedStocks([]);
         }
       }
     } catch (err) {
@@ -171,7 +188,7 @@ export default function LeaguePortfolioPage() {
       setHoldings([]);
       setTotals(null);
       setHasDrafting(false);
-      setDraftedStockNames([]);
+      setDraftedStocks([]);
       setPortfolio(null);
     } finally {
       setLoading(false);
@@ -261,16 +278,16 @@ export default function LeaguePortfolioPage() {
               <div className="flex justify-between">
                 <span>NET:</span>
                 <span className="text-3xl font-semibold">
-                  {netValue.toFixed(2)}
+                  ${netValue.toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span>INVESTED:</span>
-                <span>{investedValue.toFixed(2)}</span>
+                <span>${investedValue.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span>RESERVE:</span>
-                <span>{reserveValue.toFixed(2)}</span>
+                <span>${reserveValue.toFixed(2)}</span>
               </div>
             </div>
 
@@ -280,10 +297,21 @@ export default function LeaguePortfolioPage() {
           {hasDrafting && (
             <div className="mb-6 rounded-lg border border-gray-300 bg-white px-4 py-3">
               <h3 className="text-sm font-semibold text-gray-900 mb-2">Drafted Stocks</h3>
-              {draftedStockNames.length === 0 ? (
+              {draftedStocks.length === 0 ? (
                 <p className="text-sm text-gray-600">No drafted stocks yet.</p>
               ) : (
-                <p className="text-sm text-gray-700">{draftedStockNames.join(", ")}</p>
+                <div className="flex flex-wrap gap-2">
+                  {draftedStocks.map((stock) => (
+                    <button
+                      key={stock.stockId}
+                      type="button"
+                      onClick={() => handleOpenStockDetails(stock.stockId)}
+                      className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 cursor-pointer"
+                    >
+                      {stock.label}
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
           )}
@@ -332,7 +360,7 @@ export default function LeaguePortfolioPage() {
                     </div>
 
                     <div className="text-right">
-                      <span className="font-bold">{total.toFixed(2)}</span>
+                      <span className="font-bold">${total.toFixed(2)}</span>
                       <span className="ml-2 text-xs text-gray-500">
                         ({qty} shares)
                       </span>
