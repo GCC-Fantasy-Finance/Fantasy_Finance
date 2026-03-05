@@ -1417,7 +1417,7 @@ export default function Chatbot({
               Add Context ({selectedPortfolioContextIds.length})
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-64 z-70">
+          <DropdownMenuContent align="start" className="w-64 z-100">
             <DropdownMenuItem
               className="cursor-pointer"
               onSelect={(event) => {
