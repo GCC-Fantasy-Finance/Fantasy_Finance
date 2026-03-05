@@ -3,11 +3,11 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useDraft } from "../../context/DraftContext";
 import { Button } from "../../components/ui/button";
 import { useAuth } from "../../context/AuthContext";
-import { Search } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { getSectorByLeagueId } from "@/lib/leagues";
 import { type StockRow } from "@/lib/stocks";
 import Ticker from "@/components/ui/ticker";
+import SearchIcon from "@/components/ui/search-icon";
 
 import {
   Select,
@@ -25,12 +25,9 @@ const formatNumber = (num?: number | null) => {
   if (!num) return "-";
   if (num >= 1_000_000_000_000)
     return (num / 1_000_000_000_000).toFixed(1) + "T";
-  if (num >= 1_000_000_000)
-    return (num / 1_000_000_000).toFixed(1) + "B";
-  if (num >= 1_000_000)
-    return (num / 1_000_000).toFixed(1) + "M";
-  if (num >= 1_000)
-    return (num / 1_000).toFixed(1) + "K";
+  if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(1) + "B";
+  if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + "M";
+  if (num >= 1_000) return (num / 1_000).toFixed(1) + "K";
   return num.toString();
 };
 
@@ -56,10 +53,10 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const [sortColumn, setSortColumn] =
-    useState<keyof StockRow | "price" | "day_change">("market_cap");
-  const [sortDirection, setSortDirection] =
-    useState<"asc" | "desc">("desc");
+  const [sortColumn, setSortColumn] = useState<
+    keyof StockRow | "price" | "day_change"
+  >("market_cap");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
   const [exchangeFilter, setExchangeFilter] = useState<string>("All");
   const [sectorFilter, setSectorFilter] = useState<string>("All");
@@ -70,11 +67,7 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
     !!user && !!activePortfolio && activePortfolio.user_id === user.id;
 
   const canDraft =
-    activePortfolio &&
-    myPortfolio &&
-    draftStarted &&
-    !draftEnded &&
-    isMyPick;
+    activePortfolio && myPortfolio && draftStarted && !draftEnded && isMyPick;
 
   useEffect(() => {
     const fetchStocks = async () => {
@@ -117,9 +110,7 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
     return ["All", ...(Array.from(values) as string[])];
   }, [stocks]);
 
-  const handleSort = (
-    column: keyof StockRow | "price" | "day_change"
-  ) => {
+  const handleSort = (column: keyof StockRow | "price" | "day_change") => {
     if (sortColumn === column) {
       setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
@@ -131,7 +122,7 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
   const HeaderCell = (
     label: string,
     column: keyof StockRow | "price" | "day_change",
-    align: "left" | "right" = "left"
+    align: "left" | "right" = "left",
   ) => (
     <div
       className={`cursor-pointer flex items-center ${
@@ -142,11 +133,7 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
       <span className="flex items-center whitespace-nowrap">
         {label}
         <span className="ml-1 w-3 inline-block text-gray-500">
-          {sortColumn === column
-            ? sortDirection === "asc"
-              ? "▲"
-              : "▼"
-            : ""}
+          {sortColumn === column ? (sortDirection === "asc" ? "▲" : "▼") : ""}
         </span>
       </span>
     </div>
@@ -163,18 +150,12 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
       })
       .filter((stock) => !draftedStockIds.has(stock.stock_id))
       .filter((stock) =>
-        exchangeFilter === "All" ? true : stock.exchange === exchangeFilter
+        exchangeFilter === "All" ? true : stock.exchange === exchangeFilter,
       )
       .filter((stock) =>
-        sectorFilter === "All" ? true : stock.sector === sectorFilter
+        sectorFilter === "All" ? true : stock.sector === sectorFilter,
       );
-  }, [
-    stocks,
-    searchTerm,
-    draftedStockIds,
-    exchangeFilter,
-    sectorFilter,
-  ]);
+  }, [stocks, searchTerm, draftedStockIds, exchangeFilter, sectorFilter]);
 
   const sortedStocks = useMemo(() => {
     const sorted = [...filteredStocks].sort((a, b) => {
@@ -185,18 +166,14 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
         aValue = stockPrices[a.stock_id] ?? a.current_price ?? 0;
         bValue = stockPrices[b.stock_id] ?? b.current_price ?? 0;
       } else if (sortColumn === "day_change") {
-        const aCurrent =
-          stockPrices[a.stock_id] ?? a.current_price ?? 0;
-        const bCurrent =
-          stockPrices[b.stock_id] ?? b.current_price ?? 0;
+        const aCurrent = stockPrices[a.stock_id] ?? a.current_price ?? 0;
+        const bCurrent = stockPrices[b.stock_id] ?? b.current_price ?? 0;
 
         const aPrev = a.previous_close ?? 0;
         const bPrev = b.previous_close ?? 0;
 
-        const aPct =
-          aPrev === 0 ? 0 : (aCurrent - aPrev) / aPrev;
-        const bPct =
-          bPrev === 0 ? 0 : (bCurrent - bPrev) / bPrev;
+        const aPct = aPrev === 0 ? 0 : (aCurrent - aPrev) / aPrev;
+        const bPct = bPrev === 0 ? 0 : (bCurrent - bPrev) / bPrev;
 
         aValue = aPct;
         bValue = bPct;
@@ -205,19 +182,13 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
         const bField = b[sortColumn];
 
         aValue =
-          typeof aField === "number"
-            ? aField
-            : (aField ?? "").toString();
+          typeof aField === "number" ? aField : (aField ?? "").toString();
         bValue =
-          typeof bField === "number"
-            ? bField
-            : (bField ?? "").toString();
+          typeof bField === "number" ? bField : (bField ?? "").toString();
       }
 
       if (typeof aValue === "number" && typeof bValue === "number") {
-        return sortDirection === "asc"
-          ? aValue - bValue
-          : bValue - aValue;
+        return sortDirection === "asc" ? aValue - bValue : bValue - aValue;
       }
 
       return sortDirection === "asc"
@@ -239,7 +210,7 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
     <div className="flex flex-col h-full min-h-0">
       <div className="p-2 flex items-end gap-4">
         <div className="relative w-72">
-          <Search className="absolute left-2 top-2 w-4 h-4 text-gray-400" />
+          <SearchIcon className="absolute left-2 top-2 w-4 h-4 text-gray-400" />
           <input
             type="text"
             placeholder="Search all stocks"
@@ -291,7 +262,6 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
         className="mx-4 mb-4 flex-1 overflow-auto border border-gray-200 rounded-sm text-xs"
       >
         <div className="min-w-[900px]">
-
           <div className="grid grid-cols-[90px_44px_90px_1fr_110px_90px_110px_100px_110px] gap-2 px-3 py-1 font-semibold bg-gray-50 border-b sticky top-0 z-10">
             <div></div>
             <div></div>
@@ -318,9 +288,7 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
                 const queued = isQueued(stock.stock_id);
 
                 const livePrice =
-                  stockPrices[stock.stock_id] ??
-                  stock.current_price ??
-                  0;
+                  stockPrices[stock.stock_id] ?? stock.current_price ?? 0;
 
                 return (
                   <div
@@ -390,13 +358,9 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
                         </div>
                       )}
 
-                      <div className="font-semibold">
-                        {stock.stock_symbol}
-                      </div>
+                      <div className="font-semibold">{stock.stock_symbol}</div>
 
-                      <div className="text-gray-700 truncate">
-                        {stock.name}
-                      </div>
+                      <div className="text-gray-700 truncate">{stock.name}</div>
 
                       <div className="flex justify-end">
                         <Ticker

@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Sparkles, X } from "lucide-react";
+import { Menu, Sparkles, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import StockDetailsModal from "@/components/ui/stockDetailsModal";
 import { useChatbot } from "@/context/ChatbotContext";
 import { getAllStocks } from "@/lib/stocks";
 import { Input } from "@/components/ui/input";
+import { useLayout } from "@/context/LayoutContext";
+import SearchIcon from "@/components/ui/search-icon";
 
 interface StockRow {
   stock_id?: number;
@@ -18,13 +20,16 @@ interface HeaderProps {
 }
 
 export default function Header({ title }: HeaderProps) {
+  const { toggleSidebar } = useLayout();
   const [query, setQuery] = useState("");
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [results, setResults] = useState<StockRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [selectedStock, setSelectedStock] = useState<StockRow | null>(null);
   const [showModal, setShowModal] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
+  const mobileSearchInputRef = useRef<HTMLInputElement | null>(null);
   const {
     chatbotState,
     setChatbotState,
@@ -93,47 +98,77 @@ export default function Header({ title }: HeaderProps) {
         !searchContainerRef.current.contains(event.target as Node)
       ) {
         setIsSearchFocused(false);
+        if (isMobileSearchOpen) {
+          setIsMobileSearchOpen(false);
+        }
       }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isMobileSearchOpen]);
+
+  useEffect(() => {
+    if (!isMobileSearchOpen) return;
+    mobileSearchInputRef.current?.focus();
+  }, [isMobileSearchOpen]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    const handleViewportChange = (event: MediaQueryListEvent) => {
+      if (event.matches) {
+        setIsMobileSearchOpen(false);
+      }
+    };
+
+    mediaQuery.addEventListener("change", handleViewportChange);
+    return () => mediaQuery.removeEventListener("change", handleViewportChange);
   }, []);
 
   return (
     <div className="flex items-center justify-between">
-      <header className="h-14 bg-white border-b border-gray-300 flex items-center justify-between px-6 w-full">
-        {/* Page Title */}
-        <h1 className="text-xl font-medium">{title}</h1>
+      <div className="flex h-14 w-14 shrink-0 items-center justify-center border-b border-r border-gray-300 bg-white hover:bg-gray-100 md:hidden">
+        <button
+          type="button"
+          aria-label="Open sidebar menu"
+          onClick={toggleSidebar}
+          className="inline-flex h-full w-full items-center justify-center cursor-pointer"
+        >
+          <Menu className="w-6 h-6 text-gray-700" />
+        </button>
+      </div>
 
-        {/* Search Bar */}
-        <div className="flex items-center gap-4">
-          <div ref={searchContainerRef} className="relative w-96">
-            <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center pointer-events-none z-10">
-              <Search className="w-4 h-4 text-gray-400" />
+      <header className="h-14 bg-white border-b border-gray-300 flex items-center justify-between pl-3 sm:pl-6 w-full gap-3 ">
+        {isMobileSearchOpen ? (
+          <div
+            ref={searchContainerRef}
+            className="relative w-full lg:hidden mr-6"
+          >
+            <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center pointer-events-none z-10 ">
+              <SearchIcon className="w-4 h-4 text-gray-400" />
             </div>
             <Input
+              ref={mobileSearchInputRef}
               type="text"
               placeholder="Search all stocks"
-              className="h-9 pl-8 pr-8"
+              className="h-9 pl-8 pr-16 shadow-none"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => setIsSearchFocused(true)}
             />
-            {query && (
-              <button
-                type="button"
-                onClick={() => {
-                  setQuery("");
-                  setResults([]);
-                }}
-                aria-label="Clear search"
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 cursor-pointer z-10"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-            {/* Search Results Dropdown */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsMobileSearchOpen(false);
+                setIsSearchFocused(false);
+                setQuery("");
+                setResults([]);
+              }}
+              aria-label="Close search"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 cursor-pointer z-10"
+            >
+              <X className="h-4 w-4" />
+            </button>
             {isSearchFocused && query.length > 0 && (
               <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-b-sm shadow-lg z-10 max-h-60 overflow-y-auto">
                 {loading && (
@@ -149,6 +184,7 @@ export default function Header({ title }: HeaderProps) {
                         setQuery("");
                         setResults([]);
                         setIsSearchFocused(false);
+                        setIsMobileSearchOpen(false);
                       }}
                       className="p-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                     >
@@ -167,7 +203,81 @@ export default function Header({ title }: HeaderProps) {
               </div>
             )}
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 min-w-0">
+              <h1 className="text-lg sm:text-xl font-medium truncate">
+                {title}
+              </h1>
+            </div>
+
+            <div className="flex items-center gap-4 shrink-0 mr-3">
+              <div
+                ref={searchContainerRef}
+                className="relative hidden lg:block w-64"
+              >
+                <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center pointer-events-none z-10">
+                  <SearchIcon className="w-4 h-4 text-gray-400" />
+                </div>
+                <Input
+                  type="text"
+                  placeholder="Search all stocks"
+                  className="h-9 pl-8 pr-8 shadow-none"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onFocus={() => setIsSearchFocused(true)}
+                />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuery("");
+                      setResults([]);
+                    }}
+                    aria-label="Clear search"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 cursor-pointer z-10"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+                {isSearchFocused && query.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-b-sm shadow-lg z-10 max-h-60 overflow-y-auto">
+                    {loading && (
+                      <div className="p-2 text-sm text-gray-500">
+                        Searching...
+                      </div>
+                    )}
+                    {!loading &&
+                      results.map((stock) => (
+                        <div
+                          key={stock.stock_id}
+                          onClick={() => {
+                            setSelectedStock(stock);
+                            setShowModal(true);
+                            setQuery("");
+                            setResults([]);
+                            setIsSearchFocused(false);
+                          }}
+                          className="p-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                        >
+                          <div className="font-medium">{stock.name}</div>
+                          <div className="text-sm text-gray-600">
+                            {stock.stock_symbol} - $
+                            {stock.current_price?.toFixed(2)}
+                          </div>
+                        </div>
+                      ))}
+                    {!loading && results.length === 0 && query.length >= 2 && (
+                      <div className="p-2 text-sm text-gray-500">
+                        No stocks found
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Stock Details Modal */}
         <StockDetailsModal
@@ -176,22 +286,40 @@ export default function Header({ title }: HeaderProps) {
           onClose={() => setShowModal(false)}
         />
       </header>
+      {!isMobileSearchOpen && (
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center border-b border-l border-gray-300 bg-white hover:bg-gray-100 lg:hidden">
+          <button
+            type="button"
+            aria-label="Open search"
+            onClick={() => {
+              setIsMobileSearchOpen(true);
+              setIsSearchFocused(true);
+            }}
+            className="inline-flex h-full w-full items-center justify-center cursor-pointer"
+          >
+            <SearchIcon className="w-6 h-6 text-gray-700" />
+          </button>
+        </div>
+      )}
       {chatbotState === "closed" && (
         <div
           onClick={() => {
+            const isMobileScreen = window.matchMedia(
+              "(max-width: 1023px)",
+            ).matches;
             setResumeRequested(Boolean(lastConversationId));
             setChatbotState("floating");
-            setIsPinned(true);
+            setIsPinned(!isMobileScreen);
           }}
-          className="w-48 flex flex-col gap-0.5 justify-center h-full px-4 text-sm   border-b border-l border-gray-300 hover:bg-gray-100 cursor-pointer"
+          className="flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-0.5 border-b border-l border-gray-300 bg-white text-sm hover:bg-gray-100 cursor-pointer lg:w-48 lg:items-start lg:px-4"
         >
           <div className="flex gap-1 items-center">
-            <Sparkles className="w-3 h-3 text-green-700" />
-            <p className="text-green-700 text-xs font-medium">
+            <Sparkles className="w-6 h-6 lg:w-3 lg:h-3 text-green-700" />
+            <p className="hidden lg:block text-green-700 text-xs font-medium">
               {lastConversationId ? "Resume Chat" : "New Chat"}
             </p>
           </div>
-          <p className="text-gray-700 text-xs truncate">
+          <p className="hidden lg:block text-gray-700 text-xs truncate">
             {lastConversationId
               ? conversationTitle || "Loading..."
               : "Start a new conversation"}

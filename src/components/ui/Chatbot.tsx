@@ -17,7 +17,6 @@ import {
   Plus,
   Stars,
   ArrowUpRight,
-  Search,
   Paperclip,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -44,6 +43,7 @@ import {
   type ChatConversation,
   type ChatMessage,
 } from "@/lib/chat";
+import SearchIcon from "@/components/ui/search-icon";
 
 interface ChatbotProps {
   disabled?: boolean;
@@ -143,6 +143,7 @@ export default function Chatbot({
   const [savedScrollRatio, setSavedScrollRatio] = useState<number | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState<number | null>(null);
   const [isResizing, setIsResizing] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const prevStreamingRef = useRef(false);
   const { user } = useAuth();
@@ -700,6 +701,27 @@ export default function Chatbot({
   );
 
   useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 1023px)");
+    const updateViewport = () => {
+      setIsMobileViewport(mediaQuery.matches);
+    };
+
+    updateViewport();
+    mediaQuery.addEventListener("change", updateViewport);
+
+    return () => mediaQuery.removeEventListener("change", updateViewport);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (isMobileViewport && isPinned) {
+      onPinnedChange?.(false);
+      if (state !== "closed") {
+        setState("closed");
+      }
+    }
+  }, [isMobileViewport, isPinned, onPinnedChange, setState, state]);
+
+  useEffect(() => {
     if (isResizing) {
       window.addEventListener("mousemove", resize);
       window.addEventListener("mouseup", stopResizing);
@@ -1087,6 +1109,10 @@ export default function Chatbot({
   };
 
   const handlePin = () => {
+    if (isMobileViewport) {
+      return;
+    }
+
     // Capture current scroll position in floating expanded window as a ratio
     const el = floatingMessagesRef.current;
     if (el) {
@@ -1232,6 +1258,8 @@ export default function Chatbot({
 
   if (disabled) return null;
 
+  if (isMobileViewport && isPinned) return null;
+
   // Render header (shared between pinned and floating modes)
   const renderHeader = (showPinButton = false) => (
     <div className="flex items-center justify-between h-14 px-4 border-b border-gray-300">
@@ -1264,12 +1292,16 @@ export default function Chatbot({
               size="sm"
               onClick={handleShowHistory}
               // className={`h-8 ${state === "floating" ? "px-2" : "w-8 p-0"}`}
-              className="h-8 px-2"
+              className={isMobileViewport ? "h-8 w-8 p-0" : "h-8 px-2"}
             >
-              <span className="text-xs flex items-center">
-                <History className="inline-block h-4 w-4 mr-1" />
-                History
-              </span>
+              {isMobileViewport ? (
+                <History className="size-5" />
+              ) : (
+                <span className="text-xs flex items-center">
+                  <History className="inline-block h-4 w-4 mr-1" />
+                  History
+                </span>
+              )}
               {/* {state === "floating" && <span className="text-xs">History</span>} */}
             </Button>
             {conversationId && (
@@ -1285,7 +1317,7 @@ export default function Chatbot({
                 </span>
               </Button>
             )}
-            {showPinButton && (
+            {showPinButton && !isMobileViewport && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -1310,7 +1342,7 @@ export default function Chatbot({
                 New
               </span>
             </Button>
-            {showPinButton && (
+            {showPinButton && !isMobileViewport && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -1322,14 +1354,14 @@ export default function Chatbot({
             )}
           </>
         )}
-        {isPinned && (
+        {(isPinned || isMobileViewport) && (
           <Button
             variant="ghost"
             size="sm"
             onClick={handleClose}
             className="h-8 w-8 p-0"
           >
-            <X className="h-4 w-4" />
+            <X className={isMobileViewport ? "size-5" : "h-4 w-4"} />
           </Button>
         )}
       </div>
@@ -1469,7 +1501,7 @@ export default function Chatbot({
               placeholder="Search chats..."
               className="h-9 pr-8 pl-8"
             />
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
+            <SearchIcon className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
             {historySearchQuery && (
               <button
                 type="button"
@@ -1810,13 +1842,13 @@ export default function Chatbot({
   };
 
   // Pinned mode - full height sidebar on the right
-  if (isPinned) {
+  if (isPinned && !isMobileViewport) {
     return (
       <div
         ref={sidebarRef}
         className={`relative h-full bg-white border-l border-gray-300 flex flex-col z-60 ${
-          sidebarWidth ? "" : "w-64 lg:w-80 xl:w-[400px]"
-        } min-w-64 lg:min-w-80 xl:min-w-[400px] max-w-[90vw] md:max-w-[600px] xl:max-w-[800px]`}
+          sidebarWidth ? "" : "w-64 lg:w-[400px] xl:w-[400px]"
+        } min-w-64 lg:min-w-80 xl:min-w-[400px] max-w-[90vw] md:max-w-[400px] xl:max-w-[600px]`}
         style={sidebarWidth ? { width: sidebarWidth } : undefined}
       >
         {/* Resize Handle */}
@@ -1845,48 +1877,93 @@ export default function Chatbot({
   }
 
   return (
-    <div ref={chatbotRef} className="fixed bottom-6 right-6 z-60">
-      {/* Floating Window */}
-      {state !== "closed" && (
-        <div
-          className="absolute bottom-18 right-0 bg-white rounded-lg shadow-2xl border border-gray-300 transition-all duration-300 w-96 flex flex-col"
-          style={{
-            height: "calc(100vh - 120px)",
-          }}
-        >
-          {/* Window Header */}
-          {renderHeader(true)}
-          {viewMode === "chat" && renderUnhighlightButton()}
+    <>
+      {isMobileViewport ? (
+        <div>
+          <button
+            type="button"
+            aria-label="Close chatbot"
+            onClick={handleClose}
+            className={`fixed inset-0 bg-black/30 z-50 transition-opacity duration-300 ${
+              state === "closed"
+                ? "opacity-0 pointer-events-none"
+                : "opacity-100 pointer-events-auto"
+            }`}
+          />
 
-          {/* Messages area */}
           <div
-            className="flex-1 overflow-auto p-4 pr-2 chatbot-scroll"
-            ref={floatingMessagesRef}
+            className={`fixed inset-y-0 right-0 z-60 w-[88vw] max-w-sm bg-white border-l border-gray-300 flex flex-col transform transition-transform duration-300 ${
+              state === "closed" ? "translate-x-full" : "translate-x-0"
+            }`}
           >
-            {viewMode === "history" ? renderHistory() : renderMessages()}
+            {renderHeader(true)}
+            {viewMode === "chat" && renderUnhighlightButton()}
+
+            <div
+              className="flex-1 overflow-auto p-4 pr-2 chatbot-scroll"
+              ref={floatingMessagesRef}
+            >
+              {viewMode === "history" ? renderHistory() : renderMessages()}
+            </div>
+
+            {viewMode === "chat" &&
+              renderInput("border-t p-4 border-gray-300 bg-white")}
           </div>
 
-          {/* Input area - only show in chat mode */}
-          {viewMode === "chat" &&
-            renderInput("border-t p-4 border-gray-300 bg-white rounded-b-lg")}
+          <button
+            onClick={handleToggle}
+            className={`fixed bottom-6 right-6 z-60 h-14 w-14 cursor-pointer rounded-full shadow-lg flex items-center justify-center transition-all duration-200 bg-green-700 hover:bg-green-800 ${
+              state === "closed"
+                ? "opacity-100 pointer-events-auto"
+                : "opacity-0 pointer-events-none"
+            }`}
+          >
+            <Stars className="h-6 w-6 text-white" />
+          </button>
+        </div>
+      ) : (
+        <div ref={chatbotRef} className="fixed bottom-6 right-6 z-60">
+          {/* Floating Window */}
+          {state !== "closed" && (
+            <div
+              className="absolute bottom-18 right-0 bg-white rounded-lg shadow-2xl border border-gray-300 transition-all duration-300 w-96 flex flex-col"
+              style={{
+                height: "calc(100vh - 120px)",
+              }}
+            >
+              {/* Window Header */}
+              {renderHeader(true)}
+              {viewMode === "chat" && renderUnhighlightButton()}
+
+              {/* Messages area */}
+              <div
+                className="flex-1 overflow-auto p-4 pr-2 chatbot-scroll"
+                ref={floatingMessagesRef}
+              >
+                {viewMode === "history" ? renderHistory() : renderMessages()}
+              </div>
+
+              {/* Input area - only show in chat mode */}
+              {viewMode === "chat" &&
+                renderInput(
+                  "border-t p-4 border-gray-300 bg-white rounded-b-lg",
+                )}
+            </div>
+          )}
+
+          {/* Floating Button */}
+          <button
+            onClick={handleToggle}
+            className="h-14 w-14 cursor-pointer rounded-full shadow-lg flex items-center justify-center transition-all duration-200 bg-green-700 hover:bg-green-800"
+          >
+            {state === "closed" ? (
+              <Stars className="h-6 w-6 text-white" />
+            ) : (
+              <X className="h-6 w-6 text-white" />
+            )}
+          </button>
         </div>
       )}
-
-      {/* Floating Button */}
-      <button
-        onClick={handleToggle}
-        className={`h-14 w-14 cursor-pointer rounded-full shadow-lg flex items-center justify-center transition-all duration-200 ${
-          state === "closed"
-            ? "bg-green-700 hover:bg-green-800"
-            : "bg-green-700 hover:bg-green-800"
-        }`}
-      >
-        {state === "closed" ? (
-          <Stars className="h-6 w-6 text-white" />
-        ) : (
-          <X className="h-6 w-6 text-white" />
-        )}
-      </button>
-    </div>
+    </>
   );
 }
