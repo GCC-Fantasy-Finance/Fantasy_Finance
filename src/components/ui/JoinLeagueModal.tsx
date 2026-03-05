@@ -82,7 +82,6 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
         is_solo: false,
       };
 
-
       const { data: existingPortfolio, error: portfolioError } = await supabase
         .from("Portfolios")
         .select("portfolio_id")
@@ -96,7 +95,6 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
         return;
       }
       if (portfolioError) throw portfolioError;
-
 
       const { error: supaError } = await supabase
         .from("Portfolios")
@@ -120,8 +118,12 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
   }
 
   const modal = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden />
+    <div className="ff-modal-viewport fixed inset-0 z-50 flex items-center justify-center">
+      <div
+        className="absolute inset-0 bg-black/40"
+        onClick={onClose}
+        aria-hidden
+      />
 
       <div
         role="dialog"
@@ -145,7 +147,12 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
           </div>
 
           <div className="flex justify-center gap-2">
-            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={loading}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>

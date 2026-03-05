@@ -132,7 +132,9 @@ export default function LeaguePortfolioPage() {
               .map((pick) => Number(pick.stock_id));
 
             const uniqueStockIds = Array.from(
-              new Set(myPickStockIds.filter((stockId) => Number.isFinite(stockId))),
+              new Set(
+                myPickStockIds.filter((stockId) => Number.isFinite(stockId)),
+              ),
             );
 
             if (uniqueStockIds.length === 0) {
@@ -144,18 +146,24 @@ export default function LeaguePortfolioPage() {
                 .in("stock_id", uniqueStockIds);
 
               if (stockRowsError) {
-                console.error("Failed to load drafted stock names:", stockRowsError);
+                console.error(
+                  "Failed to load drafted stock names:",
+                  stockRowsError,
+                );
                 setDraftedStocks([]);
               } else {
                 const stockNameById = new Map<number, string>();
                 for (const stockRow of stockRows ?? []) {
-                  const stockId = Number((stockRow as { stock_id: number }).stock_id);
+                  const stockId = Number(
+                    (stockRow as { stock_id: number }).stock_id,
+                  );
                   const stockName =
                     (stockRow as { name?: string | null }).name?.trim() ||
                     `Stock #${stockId}`;
                   const stockSymbol =
-                    (stockRow as { stock_symbol?: string | null }).stock_symbol?.trim() ||
-                    "";
+                    (
+                      stockRow as { stock_symbol?: string | null }
+                    ).stock_symbol?.trim() || "";
 
                   stockNameById.set(
                     stockId,
@@ -291,12 +299,16 @@ export default function LeaguePortfolioPage() {
               </div>
             </div>
 
-            {portfolio && <PortfolioChart id={portfolio.portfolio_id} timeFrame="1M" />}
+            {portfolio && (
+              <PortfolioChart id={portfolio.portfolio_id} timeFrame="1M" />
+            )}
           </div>
 
           {hasDrafting && (
             <div className="mb-6 rounded-lg border border-gray-300 bg-white px-4 py-3">
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">Drafted Stocks</h3>
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                Drafted Stocks
+              </h3>
               {draftedStocks.length === 0 ? (
                 <p className="text-sm text-gray-600">No drafted stocks yet.</p>
               ) : (
@@ -339,10 +351,14 @@ export default function LeaguePortfolioPage() {
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex flex-col min-w-[120px]">
-                        <span className="text-sm font-semibold">{h.stock?.stock_symbol}</span>
-                        <span className="text-xs text-gray-500">{h.stock?.name}</span>
+                        <span className="text-sm font-semibold">
+                          {h.stock?.stock_symbol}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {h.stock?.name}
+                        </span>
                       </div>
-                      <div className="flex flex-col items-end min-w-[96px]">
+                      <div className="flex flex-col items-end min-w-24">
                         <span className="text-sm">${price.toFixed(2)}</span>
                         <span
                           className={`text-xs font-medium ${
@@ -392,7 +408,9 @@ export default function LeaguePortfolioPage() {
                       <button
                         type="button"
                         className="inline-flex items-center gap-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 px-3 py-1 text-xs"
-                        onClick={() => toast.info("Transfer not implemented yet")}
+                        onClick={() =>
+                          toast.info("Transfer not implemented yet")
+                        }
                       >
                         Move
                       </button>
@@ -400,7 +418,9 @@ export default function LeaguePortfolioPage() {
                       <button
                         type="button"
                         className="inline-flex items-center gap-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 px-3 py-1 text-xs"
-                        onClick={() => toast.info("Bookmark not implemented yet")}
+                        onClick={() =>
+                          toast.info("Bookmark not implemented yet")
+                        }
                       >
                         Bookmark
                       </button>

@@ -733,6 +733,44 @@ export default function Chatbot({
     };
   }, [isResizing, resize, stopResizing]);
 
+  useEffect(() => {
+    const root = document.documentElement;
+
+    const updatePinnedWidth = () => {
+      if (isPinned && !isMobileViewport && sidebarRef.current) {
+        const width = sidebarRef.current.getBoundingClientRect().width;
+        root.style.setProperty(
+          "--ff-chatbot-pinned-width",
+          `${Math.round(width)}px`,
+        );
+        return;
+      }
+
+      root.style.setProperty("--ff-chatbot-pinned-width", "0px");
+    };
+
+    updatePinnedWidth();
+
+    if (!(isPinned && !isMobileViewport && sidebarRef.current)) {
+      return () => {
+        root.style.setProperty("--ff-chatbot-pinned-width", "0px");
+      };
+    }
+
+    const observer = new ResizeObserver(() => {
+      updatePinnedWidth();
+    });
+
+    observer.observe(sidebarRef.current);
+    window.addEventListener("resize", updatePinnedWidth);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updatePinnedWidth);
+      root.style.setProperty("--ff-chatbot-pinned-width", "0px");
+    };
+  }, [isPinned, isMobileViewport]);
+
   // Handle dynamic spacer calculation
   useLayoutEffect(() => {
     const calculateSpacer = () => {
@@ -1884,7 +1922,7 @@ export default function Chatbot({
             type="button"
             aria-label="Close chatbot"
             onClick={handleClose}
-            className={`fixed inset-0 bg-black/30 z-50 transition-opacity duration-300 ${
+            className={`fixed inset-0 bg-black/30 z-80 transition-opacity duration-300 ${
               state === "closed"
                 ? "opacity-0 pointer-events-none"
                 : "opacity-100 pointer-events-auto"
@@ -1892,7 +1930,7 @@ export default function Chatbot({
           />
 
           <div
-            className={`fixed inset-y-0 right-0 z-60 w-[88vw] max-w-sm bg-white border-l border-gray-300 flex flex-col transform transition-transform duration-300 ${
+            className={`fixed inset-y-0 right-0 z-90 w-[88vw] max-w-sm bg-white border-l border-gray-300 flex flex-col transform transition-transform duration-300 ${
               state === "closed" ? "translate-x-full" : "translate-x-0"
             }`}
           >
@@ -1912,7 +1950,7 @@ export default function Chatbot({
 
           <button
             onClick={handleToggle}
-            className={`fixed bottom-6 right-6 z-60 h-14 w-14 cursor-pointer rounded-full shadow-lg flex items-center justify-center transition-all duration-200 bg-green-700 hover:bg-green-800 ${
+            className={`fixed bottom-6 right-6 z-90 h-14 w-14 cursor-pointer rounded-full shadow-lg flex items-center justify-center transition-all duration-200 bg-green-700 hover:bg-green-800 ${
               state === "closed"
                 ? "opacity-100 pointer-events-auto"
                 : "opacity-0 pointer-events-none"

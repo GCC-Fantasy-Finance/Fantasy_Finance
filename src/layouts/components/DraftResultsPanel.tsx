@@ -102,16 +102,22 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
 
           // Choose color, icon, and tooltip based on presence state
           let bgColor = "bg-gray-500";
-          let presenceIcon = <X size={10} className="text-white" strokeWidth={3} />;
+          let presenceIcon = (
+            <X size={10} className="text-white" strokeWidth={3} />
+          );
           let presenceTooltip = "is not present";
-          
+
           if (presence === "active") {
             bgColor = "bg-green-500";
-            presenceIcon = <Check size={10} className="text-white" strokeWidth={4} />;
+            presenceIcon = (
+              <Check size={10} className="text-white" strokeWidth={4} />
+            );
             presenceTooltip = "is in draft room!";
           } else if (presence === "away") {
             bgColor = "bg-yellow-400";
-            presenceIcon = <Minus size={10} className="text-white" strokeWidth={4} />;
+            presenceIcon = (
+              <Minus size={10} className="text-white" strokeWidth={4} />
+            );
             presenceTooltip = "will be right back!";
           }
 
@@ -133,19 +139,22 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
                         isMe ? "text-green-800" : ""
                       }`}
                     >
-                      <div className={`flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center overflow-hidden ${bgColor}`}>
+                      <div
+                        className={`shrink-0 w-4 h-4 rounded-full flex items-center justify-center overflow-hidden ${bgColor}`}
+                      >
                         {presenceIcon}
                       </div>
                       <span className="truncate">{username}</span>
                     </div>
                   </TooltipTrigger>
-                  <TooltipContent className="bg-green-700 text-white text-xs rounded max-w-56 whitespace-normal break-words px-2 py-1">
-                    {username} {presenceTooltip}</TooltipContent>
+                  <TooltipContent className="bg-green-700 text-white text-xs rounded max-w-56 whitespace-normal wrap-break-word px-2 py-1">
+                    {username} {presenceTooltip}
+                  </TooltipContent>
                 </Tooltip>
 
                 <div
                   style={{ height: `${slotsContainerHeight}px` }}
-                  className="flex flex-col gap-[2px] w-full flex-shrink-0"
+                  className="flex flex-col gap-0.5 w-full shrink-0"
                 >
                   {Array.from({ length: draftRounds }).map((_, idx) => {
                     const roundNumber = idx + 1;
@@ -175,7 +184,9 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
                     const text = stockId ? stocksMap[stockId] : "";
 
                     const pastPickClass =
-                      stockId && isPast ? "hover:bg-green-100/60 cursor-pointer" : "";
+                      stockId && isPast
+                        ? "hover:bg-green-100/60 cursor-pointer"
+                        : "";
 
                     return (
                       <div
@@ -185,8 +196,8 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
                             isCurrent
                               ? "bg-green-800 text-white border-2 border-green-800"
                               : isPast
-                              ? `bg-white text-gray-700 border border-gray-300 ${pastPickClass}`
-                              : "bg-white text-gray-500 border border-gray-300"
+                                ? `bg-white text-gray-700 border border-gray-300 ${pastPickClass}`
+                                : "bg-white text-gray-500 border border-gray-300"
                           }`}
                         onClick={() => {
                           if (stockId) onStockClick(stockId);

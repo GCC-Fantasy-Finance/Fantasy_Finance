@@ -39,7 +39,15 @@ export default function SellStockModal() {
     if (quantityToSell <= 0) return false;
     // cannot sell more than owned (allow tiny epsilon for float div)
     return quantityToSell <= availableShares + 1e-9;
-  }, [sellOpen, stock, portfolio, mode, parsedAmount, quantityToSell, availableShares]);
+  }, [
+    sellOpen,
+    stock,
+    portfolio,
+    mode,
+    parsedAmount,
+    quantityToSell,
+    availableShares,
+  ]);
 
   const proceeds = useMemo(() => {
     return Number((quantityToSell * price).toFixed(2));
@@ -102,19 +110,21 @@ export default function SellStockModal() {
   }
 
   const step = 1; // $1 increments for custom amount
-  const onStepUp = () => setAmount((prev) => {
-    const v = Number(prev) || 0;
-    return String(v + step);
-  });
-  const onStepDown = () => setAmount((prev) => {
-    const v = Number(prev) || 0;
-    return String(Math.max(0, v - step));
-  });
+  const onStepUp = () =>
+    setAmount((prev) => {
+      const v = Number(prev) || 0;
+      return String(v + step);
+    });
+  const onStepDown = () =>
+    setAmount((prev) => {
+      const v = Number(prev) || 0;
+      return String(Math.max(0, v - step));
+    });
 
   const sellLabel = valid ? `Sell $${proceeds.toFixed(2)}` : "Sell";
 
   const modal = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="ff-modal-viewport fixed inset-0 z-50 flex items-center justify-center">
       {/* Overlay */}
       <div className="absolute inset-0 bg-black/40" />
 
@@ -127,7 +137,9 @@ export default function SellStockModal() {
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-4">
-          <div className="text-base font-semibold">Sell {stock.stock_symbol}</div>
+          <div className="text-base font-semibold">
+            Sell {stock.stock_symbol}
+          </div>
           <button
             onClick={closeSell}
             className="rounded p-1 text-gray-500 hover:text-gray-700"
@@ -149,7 +161,9 @@ export default function SellStockModal() {
           {/* Stock box */}
           <div className="mt-3 rounded border bg-white px-4 py-3">
             <div className="font-medium">{stock.name}</div>
-            <div className="mt-1 text-green-700 font-semibold">${price.toFixed(2)}</div>
+            <div className="mt-1 text-green-700 font-semibold">
+              ${price.toFixed(2)}
+            </div>
           </div>
 
           {/* Sell options */}
@@ -161,7 +175,9 @@ export default function SellStockModal() {
                 checked={mode === "custom"}
                 onChange={() => setMode("custom")}
               />
-              <label htmlFor="sell-custom" className="text-sm text-gray-700">Sell custom amt.</label>
+              <label htmlFor="sell-custom" className="text-sm text-gray-700">
+                Sell custom amt.
+              </label>
             </div>
             {mode === "custom" && (
               <div className="mt-2 flex items-center gap-2">
@@ -173,10 +189,18 @@ export default function SellStockModal() {
                   className="w-full rounded border px-3 py-2 text-sm"
                 />
                 <div className="flex flex-col">
-                  <button type="button" onClick={onStepUp} className="border rounded-t px-2 py-1 bg-white hover:bg-gray-50">
+                  <button
+                    type="button"
+                    onClick={onStepUp}
+                    className="border rounded-t px-2 py-1 bg-white hover:bg-gray-50"
+                  >
                     <ChevronUp className="w-4 h-4" />
                   </button>
-                  <button type="button" onClick={onStepDown} className="border rounded-b px-2 py-1 bg-white hover:bg-gray-50">
+                  <button
+                    type="button"
+                    onClick={onStepDown}
+                    className="border rounded-b px-2 py-1 bg-white hover:bg-gray-50"
+                  >
                     <ChevronDown className="w-4 h-4" />
                   </button>
                 </div>
@@ -201,7 +225,11 @@ export default function SellStockModal() {
             <Button variant="outline" onClick={closeSell} disabled={submitting}>
               Cancel
             </Button>
-            <Button onClick={handleSell} disabled={!valid || submitting} className="bg-red-700 hover:bg-red-800 text-white">
+            <Button
+              onClick={handleSell}
+              disabled={!valid || submitting}
+              className="bg-red-700 hover:bg-red-800 text-white"
+            >
               {submitting ? "Selling..." : sellLabel}
             </Button>
           </div>

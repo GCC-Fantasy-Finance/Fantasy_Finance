@@ -22,7 +22,8 @@ export default function BuyStockModal() {
     return Number.isFinite(v) ? Math.max(0, v) : 0;
   }, [amount]);
 
-  const canBuy = buyOpen && price > 0 && parsedAmount > 0 && parsedAmount <= reserve;
+  const canBuy =
+    buyOpen && price > 0 && parsedAmount > 0 && parsedAmount <= reserve;
 
   // ESC + outside click
   useEffect(() => {
@@ -82,19 +83,21 @@ export default function BuyStockModal() {
   }
 
   const step = 1; // $1 increments
-  const onStepUp = () => setAmount((prev) => {
-    const v = Number(prev) || 0;
-    return String(v + step);
-  });
-  const onStepDown = () => setAmount((prev) => {
-    const v = Number(prev) || 0;
-    return String(Math.max(0, v - step));
-  });
+  const onStepUp = () =>
+    setAmount((prev) => {
+      const v = Number(prev) || 0;
+      return String(v + step);
+    });
+  const onStepDown = () =>
+    setAmount((prev) => {
+      const v = Number(prev) || 0;
+      return String(Math.max(0, v - step));
+    });
 
   const buyLabel = canBuy ? `Buy $${parsedAmount.toFixed(2)}` : "Buy";
 
   const modal = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="ff-modal-viewport fixed inset-0 z-50 flex items-center justify-center">
       {/* Overlay */}
       <div className="absolute inset-0 bg-black/40" />
 
@@ -107,7 +110,9 @@ export default function BuyStockModal() {
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-4">
-          <div className="text-base font-semibold">Buy {stock.stock_symbol}</div>
+          <div className="text-base font-semibold">
+            Buy {stock.stock_symbol}
+          </div>
           <button
             onClick={closeBuy}
             className="rounded p-1 text-gray-500 hover:text-gray-700"
@@ -129,7 +134,9 @@ export default function BuyStockModal() {
           {/* Stock box */}
           <div className="mt-3 rounded border bg-white px-4 py-3">
             <div className="font-medium">{stock.name}</div>
-            <div className="mt-1 text-green-700 font-semibold">${price.toFixed(2)}</div>
+            <div className="mt-1 text-green-700 font-semibold">
+              ${price.toFixed(2)}
+            </div>
           </div>
 
           {/* Amount box */}
@@ -144,10 +151,18 @@ export default function BuyStockModal() {
                 className="w-full rounded border px-3 py-2 text-sm"
               />
               <div className="flex flex-col">
-                <button type="button" onClick={onStepUp} className="border rounded-t px-2 py-1 bg-white hover:bg-gray-50">
+                <button
+                  type="button"
+                  onClick={onStepUp}
+                  className="border rounded-t px-2 py-1 bg-white hover:bg-gray-50"
+                >
                   <ChevronUp className="w-4 h-4" />
                 </button>
-                <button type="button" onClick={onStepDown} className="border rounded-b px-2 py-1 bg-white hover:bg-gray-50">
+                <button
+                  type="button"
+                  onClick={onStepDown}
+                  className="border rounded-b px-2 py-1 bg-white hover:bg-gray-50"
+                >
                   <ChevronDown className="w-4 h-4" />
                 </button>
               </div>
@@ -159,7 +174,11 @@ export default function BuyStockModal() {
             <Button variant="outline" onClick={closeBuy} disabled={submitting}>
               Cancel
             </Button>
-            <Button onClick={handleBuy} disabled={!canBuy || submitting} className="bg-green-700 hover:bg-green-800 text-white">
+            <Button
+              onClick={handleBuy}
+              disabled={!canBuy || submitting}
+              className="bg-green-700 hover:bg-green-800 text-white"
+            >
               {submitting ? "Buying..." : buyLabel}
             </Button>
           </div>
