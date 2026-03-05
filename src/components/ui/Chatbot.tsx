@@ -1260,7 +1260,7 @@ export default function Chatbot({
         {viewMode === "chat" && (
           <>
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={handleShowHistory}
               // className={`h-8 ${state === "floating" ? "px-2" : "w-8 p-0"}`}
@@ -1274,7 +1274,7 @@ export default function Chatbot({
             </Button>
             {conversationId && (
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={handleNewChat}
                 className="h-8 px-2 text-green-700"
@@ -1287,7 +1287,7 @@ export default function Chatbot({
             )}
             {showPinButton && (
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={handlePin}
                 className="h-8 w-8 p-0"
@@ -1298,21 +1298,33 @@ export default function Chatbot({
           </>
         )}
         {viewMode === "history" && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleNewChat}
-            className="h-8 px-2 text-green-700"
-          >
-            <span className="text-xs flex items-center">
-              <Plus className="inline-block h-4 w-4 mr-1" />
-              New
-            </span>
-          </Button>
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleNewChat}
+              className="h-8 px-2 text-green-700"
+            >
+              <span className="text-xs flex items-center">
+                <Plus className="inline-block h-4 w-4 mr-1" />
+                New
+              </span>
+            </Button>
+            {showPinButton && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handlePin}
+                className="h-8 w-8 p-0"
+              >
+                <Pin className="h-4 w-4" />
+              </Button>
+            )}
+          </>
         )}
         {isPinned && (
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={handleClose}
             className="h-8 w-8 p-0"
@@ -1446,16 +1458,6 @@ export default function Chatbot({
         })
       : conversations;
 
-    if (loadingHistory) {
-      return <p className="text-gray-500 text-sm">Loading conversations...</p>;
-    }
-
-    if (conversations.length === 0) {
-      return (
-        <p className="text-gray-500 text-sm">No conversation history yet.</p>
-      );
-    }
-
     return (
       <div className="space-y-3 pr-2">
         <div className="space-y-1">
@@ -1479,14 +1481,32 @@ export default function Chatbot({
               </button>
             )}
           </div>
-          {loadingSearchIndex && (
+          {loadingSearchIndex && !loadingHistory && (
             <p className="text-xs text-gray-500">
               Indexing messages for search...
             </p>
           )}
         </div>
 
-        {filteredConversations.length === 0 ? (
+        {loadingHistory ? (
+          <div className="space-y-2" aria-label="Loading conversations">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div
+                key={index}
+                className="w-full rounded-sm bg-gray-100 px-3 py-2 animate-pulse"
+              >
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  &nbsp;
+                </p>
+                <p className="text-xs text-gray-700 mt-1 truncate whitespace-nowrap">
+                  &nbsp;
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : conversations.length === 0 ? (
+          <p className="text-gray-500 text-sm">No conversation history yet.</p>
+        ) : filteredConversations.length === 0 ? (
           <p className="text-gray-500 text-sm">No chats match your search.</p>
         ) : (
           <div className="space-y-2">

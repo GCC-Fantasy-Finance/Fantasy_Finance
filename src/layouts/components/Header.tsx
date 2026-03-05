@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
-import { Search, Sparkles } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Search, Sparkles, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import StockDetailsModal from "@/components/ui/stockDetailsModal";
 import { useChatbot } from "@/context/ChatbotContext";
 import { getAllStocks } from "@/lib/stocks";
+import { Input } from "@/components/ui/input";
 
 interface StockRow {
   stock_id?: number;
@@ -20,8 +21,10 @@ export default function Header({ title }: HeaderProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<StockRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [selectedStock, setSelectedStock] = useState<StockRow | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement | null>(null);
   const {
     chatbotState,
     setChatbotState,
@@ -83,6 +86,20 @@ export default function Header({ title }: HeaderProps) {
     return () => clearTimeout(timeout);
   }, [query]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(event.target as Node)
+      ) {
+        setIsSearchFocused(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   return (
     <div className="flex items-center justify-between">
       <header className="h-14 bg-white border-b border-gray-300 flex items-center justify-between px-6 w-full">
@@ -91,19 +108,33 @@ export default function Header({ title }: HeaderProps) {
 
         {/* Search Bar */}
         <div className="flex items-center gap-4">
-          <div className="relative w-96">
-            <div className="absolute inset-y-0 left-2 flex items-center pointer-events-none">
+          <div ref={searchContainerRef} className="relative w-96">
+            <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center pointer-events-none z-10">
               <Search className="w-4 h-4 text-gray-400" />
             </div>
-            <input
+            <Input
               type="text"
               placeholder="Search all stocks"
-              className="w-full pl-9 pr-4 py-1 text-sm bg-gray-100 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-green-700 focus:border-transparent"
+              className="h-9 pl-8 pr-8"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onFocus={() => setIsSearchFocused(true)}
             />
+            {query && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery("");
+                  setResults([]);
+                }}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 cursor-pointer z-10"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
             {/* Search Results Dropdown */}
-            {(results.length > 0 || loading) && (
+            {isSearchFocused && query.length > 0 && (
               <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-b-sm shadow-lg z-10 max-h-60 overflow-y-auto">
                 {loading && (
                   <div className="p-2 text-sm text-gray-500">Searching...</div>
@@ -117,6 +148,7 @@ export default function Header({ title }: HeaderProps) {
                         setShowModal(true);
                         setQuery("");
                         setResults([]);
+                        setIsSearchFocused(false);
                       }}
                       className="p-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                     >
