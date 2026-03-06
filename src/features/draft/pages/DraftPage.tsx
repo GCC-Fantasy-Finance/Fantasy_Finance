@@ -171,6 +171,7 @@ const DraftPageContent = () => {
         draftedStockIds={draftedStockIds}
         portfolioId={myPortfolio?.portfolio_id ?? 0}
         onClose={() => setShowPostDraftModal(false)}
+        onStockClick={handleStockClick}
       />
     </div>
   );

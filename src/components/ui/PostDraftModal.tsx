@@ -19,6 +19,7 @@ interface PostDraftBuyModalProps {
   draftedStockIds: Set<number>;
   portfolioId: number;
   onClose: () => void;
+  onStockClick: (stockId: number) => void;
 }
 
 export default function PostDraftBuyModal({
@@ -26,6 +27,7 @@ export default function PostDraftBuyModal({
   draftedStockIds,
   portfolioId,
   onClose,
+  onStockClick,
 }: PostDraftBuyModalProps) {
   const { user } = useAuth();
   const modalRef = useRef<HTMLDivElement | null>(null);
@@ -94,18 +96,13 @@ export default function PostDraftBuyModal({
   }, [open, portfolioId]);
 
   // ESC + outside click
+    // ESC key only
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    function onMouse(e: MouseEvent) {
-      const target = e.target as Node;
-      if (modalRef.current && !modalRef.current.contains(target)) onClose();
-    }
     document.addEventListener("keydown", onKey);
-    document.addEventListener("mousedown", onMouse);
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.removeEventListener("mousedown", onMouse);
     };
   }, [open, onClose]);
 
@@ -200,16 +197,30 @@ export default function PostDraftBuyModal({
   if (!open || draftedStocks.length === 0) return null;
 
   const modal = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div 
+      className="fixed inset-0 z-40 flex items-center justify-center"
+      onClick={(e) => {
+        e.stopPropagation();
+        // Only close if clicking the overlay directly, not modal content
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       {/* Overlay */}
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div 
+        className="absolute inset-0 bg-black/40"
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }}
+      />
 
       {/* Modal */}
       <div
         ref={modalRef}
         role="dialog"
         aria-modal="true"
-        className="relative z-10 w-full max-w-2xl rounded bg-white shadow-lg max-h-[80vh] overflow-y-auto"
+        className="relative z-40 w-full max-w-2xl rounded bg-white shadow-lg max-h-[80vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between bg-white border-b px-4 pt-4 pb-3">
@@ -221,7 +232,7 @@ export default function PostDraftBuyModal({
             <div className="flex items-center gap-2">
               <button
                 onClick={onClose}
-                className="rounded p-1 text-gray-500 hover:text-gray-700"
+                className="rounded p-1 text-gray-500 hover:text-gray-700 cursor-pointer"
                 aria-label="Close"
               >
                 <X className="w-5 h-5" />
@@ -253,7 +264,8 @@ export default function PostDraftBuyModal({
             {draftedStocks.map(stock => (
               <div
                 key={stock.stock_id}
-                className="rounded border bg-gray-50 px-4 py-3 hover:bg-gray-100 transition"
+                onClick={() => onStockClick(stock.stock_id)}
+                className="rounded border bg-gray-50 px-4 py-3 hover:bg-gray-100 transition cursor-pointer"
               >
                 <div className="flex items-end justify-between">
                   <div className="flex-1">
@@ -273,6 +285,7 @@ export default function PostDraftBuyModal({
                       inputMode="decimal"
                       value={buyAmounts[stock.stock_id]}
                       onChange={(e) => handleAmountChange(stock.stock_id, e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
                       placeholder="0.00"
                       className="w-24 px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                     />
