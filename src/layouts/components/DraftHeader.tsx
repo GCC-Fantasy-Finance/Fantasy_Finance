@@ -21,6 +21,8 @@ const DraftHeader = () => {
     leagueId,
     queuedItems,
     myPortfolio,
+    draftLoaded,
+    timer,
   } = useDraft();
 
   const navigate = useNavigate();
@@ -101,7 +103,7 @@ const DraftHeader = () => {
   }, [queuedItems, myPortfolio]);
 
   const showCountdownButton =
-    !draftStarted && !draftEnded && countdown > 0 && !isOwner;
+    draftLoaded && !draftStarted && !draftEnded && countdown > 0 && !isOwner;
 
   const formatTime = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600);
@@ -133,14 +135,14 @@ const DraftHeader = () => {
 
           {/* Right-side controls */}
           <div className="flex items-stretch gap-3">
-            {draftStarted && !draftEnded && (
+            {draftLoaded && draftStarted && !draftEnded && timer !== null && (
               <div className="flex items-center gap-3 text-sm font-medium">
 
                 {/* Next Auto Draft */}
                 <div className="w-44 flex justify-center">
                   {nextAutoStock && (
                     <div className="w-full text-center border-2 border-dashed border-green-500 rounded-md px-2 py-0.5 text-xs font-semibold text-green-500 bg-white truncate">
-                      ⚡ Next auto: {nextAutoStock.stock_symbol}
+                      Next up: {nextAutoStock.stock_symbol}
                     </div>
                   )}
                 </div>
@@ -172,7 +174,7 @@ const DraftHeader = () => {
               </Button>
             )}
 
-            {!draftStarted && !draftEnded && isOwner && (
+            {draftLoaded && !draftStarted && !draftEnded && isOwner && (
               <Button onClick={startDraft} size="sm">
                 Start Draft
               </Button>
