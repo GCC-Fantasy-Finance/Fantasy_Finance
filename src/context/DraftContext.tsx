@@ -22,7 +22,7 @@ type DraftContextType = {
   currentPick: number;
   round: number;
   direction: "forward" | "backward";
-  timer: number;
+  timer: number | null;
   draftStarted: boolean;
   draftEnded: boolean;
   draftRounds: number;
@@ -37,6 +37,11 @@ type DraftContextType = {
   activeUsers: Record<string, any>;
   userPresenceStates: Record<string, PresenceState>;
   isMakingPick: boolean;
+  draftLoaded: boolean;
+  showPostDraftModal: boolean;
+  setShowPostDraftModal: (show: boolean) => void;
+  dismissPostDraftModal: () => void;
+  leagueEnded: boolean;
   startDraft: () => Promise<void>;
   makePick: (stockId: number) => Promise<void>;
   queueStock: (stockId: number) => Promise<void>;
@@ -60,11 +65,15 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
   const [direction, setDirection] = useState<"forward" | "backward">("forward");
   const [timerStartTime, setTimerStartTime] = useState<string | null>(null);
   const [secondsPerPick, setSecondsPerPick] = useState(60);
-  const [timer, setTimer] = useState(60);
+  const [timer, setTimer] = useState<number | null>(null);
   const [draftStarted, setDraftStarted] = useState(false);
   const [draftEnded, setDraftEnded] = useState(false);
+  const [showPostDraftModal, setShowPostDraftModal] = useState(false);
+  const [postDraftModalDismissed, setPostDraftModalDismissed] = useState(false);
   const [draftRounds, setDraftRounds] = useState(0);
   const [isMakingPick, setIsMakingPick] = useState(false);
+  const [draftLoaded, setDraftLoaded] = useState(false);
+  const [leagueEnded, setLeagueEnded] = useState(false);
 
   const intervalRef = useRef<number | null>(null);
 
@@ -83,6 +92,29 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
 
   // tab visibility state
   const [tabVisible, setTabVisible] = useState(true);
+
+  // Check if should show modal: draft ended, not dismissed, league not ended
+  useEffect(() => {
+    if (!draftEnded || postDraftModalDismissed || leagueEnded || !myPortfolio?.portfolio_id) {
+      return;
+    }
+
+    const checkAndShowModal = async () => {
+      // Check if user has made any transactions
+      const { count } = await supabase
+        .from("Transactions")
+        .select("transaction_id", { count: "exact" })
+        .eq("portfolio_id", myPortfolio.portfolio_id)
+        .limit(1);
+
+      // Show modal only if user hasn't made any transactions yet
+      if ((count ?? 0) === 0) {
+        setShowPostDraftModal(true);
+      }
+    };
+
+    checkAndShowModal();
+  }, [draftEnded, postDraftModalDismissed, leagueEnded, myPortfolio?.portfolio_id]);
 
   useEffect(() => {
     const handleVisibility = () => {
@@ -115,8 +147,12 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
       usersRef.current = userData ?? [];
 
       if (draftData) hydrateFromDraftRow(draftData);
-      if (leagueData) setLeague(leagueData);
+      if (leagueData) {
+        setLeague(leagueData);
+        setLeagueEnded(leagueData.is_ended);
+      }
       setDraftPicks(picksData.data ?? []);
+      setDraftLoaded(true);
     })();
   }, [leagueId]);
 
@@ -313,7 +349,16 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
 
     const seconds = d.seconds_per_pick ?? 60;
     setSecondsPerPick(seconds);
-    setTimer(seconds);
+
+    // Only set timer if timer_start_time is present
+    if (d.timer_start_time) {
+      const start = Date.parse(d.timer_start_time);
+      const now = Date.now();
+      const elapsed = Math.max(Math.floor((now - start) / 1000), 0);
+      setTimer(Math.max(seconds - elapsed, 0));
+    } else {
+      setTimer(null);
+    }
   };
 
   const reorderQueue = (from: number, to: number) => {
@@ -331,26 +376,26 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
   };
 
   const addToQueueUI = (stockId: number, portfolioId: number) => {
-  // Only update if this portfolio belongs to the current league
-  if (portfolioId === myPortfolio?.portfolio_id) {
-    setQueuedItems(prev => {
-      if (prev.some(i => i.stock_id === stockId)) return prev;
-      return [...prev, {
-        wishlist_item_id: -Date.now(),
-        portfolio_id: portfolioId,
-        stock_id: stockId,
-        rank: prev.length,
-      }];
-    });
-  }
-};
+    // Only update if this portfolio belongs to the current league
+    if (portfolioId === myPortfolio?.portfolio_id) {
+      setQueuedItems(prev => {
+        if (prev.some(i => i.stock_id === stockId)) return prev;
+        return [...prev, {
+          wishlist_item_id: -Date.now(),
+          portfolio_id: portfolioId,
+          stock_id: stockId,
+          rank: prev.length,
+        }];
+      });
+    }
+  };
 
-const removeFromQueueUI = (stockId: number, portfolioId: number) => {
-  // Only update if this portfolio belongs to the current league
-  if (portfolioId === myPortfolio?.portfolio_id) {
-    setQueuedItems(prev => prev.filter(item => item.stock_id !== stockId));
-  }
-};
+  const removeFromQueueUI = (stockId: number, portfolioId: number) => {
+    // Only update if this portfolio belongs to the current league
+    if (portfolioId === myPortfolio?.portfolio_id) {
+      setQueuedItems(prev => prev.filter(item => item.stock_id !== stockId));
+    }
+  };
 
   useEffect(() => {
     if (currentPortfolioId == null || users.length === 0) return;
@@ -360,7 +405,7 @@ const removeFromQueueUI = (stockId: number, portfolioId: number) => {
 
   useEffect(() => {
     if (!timerStartTime) {
-      setTimer(secondsPerPick);
+      setTimer(null);
       return;
     }
 
@@ -514,6 +559,14 @@ const removeFromQueueUI = (stockId: number, portfolioId: number) => {
         activeUsers,
         userPresenceStates,
         isMakingPick,
+        draftLoaded,
+        showPostDraftModal,
+        setShowPostDraftModal,
+        dismissPostDraftModal: () => {
+          setShowPostDraftModal(false);
+          setPostDraftModalDismissed(true);
+        },
+        leagueEnded,
         startDraft,
         makePick,
         queueStock,

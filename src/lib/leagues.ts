@@ -13,6 +13,7 @@ export type LeagueRow = {
   has_drafting: boolean;
   sectors: string[];
   owner_id: string;
+  is_ended: boolean;
 };
 
 /* ================================
