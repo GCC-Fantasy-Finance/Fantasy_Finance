@@ -164,7 +164,7 @@ const DraftPage = () => {
           {/* TOP PANEL */}
           <div
             style={{ height: `${topHeight}%` }}
-            className="min-h-[60px] overflow-auto border-b border-gray-300"
+            className="min-h-[60px] overflow-auto border-b border-gray-300 bg-gray-100"
           >
             <DraftResultsPanel onStockClick={handleStockClick} />
           </div>
@@ -180,7 +180,7 @@ const DraftPage = () => {
           {/* BOTTOM PANELS */}
           <div
             id="bottom-panels"
-            className={`flex flex-1 min-h-0 ${
+            className={`flex flex-1 min-h-0 bg-white ${
               isCompactBottomPanels ? "flex-col" : "relative"
             }`}
           >

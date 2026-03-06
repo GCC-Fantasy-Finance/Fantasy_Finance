@@ -3,7 +3,11 @@ import DraftTimer from "./DraftTimer";
 import { Button } from "../../components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { getLeagueById, type LeagueRow } from "../../lib/leagues";
+import {
+  getLeagueById,
+  getSectorByLeagueId,
+  type LeagueRow,
+} from "../../lib/leagues";
 import { useChatbot } from "@/context/ChatbotContext";
 import { supabase } from "@/lib/supabase";
 import { LogOut, Sparkles } from "lucide-react";
@@ -28,6 +32,7 @@ const DraftHeader = () => {
     leagueId,
     queuedItems,
     myPortfolio,
+    draftedStockIds,
   } = useDraft();
 
   const navigate = useNavigate();
@@ -45,6 +50,9 @@ const DraftHeader = () => {
   const [league, setLeague] = useState<LeagueRow | null>(null);
   const [countdown, setCountdown] = useState(0);
   const [nextAutoStock, setNextAutoStock] = useState<StockRow | null>(null);
+  const [nextAutoSource, setNextAutoSource] = useState<
+    "queue" | "market_cap" | null
+  >(null);
 
   useEffect(() => {
     const fetchLeague = async () => {
@@ -90,37 +98,117 @@ const DraftHeader = () => {
 
   useEffect(() => {
     const loadNextAuto = async () => {
-      if (!myPortfolio || queuedItems.length === 0) {
+      if (!myPortfolio) {
         setNextAutoStock(null);
+        setNextAutoSource(null);
         return;
       }
 
-      const topItem = queuedItems[0];
-      const stock = await getStockById(topItem.stock_id);
-      setNextAutoStock(stock ?? null);
+      if (queuedItems.length > 0) {
+        const topItem = queuedItems[0];
+        const stock = await getStockById(topItem.stock_id);
+        if (stock) {
+          setNextAutoStock(stock);
+          setNextAutoSource("queue");
+          return;
+        }
+      }
+
+      const leagueSectorFilter = await getSectorByLeagueId(leagueId);
+
+      let query = supabase
+        .from("Stocks")
+        .select("*")
+        .order("market_cap", { ascending: false });
+
+      if (!leagueSectorFilter.includes("Any")) {
+        query = query.in("sector", leagueSectorFilter);
+      }
+
+      const { data, error } = await query;
+
+      if (error || !data) {
+        setNextAutoStock(null);
+        setNextAutoSource(null);
+        return;
+      }
+
+      const topApplicable = (data as StockRow[]).find(
+        (stock) => !draftedStockIds.has(stock.stock_id),
+      );
+
+      setNextAutoStock(topApplicable ?? null);
+      setNextAutoSource(topApplicable ? "market_cap" : null);
     };
 
     loadNextAuto();
-  }, [queuedItems, myPortfolio]);
+  }, [queuedItems, myPortfolio, leagueId, draftedStockIds]);
 
   const showCountdownButton =
-    !draftStarted && !draftEnded && countdown > 0 && !isOwner;
+    !draftStarted &&
+    !draftEnded &&
+    countdown > 0 &&
+    countdown <= 7 * 24 * 60 * 60;
+
+  const showDraftStartDateTime =
+    !draftStarted &&
+    !draftEnded &&
+    countdown > 7 * 24 * 60 * 60 &&
+    Boolean(league?.start_time);
 
   const showDraftDetails = draftStarted && !draftEnded;
+
+  const isMyTurn = activePortfolio?.portfolio_id === myPortfolio?.portfolio_id;
 
   const showStartDraftButton = !draftStarted && !draftEnded && isOwner;
 
   const showMobileSecondRow =
-    showDraftDetails || showCountdownButton || showStartDraftButton;
+    showDraftDetails ||
+    showCountdownButton ||
+    showDraftStartDateTime ||
+    showStartDraftButton;
 
   const formatTime = (seconds: number) => {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    if (hrs > 0) return `${hrs}h ${mins}m ${secs}s`;
-    if (mins > 0) return `${mins}m ${secs}s`;
-    return `${secs}s`;
+    const units = [
+      { label: "year", value: 365 * 24 * 60 * 60 },
+      { label: "month", value: 30 * 24 * 60 * 60 },
+      { label: "day", value: 24 * 60 * 60 },
+      { label: "hour", value: 60 * 60 },
+      { label: "minute", value: 60 },
+      { label: "second", value: 1 },
+    ];
+
+    let remaining = Math.max(0, Math.floor(seconds));
+    const parts: string[] = [];
+
+    for (const unit of units) {
+      if (parts.length === 2) break;
+
+      const amount = Math.floor(remaining / unit.value);
+      if (amount <= 0) continue;
+
+      parts.push(`${amount} ${unit.label}${amount === 1 ? "" : "s"}`);
+      remaining -= amount * unit.value;
+    }
+
+    return parts.length > 0 ? parts.join(", ") : "0 seconds";
   };
+
+  const formatStartDateTime = (startTime: string) => {
+    const startDate = new Date(startTime);
+    return startDate.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  };
+
+  const nextUpTooltipMessage =
+    nextAutoSource === "queue"
+      ? "If time runs out, this stock will be automatically drafted for you (from your queue)."
+      : "If time runs out, this stock will be automatically drafted for you (based on highest market cap from applicable stocks).";
 
   const renderDraftControls = () => (
     <>
@@ -137,7 +225,7 @@ const DraftHeader = () => {
                         <div className="flex items-center gap-1 text-gray-500">
                           Next up:
                         </div>
-                        <div className="font-semibold text-black flex justify-center items-center gap-0.5">
+                        <div className="font-semibold text-black flex justify-center items-center">
                           {nextAutoStock.stock_symbol}
                         </div>
                       </div>
@@ -148,8 +236,7 @@ const DraftHeader = () => {
                     sideOffset={6}
                     className="text-center max-w-[200px] whitespace-normal"
                   >
-                    This is the next stock that will be automatically drafted
-                    for you based on your queue.
+                    {nextUpTooltipMessage}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -158,11 +245,17 @@ const DraftHeader = () => {
             </>
           )}
 
-          <div className="w-32 text-center truncate text-green-700 font-medium">
-            <div className="text-center rounded text-[13px]">
+          <div className="w-32 text-center truncate">
+            <div
+              className={`text-center rounded text-[13px] ${
+                isMyTurn ? "text-green-700 font-semibold" : "text-gray-700"
+              }`}
+            >
               Round {round}
-              <div className="text-black">
-                {activePortfolio?.Profiles?.username ?? "Name not found"}
+              <div>
+                {isMyTurn
+                  ? "YOUR TURN"
+                  : `${activePortfolio?.Profiles?.username || "Unknown"}'s turn`}
               </div>
             </div>
           </div>
@@ -176,16 +269,15 @@ const DraftHeader = () => {
       )}
 
       {showCountdownButton && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-42 border-black text-black bg-white hover:bg-white"
-          disabled
-        >
-          <span className="font-semibold">
-            Draft Starts in {formatTime(countdown)}
-          </span>
-        </Button>
+        <div className="flex-1 text-center text-yellow-600 font-medium">
+          Draft Starts in {formatTime(countdown)}
+        </div>
+      )}
+
+      {showDraftStartDateTime && league?.start_time && (
+        <div className="flex-1 text-center text-yellow-600 font-medium">
+          Draft starts on {formatStartDateTime(league.start_time)}
+        </div>
       )}
 
       {showStartDraftButton && (
@@ -212,7 +304,7 @@ const DraftHeader = () => {
             {name}
           </h1>
 
-          <div className="hidden min-[901px]:flex items-stretch gap-3 pr-4 shrink-0">
+          <div className="hidden min-[901px]:flex items-center gap-3 pr-4 shrink-0 justify-center">
             {renderDraftControls()}
           </div>
         </header>
