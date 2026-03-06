@@ -11,7 +11,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-const SLOT_HEIGHT = 24;
+const SLOT_HEIGHT = 32;
 const SLOT_GAP = 2;
 const USER_COLUMN_WIDTH = 100; // fixed width per user column
 
@@ -94,7 +94,7 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
   return (
     <TooltipProvider delayDuration={200}>
       {/* Full-width flex container */}
-      <div className="flex w-full gap-1 px-3 items-start overflow-x-auto">
+      <div className="flex w-full gap-1 px-3 items-start overflow-x-auto pt-3">
         {users.map((user, userIdx) => {
           const isMe = user.portfolio_id === myPortfolio?.portfolio_id;
           const presence = getPresenceState(user.user_id);
@@ -147,7 +147,7 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
                       <span className="truncate">{username}</span>
                     </div>
                   </TooltipTrigger>
-                  <TooltipContent className="bg-green-700 text-white text-xs rounded max-w-56 whitespace-normal wrap-break-word px-2 py-1">
+                  <TooltipContent className="bg-black text-white text-xs rounded max-w-56 whitespace-normal wrap-break-word px-2 py-1">
                     {username} {presenceTooltip}
                   </TooltipContent>
                 </Tooltip>
@@ -191,7 +191,8 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
                     return (
                       <div
                         key={idx}
-                        className={`relative h-6 w-full rounded flex items-center justify-center text-[0.8rem] overflow-hidden truncate font-semibold transition-colors duration-150
+                        style={{ height: `${SLOT_HEIGHT}px` }}
+                        className={`relative w-full rounded flex items-center justify-center text-[0.8rem] overflow-hidden truncate font-semibold transition-colors duration-150
                           ${
                             isCurrent
                               ? "bg-green-800 text-white border-2 border-green-800"

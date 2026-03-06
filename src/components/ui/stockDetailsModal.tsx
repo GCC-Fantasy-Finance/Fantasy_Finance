@@ -642,7 +642,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                                   </Button>
                                 </span>
                               </TooltipTrigger>
-                              <TooltipContent className="bg-green-700 text-white text-xs rounded max-w-56 whitespace-normal wrap-break-word px-2 py-1">
+                              <TooltipContent className="bg-black text-white text-xs rounded max-w-56 whitespace-normal wrap-break-word px-2 py-1">
                                 Sector {stock.sector} is not allowed in this
                                 league.
                                 <br />
@@ -692,7 +692,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                                     </Button>
                                   </span>
                                 </TooltipTrigger>
-                                <TooltipContent className="bg-green-700 text-white text-xs rounded max-w-56 whitespace-normal wrap-break-word px-2 py-1">
+                                <TooltipContent className="bg-black text-white text-xs rounded max-w-56 whitespace-normal wrap-break-word px-2 py-1">
                                   Sector {stock.sector} is not allowed in this
                                   league.
                                   <br />
@@ -729,7 +729,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                                         </Button>
                                       </span>
                                     </TooltipTrigger>
-                                    <TooltipContent className="bg-green-700 text-white text-xs rounded max-w-56 whitespace-normal wrap-break-word px-2 py-1">
+                                    <TooltipContent className="bg-black text-white text-xs rounded max-w-56 whitespace-normal wrap-break-word px-2 py-1">
                                       This stock is not in your portfolio.
                                     </TooltipContent>
                                   </Tooltip>

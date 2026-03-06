@@ -3,6 +3,8 @@ import { useDraft } from "../../context/DraftContext";
 import { useAuth } from "../../context/AuthContext";
 import { Button } from "../../components/ui/button";
 import { getStockById, type StockRow } from "@/lib/stocks";
+import LightningBoltIcon from "@/components/ui/lightning-bolt-icon";
+import { Trash, Trash2, TrashIcon } from "lucide-react";
 
 interface DraftQueuePanelProps {
   onStockClick: (stockId: number) => void;
@@ -32,11 +34,7 @@ const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
     !!user && !!activePortfolio && activePortfolio.user_id === user.id;
 
   const canDraft =
-    activePortfolio &&
-    myPortfolio &&
-    draftStarted &&
-    !draftEnded &&
-    isMyPick;
+    activePortfolio && myPortfolio && draftStarted && !draftEnded && isMyPick;
 
   useEffect(() => {
     const loadStocks = async () => {
@@ -71,8 +69,8 @@ const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
   };
 
   return (
-    <div className="p-2 text-xs">
-      <h2 className="mb-2 font-semibold">Draft Queue</h2>
+    <div className="p-2">
+      <h2 className="mb-5 font-semibold">Draft Queue</h2>
 
       {!queuedLoaded ? (
         <div>Loading...</div>
@@ -98,15 +96,16 @@ const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
               onDragOver={(e) => e.preventDefault()}
               className={`
                 relative flex items-center justify-between
-                mb-2 border-b px-2 py-1 rounded
+                border-b px-2 py-3
                 cursor-pointer
                 hover:bg-green-100/60
                 ${index === hoverIndex ? "bg-gray-100" : ""}
-                ${isTopItem ? "outline outline-2 outline-dashed outline-green-500 -outline-offset-2" : ""}
+                ${isTopItem ? "bg-green-100/90 rounded-md py-2 outline-2 outline-dashed outline-green-700/40 -outline-offset-2" : ""}
               `}
             >
               {isTopItem && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-white px-1 text-[10px] font-bold text-green-500">
+                <div className="flex items-center gap-1 absolute -top-5.5 left-1/2 -translate-x-1/2 bg-white px-1 text-sm font-medium text-green-600">
+                  <LightningBoltIcon className="w-3.5 h-3.5" />
                   Next up
                 </div>
               )}
@@ -119,7 +118,7 @@ const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
                     e.stopPropagation();
                     handleDragStart(index);
                   }}
-                  className="cursor-grab active:cursor-grabbing p-1 grid grid-cols-2 gap-[2px] select-none"
+                  className="cursor-grab active:cursor-grabbing p-1 grid grid-cols-2 gap-0.5 select-none"
                   title="Drag to reorder"
                 >
                   {Array.from({ length: 6 }).map((_, i) => (
@@ -146,7 +145,10 @@ const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
                 </div>
 
                 {/* SYMBOL */}
-                <span className="font-semibold leading-none" title={stock?.name}>
+                <span
+                  className="font-semibold leading-none"
+                  title={stock?.name}
+                >
                   {stock ? stock.stock_symbol : "Loading..."}
                 </span>
               </div>
@@ -164,15 +166,15 @@ const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
                 </Button>
               ) : (
                 <Button
-                  size="sm"
-                  variant="outline"
-                  className="border-red-700 text-red-700 bg-white hover:bg-gray-100"
+                  size="icon"
+                  variant="ghost"
+                  className=" text-gray-700 hover:text-red-700 hover:bg-red-500/10"
                   onClick={(e) => {
                     e.stopPropagation();
                     removeFromQueue(item.stock_id);
                   }}
                 >
-                  Dequeue
+                  <Trash2 className="w-4 h-4" />
                 </Button>
               )}
             </li>

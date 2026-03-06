@@ -6,8 +6,15 @@ import { useEffect, useState } from "react";
 import { getLeagueById, type LeagueRow } from "../../lib/leagues";
 import { useChatbot } from "@/context/ChatbotContext";
 import { supabase } from "@/lib/supabase";
-import { Sparkles } from "lucide-react";
+import { LogOut, Sparkles } from "lucide-react";
 import { getStockById, type StockRow } from "@/lib/stocks";
+import LightningBoltIcon from "@/components/ui/lightning-bolt-icon";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const DraftHeader = () => {
   const {
@@ -39,7 +46,6 @@ const DraftHeader = () => {
   const [countdown, setCountdown] = useState(0);
   const [nextAutoStock, setNextAutoStock] = useState<StockRow | null>(null);
 
-  // Fetch league info
   useEffect(() => {
     const fetchLeague = async () => {
       const data = await getLeagueById(leagueId);
@@ -48,7 +54,6 @@ const DraftHeader = () => {
     fetchLeague();
   }, [leagueId]);
 
-  // Fetch last chat title
   useEffect(() => {
     if (!lastConversationId) {
       setConversationTitle(null);
@@ -67,7 +72,6 @@ const DraftHeader = () => {
     fetchTitle();
   }, [lastConversationId]);
 
-  // Countdown logic
   useEffect(() => {
     if (!league?.start_time) return;
 
@@ -84,7 +88,6 @@ const DraftHeader = () => {
     return () => clearInterval(interval);
   }, [league?.start_time]);
 
-  // Load the next auto-draft stock (top of queue)
   useEffect(() => {
     const loadNextAuto = async () => {
       if (!myPortfolio || queuedItems.length === 0) {
@@ -103,6 +106,13 @@ const DraftHeader = () => {
   const showCountdownButton =
     !draftStarted && !draftEnded && countdown > 0 && !isOwner;
 
+  const showDraftDetails = draftStarted && !draftEnded;
+
+  const showStartDraftButton = !draftStarted && !draftEnded && isOwner;
+
+  const showMobileSecondRow =
+    showDraftDetails || showCountdownButton || showStartDraftButton;
+
   const formatTime = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
@@ -112,91 +122,120 @@ const DraftHeader = () => {
     return `${secs}s`;
   };
 
-  return (
+  const renderDraftControls = () => (
     <>
-      <div className="flex w-full h-12">
-        <header className="h-12 bg-white border-b border-gray-300 flex items-center justify-between px-6 w-full">
-          {/* Left: Back + League Name */}
-          <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate(`/league/${leagueId}`)}
-              className="border-black text-black bg-white hover:bg-gray-100"
-            >
-              ← Back
-            </Button>
-            <h1 className="text-xl font-semibold">{name}</h1>
+      {showDraftDetails && (
+        <div className="flex items-center gap-3 text-sm font-medium">
+          {nextAutoStock && (
+            <>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="w-32 flex justify-center items-center gap-1.5">
+                      <LightningBoltIcon className="inline-block w-4.5 h-4.5 text-green-600" />
+                      <div className="text-center rounded truncate text-[13px]">
+                        <div className="flex items-center gap-1 text-gray-500">
+                          Next up:
+                        </div>
+                        <div className="font-semibold text-black flex justify-center items-center gap-0.5">
+                          {nextAutoStock.stock_symbol}
+                        </div>
+                      </div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="bottom"
+                    sideOffset={6}
+                    className="text-center max-w-[200px] whitespace-normal"
+                  >
+                    This is the next stock that will be automatically drafted
+                    for you based on your queue.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              <div className="h-8 w-px bg-gray-300 self-center" />
+            </>
+          )}
+
+          <div className="w-32 text-center truncate text-green-700 font-medium">
+            <div className="text-center rounded text-[13px]">
+              Round {round}
+              <div className="text-black">
+                {activePortfolio?.Profiles?.username ?? "Name not found"}
+              </div>
+            </div>
           </div>
 
-          <div className="flex-1" />
+          <div className="h-8 w-px bg-gray-300 self-center" />
 
-          {/* Right-side controls */}
-          <div className="flex items-stretch gap-3">
-            {draftStarted && !draftEnded && (
-              <div className="flex items-center gap-3 text-sm font-medium">
+          <div className="w-32 rounded py-2 text-center tabular-nums">
+            <DraftTimer />
+          </div>
+        </div>
+      )}
 
-                {/* Next Auto Draft */}
-                <div className="w-44 flex justify-center">
-                  {nextAutoStock && (
-                    <div className="w-full text-center border-2 border-dashed border-green-500 rounded-md px-2 py-0.5 text-xs font-semibold text-green-500 bg-white truncate">
-                      ⚡ Next auto: {nextAutoStock.stock_symbol}
-                    </div>
-                  )}
-                </div>
+      {showCountdownButton && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-42 border-black text-black bg-white hover:bg-white"
+          disabled
+        >
+          <span className="font-semibold">
+            Draft Starts in {formatTime(countdown)}
+          </span>
+        </Button>
+      )}
 
-                {/* Round + Current Pick */}
-                <div className="w-40 text-center truncate">
-                  Round {round} |{" "}
-                  {activePortfolio?.Profiles?.username ?? "Name not found"}
-                </div>
+      {showStartDraftButton && (
+        <Button onClick={startDraft} size="sm">
+          Start Draft
+        </Button>
+      )}
+    </>
+  );
 
-                {/* Timer */}
-                <div className="w-30 text-center tabular-nums">
-                  <DraftTimer />
-                </div>
+  return (
+    <div className="w-full bg-white border-b border-gray-300">
+      <div className="flex w-full h-14">
+        <header className="h-14 bg-white flex items-center flex-1 min-w-0">
+          <button
+            onClick={() => navigate(`/league/${leagueId}`)}
+            className="shrink-0 flex gap-1 px-5 items-center cursor-pointer hover:bg-gray-100 h-full border-r border-gray-300 hover:text-green-800"
+          >
+            <LogOut className="w-4 h-4 scale-x-[-1]" />
+            Exit
+          </button>
 
-              </div>
-            )}
+          <h1 className="ml-4 text-lg md:text-xl font-semibold truncate min-w-0 flex-1">
+            {name}
+          </h1>
 
-            {showCountdownButton && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-50 border-black text-black bg-white hover:bg-white"
-                disabled
-              >
-                <span style={{ marginLeft: "1rem", fontWeight: "bold" }}>
-                  Draft Starts in {formatTime(countdown)}
-                </span>
-              </Button>
-            )}
-
-            {!draftStarted && !draftEnded && isOwner && (
-              <Button onClick={startDraft} size="sm">
-                Start Draft
-              </Button>
-            )}
+          <div className="hidden min-[901px]:flex items-stretch gap-3 pr-4 shrink-0">
+            {renderDraftControls()}
           </div>
         </header>
 
-        {/* Resume Chat */}
         {chatbotState === "closed" && (
           <div
             onClick={() => {
+              const shouldPinChat = window.matchMedia(
+                "(min-width: 1024px)",
+              ).matches;
               setResumeRequested(Boolean(lastConversationId));
               setChatbotState("floating");
-              setIsPinned(true);
+              setIsPinned(shouldPinChat);
             }}
-            className="w-48 flex flex-col gap-0.5 justify-center px-4 text-sm border-b border-l border-gray-300 hover:bg-gray-100 cursor-pointer"
+            className="flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-0.5 border-l border-gray-300 bg-white text-sm hover:bg-gray-100 cursor-pointer lg:w-48 lg:items-start lg:px-4"
           >
             <div className="flex gap-1 items-center">
-              <Sparkles className="w-3 h-3 text-green-700" />
-              <p className="text-green-700 text-xs font-medium">
+              <Sparkles className="w-6 h-6 lg:w-3 lg:h-3 text-green-700" />
+              <p className="hidden lg:block text-green-700 text-xs font-medium">
                 {lastConversationId ? "Resume Chat" : "New Chat"}
               </p>
             </div>
-            <p className="text-gray-700 text-xs truncate">
+            <p className="hidden lg:block text-gray-700 text-xs truncate">
               {lastConversationId
                 ? conversationTitle || "Loading..."
                 : "Start a new conversation"}
@@ -204,7 +243,13 @@ const DraftHeader = () => {
           </div>
         )}
       </div>
-    </>
+
+      {showMobileSecondRow && (
+        <div className="hidden max-[900px]:flex items-center justify-end gap-3 px-4 h-14 border-t border-gray-300">
+          {renderDraftControls()}
+        </div>
+      )}
+    </div>
   );
 };
 

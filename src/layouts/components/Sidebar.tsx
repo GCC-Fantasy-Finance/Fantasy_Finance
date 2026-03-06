@@ -234,6 +234,7 @@ export default function Sidebar() {
                     <li key={league.league_id}>
                       <Link
                         to={path}
+                        title={league.name}
                         onMouseEnter={() =>
                           handlePrefetchLeague(league.league_id)
                         }
@@ -247,7 +248,7 @@ export default function Sidebar() {
                             : "hover:bg-gray-200"
                         }`}
                       >
-                        {league.name}
+                        <span className="block truncate">{league.name}</span>
                       </Link>
                     </li>
                   );
