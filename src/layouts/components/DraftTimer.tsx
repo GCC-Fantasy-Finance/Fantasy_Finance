@@ -1,10 +1,19 @@
 import { useDraft } from "../../context/DraftContext";
 
 const DraftTimer = () => {
-  const { timer } = useDraft();
+  const { timer, activePortfolio, myPortfolio } = useDraft();
+  const isMyTurn = activePortfolio?.portfolio_id === myPortfolio?.portfolio_id;
+
   return (
-    <span style={{ marginLeft: "1rem", fontWeight: "bold" }}>
-      Time left: {timer}s
+    <span className="font-medium text-md">
+      Time left:{" "}
+      <span
+        className={`font-semibold ${
+          isMyTurn ? "text-yellow-600 text-lg" : "text-black"
+        }`}
+      >
+        {timer}s
+      </span>
     </span>
   );
 };

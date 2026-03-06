@@ -2,7 +2,10 @@ import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { toast } from "sonner";
-import { fetchPortfolioView, getCachedPortfolioView } from "@/hooks/fetchPortfolio";
+import {
+  fetchPortfolioView,
+  getCachedPortfolioView,
+} from "@/hooks/fetchPortfolio";
 import { useTradeModal } from "@/context/TradeModalContext";
 import StockDetailsModal from "@/components/ui/stockDetailsModal";
 import PortfolioChart from "@/components/ui/portfolioChart";
@@ -88,11 +91,16 @@ function SoloPortfolioPage() {
 
     const cached = getCachedPortfolioView(params);
     if (cached) {
-      applyPortfolioState(cached as {
-        portfolio: { portfolio_id: number } | null;
-        totals: { previous_close_value: number; reserve_value: number } | null;
-        holdings: HoldingView[];
-      });
+      applyPortfolioState(
+        cached as {
+          portfolio: { portfolio_id: number } | null;
+          totals: {
+            previous_close_value: number;
+            reserve_value: number;
+          } | null;
+          holdings: HoldingView[];
+        },
+      );
       setLoading(false);
     } else {
       setLoading(true);
@@ -103,11 +111,16 @@ function SoloPortfolioPage() {
         useCache: true,
         forceRefresh: Boolean(cached),
       });
-      applyPortfolioState(result as {
-        portfolio: { portfolio_id: number } | null;
-        totals: { previous_close_value: number; reserve_value: number } | null;
-        holdings: HoldingView[];
-      });
+      applyPortfolioState(
+        result as {
+          portfolio: { portfolio_id: number } | null;
+          totals: {
+            previous_close_value: number;
+            reserve_value: number;
+          } | null;
+          holdings: HoldingView[];
+        },
+      );
     } catch (err) {
       console.error("Error loading holdings:", err);
       setHoldings([]);
@@ -215,7 +228,9 @@ function SoloPortfolioPage() {
               </div>
             </div>
 
-            {portfolio && <PortfolioChart id={portfolio.portfolio_id} timeFrame="1M" />}
+            {portfolio && (
+              <PortfolioChart id={portfolio.portfolio_id} timeFrame="1M" />
+            )}
           </div>
 
           <h3 className="text-lg font-semibold mb-3">My Stocks</h3>
@@ -241,10 +256,14 @@ function SoloPortfolioPage() {
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex flex-col min-w-[120px]">
-                        <span className="text-sm font-semibold">{h.stock?.stock_symbol}</span>
-                        <span className="text-xs text-gray-500">{h.stock?.name}</span>
+                        <span className="text-sm font-semibold">
+                          {h.stock?.stock_symbol}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {h.stock?.name}
+                        </span>
                       </div>
-                      <div className="flex flex-col items-end min-w-[96px]">
+                      <div className="flex flex-col items-end min-w-24">
                         <span className="text-sm">${price.toFixed(2)}</span>
                         <span
                           className={`text-xs font-medium ${
@@ -294,7 +313,9 @@ function SoloPortfolioPage() {
                       <button
                         type="button"
                         className="inline-flex items-center gap-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 px-3 py-1 text-xs"
-                        onClick={() => toast.info("Transfer not implemented yet")}
+                        onClick={() =>
+                          toast.info("Transfer not implemented yet")
+                        }
                       >
                         Move
                       </button>
@@ -302,7 +323,9 @@ function SoloPortfolioPage() {
                       <button
                         type="button"
                         className="inline-flex items-center gap-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 px-3 py-1 text-xs"
-                        onClick={() => toast.info("Bookmark not implemented yet")}
+                        onClick={() =>
+                          toast.info("Bookmark not implemented yet")
+                        }
                       >
                         Bookmark
                       </button>

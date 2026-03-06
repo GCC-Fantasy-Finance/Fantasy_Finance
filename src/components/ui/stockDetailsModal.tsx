@@ -11,14 +11,18 @@ import { useTradeModal } from "@/context/TradeModalContext";
 import Ticker from "@/components/ui/ticker";
 import { supabase } from "@/lib/supabase";
 
-import {
-  
-  addWishlistItemStockPage,
-  removeWishlistItem,
-} from "@/lib/wishlists";
+import { addWishlistItemStockPage, removeWishlistItem } from "@/lib/wishlists";
 import { isStockInDraftPicks } from "@/lib/draftpicks";
-import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { getDayMinMaxStockHistory, getYearMinMaxStockHistory } from "@/lib/stockHistory";
+import {
+  Tooltip,
+  TooltipProvider,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
+import {
+  getDayMinMaxStockHistory,
+  getYearMinMaxStockHistory,
+} from "@/lib/stockHistory";
 import AIQuestionChip from "./AIQuestionChip";
 import { getPortfoliosByUser } from "@/lib/portfolios";
 import { getPortfolioHoldingsByPortfolioIdAndStockId } from "@/lib/potfolioHoldings";
@@ -60,8 +64,7 @@ type Props = {
 
 export default function StockDetailsModal({ open, stock, onClose }: Props) {
   const { user } = useAuth();
-  const { setChatbotState, setIsPinned, setInitialMessage, isPinned } =
-    useChatbot();
+  const { setChatbotState, setIsPinned, setInitialMessage } = useChatbot();
   const { openBuy, openSell } = useTradeModal();
   const draft = useDraftOptional();
 
@@ -200,14 +203,14 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
         }>;
 
         const portfolioIds = portfolioRows.map((portfolio) =>
-          Number(portfolio.portfolio_id)
+          Number(portfolio.portfolio_id),
         );
         const leagueIds = Array.from(
           new Set(
             portfolioRows
               .map((portfolio) => Number(portfolio.league_id))
-              .filter((leagueId) => Number.isFinite(leagueId))
-          )
+              .filter((leagueId) => Number.isFinite(leagueId)),
+          ),
         );
 
         const [leaguesResult, draftsResult, wishlistsResult, holdingsResult] =
@@ -245,7 +248,10 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
         if (wishlistsResult.error) throw wishlistsResult.error;
         if (holdingsResult.error) throw holdingsResult.error;
 
-        const leagueById = new Map<number, { name?: string; sectors?: string[] }>();
+        const leagueById = new Map<
+          number,
+          { name?: string; sectors?: string[] }
+        >();
         for (const league of (leaguesResult.data ?? []) as any[]) {
           leagueById.set(Number(league.league_id), {
             name: league.name,
@@ -266,8 +272,8 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
 
         const wishlistedPortfolioIds = new Set<number>(
           ((wishlistsResult.data ?? []) as any[]).map((row) =>
-            Number(row.portfolio_id)
-          )
+            Number(row.portfolio_id),
+          ),
         );
 
         const holdingsMap: Record<number, number> = {};
@@ -276,26 +282,28 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
           holdingsMap[portfolioId] = Number(row.quantity ?? 0);
         }
 
-        const enriched: PortfolioWithLeague[] = portfolioRows.map((portfolio) => {
-          const leagueId = Number(portfolio.league_id);
-          const league = leagueById.get(leagueId);
-          const draft = draftByLeagueId.get(leagueId);
-          const portfolioId = Number(portfolio.portfolio_id);
+        const enriched: PortfolioWithLeague[] = portfolioRows.map(
+          (portfolio) => {
+            const leagueId = Number(portfolio.league_id);
+            const league = leagueById.get(leagueId);
+            const draft = draftByLeagueId.get(leagueId);
+            const portfolioId = Number(portfolio.portfolio_id);
 
-          return {
-            portfolio_id: portfolioId,
-            league_id: Number.isFinite(leagueId) ? leagueId : undefined,
-            league_name: league?.name,
-            is_solo: Boolean(portfolio.is_solo),
-            reserve_value: Number(portfolio.reserve_value ?? 0),
-            previous_close_value: Number(portfolio.previous_close_value ?? 0),
-            created_at: portfolio.created_at ?? undefined,
-            sectors: league?.sectors ?? [],
-            draft_has_started: Boolean(draft?.is_started),
-            draft_has_ended: Boolean(draft?.is_ended),
-            wishlisted: wishlistedPortfolioIds.has(portfolioId),
-          };
-        });
+            return {
+              portfolio_id: portfolioId,
+              league_id: Number.isFinite(leagueId) ? leagueId : undefined,
+              league_name: league?.name,
+              is_solo: Boolean(portfolio.is_solo),
+              reserve_value: Number(portfolio.reserve_value ?? 0),
+              previous_close_value: Number(portfolio.previous_close_value ?? 0),
+              created_at: portfolio.created_at ?? undefined,
+              sectors: league?.sectors ?? [],
+              draft_has_started: Boolean(draft?.is_started),
+              draft_has_ended: Boolean(draft?.is_ended),
+              wishlisted: wishlistedPortfolioIds.has(portfolioId),
+            };
+          },
+        );
 
         enriched.sort((a, b) => {
           const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
@@ -450,9 +458,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
   );
 
   const modal = (
-    <div
-      className={`fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 ${isPinned ? "pr-[350px]" : ""}`}
-    >
+    <div className="ff-modal-viewport fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
       <div
@@ -609,8 +615,14 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                                   ),
                                 );
 
-                                await removeWishlistItem(portfolio.portfolio_id, stock.stock_id!);
-                                draft?.removeFromQueueUI(stock.stock_id!, portfolio.portfolio_id);
+                                await removeWishlistItem(
+                                  portfolio.portfolio_id,
+                                  stock.stock_id!,
+                                );
+                                draft?.removeFromQueueUI(
+                                  stock.stock_id!,
+                                  portfolio.portfolio_id,
+                                );
                               }}
                             >
                               Dequeue
@@ -630,8 +642,9 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                                   </Button>
                                 </span>
                               </TooltipTrigger>
-                              <TooltipContent className="bg-green-700 text-white text-xs rounded max-w-56 whitespace-normal break-words px-2 py-1">
-                                Sector {stock.sector} is not allowed in this league.
+                              <TooltipContent className="bg-black text-white text-xs rounded max-w-56 whitespace-normal wrap-break-word px-2 py-1">
+                                Sector {stock.sector} is not allowed in this
+                                league.
                                 <br />
                                 Allowed sectors: {portfolio.sectors.join(", ")}
                               </TooltipContent>
@@ -641,16 +654,22 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                           <Button
                             className="text-xs h-7 px-2 bg-yellow-500 hover:bg-yellow-600 text-white"
                             onClick={async () => {
-                              setPortfolios(prev =>
-                                prev.map(p =>
+                              setPortfolios((prev) =>
+                                prev.map((p) =>
                                   p.portfolio_id === portfolio.portfolio_id
                                     ? { ...p, wishlisted: true }
-                                    : p
-                                )
+                                    : p,
+                                ),
                               );
 
-                              await addWishlistItemStockPage(portfolio.portfolio_id, stock.stock_id!);
-                              draft?.addToQueueUI(stock.stock_id!, portfolio.portfolio_id);
+                              await addWishlistItemStockPage(
+                                portfolio.portfolio_id,
+                                stock.stock_id!,
+                              );
+                              draft?.addToQueueUI(
+                                stock.stock_id!,
+                                portfolio.portfolio_id,
+                              );
                             }}
                           >
                             Queue
@@ -673,10 +692,12 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                                     </Button>
                                   </span>
                                 </TooltipTrigger>
-                                <TooltipContent className="bg-green-700 text-white text-xs rounded max-w-56 whitespace-normal break-words px-2 py-1">
-                                  Sector {stock.sector} is not allowed in this league.
+                                <TooltipContent className="bg-black text-white text-xs rounded max-w-56 whitespace-normal wrap-break-word px-2 py-1">
+                                  Sector {stock.sector} is not allowed in this
+                                  league.
                                   <br />
-                                  Allowed sectors: {portfolio.sectors.join(", ")}
+                                  Allowed sectors:{" "}
+                                  {portfolio.sectors.join(", ")}
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
@@ -708,7 +729,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                                         </Button>
                                       </span>
                                     </TooltipTrigger>
-                                    <TooltipContent className="bg-green-700 text-white text-xs rounded max-w-56 whitespace-normal break-words px-2 py-1">
+                                    <TooltipContent className="bg-black text-white text-xs rounded max-w-56 whitespace-normal wrap-break-word px-2 py-1">
                                       This stock is not in your portfolio.
                                     </TooltipContent>
                                   </Tooltip>

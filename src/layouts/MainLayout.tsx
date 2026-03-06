@@ -7,7 +7,7 @@ export default function MainLayout() {
   const { pageTitle } = useLayout();
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-x-hidden">
       {/* Sidebar */}
       <Sidebar />
 

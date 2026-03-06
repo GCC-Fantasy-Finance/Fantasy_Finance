@@ -2,8 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom";
 import { X } from "lucide-react";
 
-import { fetchPortfolioHoldingsWithStocks, type HoldingView } from "@/hooks/fetchPortfolio";
-import { calculateInvestedValue, calculatePortfolioValue } from "@/lib/portfolioValue";
+import {
+  fetchPortfolioHoldingsWithStocks,
+  type HoldingView,
+} from "@/hooks/fetchPortfolio";
+import {
+  calculateInvestedValue,
+  calculatePortfolioValue,
+} from "@/lib/portfolioValue";
 import { calculateStockPercentChange } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 
@@ -62,14 +68,15 @@ export default function LeagueMemberPortfolioModal({
       setError(null);
 
       try {
-        const [{ data: totalsRow, error: totalsError }, holdingsResult] = await Promise.all([
-          supabase
-            .from("Portfolios")
-            .select("reserve_value")
-            .eq("portfolio_id", portfolioId)
-            .maybeSingle<PortfolioTotalsRow>(),
-          fetchPortfolioHoldingsWithStocks(portfolioId),
-        ]);
+        const [{ data: totalsRow, error: totalsError }, holdingsResult] =
+          await Promise.all([
+            supabase
+              .from("Portfolios")
+              .select("reserve_value")
+              .eq("portfolio_id", portfolioId)
+              .maybeSingle<PortfolioTotalsRow>(),
+            fetchPortfolioHoldingsWithStocks(portfolioId),
+          ]);
 
         if (totalsError) {
           throw totalsError;
@@ -85,7 +92,9 @@ export default function LeagueMemberPortfolioModal({
         setHoldings(holdingsResult.holdings);
       } catch (err) {
         if (!mounted) return;
-        setError(err instanceof Error ? err.message : "Failed to load portfolio.");
+        setError(
+          err instanceof Error ? err.message : "Failed to load portfolio.",
+        );
       } finally {
         if (mounted) {
           setLoading(false);
@@ -100,18 +109,22 @@ export default function LeagueMemberPortfolioModal({
     };
   }, [open, portfolioId]);
 
-  const investedValue = useMemo(() => calculateInvestedValue(holdings), [holdings]);
+  const investedValue = useMemo(
+    () => calculateInvestedValue(holdings),
+    [holdings],
+  );
   const computedNetValue = useMemo(
     () => calculatePortfolioValue({ holdings, reserveValue }),
-    [holdings, reserveValue]
+    [holdings, reserveValue],
   );
-  const netValue = computedNetValue > 0 ? computedNetValue : Number(fallbackNetValue ?? 0);
+  const netValue =
+    computedNetValue > 0 ? computedNetValue : Number(fallbackNetValue ?? 0);
 
   if (!open || portfolioId == null) return null;
   if (typeof document === "undefined") return null;
 
   return ReactDOM.createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="ff-modal-viewport fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onMouseDown={onClose} />
 
       <div
@@ -142,7 +155,9 @@ export default function LeagueMemberPortfolioModal({
             </div>
           )}
           <div>
-            <h2 className="text-xl font-semibold">{memberName ?? "League Member"}</h2>
+            <h2 className="text-xl font-semibold">
+              {memberName ?? "League Member"}
+            </h2>
           </div>
         </div>
 
@@ -159,11 +174,15 @@ export default function LeagueMemberPortfolioModal({
               </div>
               <div className="rounded-lg border px-4 py-3">
                 <p className="text-xs text-gray-500">INVESTED</p>
-                <p className="text-lg font-semibold">${investedValue.toFixed(2)}</p>
+                <p className="text-lg font-semibold">
+                  ${investedValue.toFixed(2)}
+                </p>
               </div>
               <div className="rounded-lg border px-4 py-3">
                 <p className="text-xs text-gray-500">RESERVE</p>
-                <p className="text-lg font-semibold">${reserveValue.toFixed(2)}</p>
+                <p className="text-lg font-semibold">
+                  ${reserveValue.toFixed(2)}
+                </p>
               </div>
             </div>
 
@@ -175,11 +194,13 @@ export default function LeagueMemberPortfolioModal({
               ) : (
                 holdings.map((holding) => {
                   const quantity = Number(holding.quantity ?? 0);
-                  const currentPrice = Number(holding.stock?.current_price ?? 0);
+                  const currentPrice = Number(
+                    holding.stock?.current_price ?? 0,
+                  );
                   const value = quantity * currentPrice;
                   const percentChange = calculateStockPercentChange(
                     holding.stock?.current_price,
-                    holding.stock?.previous_close
+                    holding.stock?.previous_close,
                   );
 
                   return (
@@ -196,8 +217,10 @@ export default function LeagueMemberPortfolioModal({
                             {holding.stock?.name ?? "Unknown stock"}
                           </span>
                         </div>
-                        <div className="flex flex-col items-end min-w-[96px]">
-                          <span className="text-sm">${currentPrice.toFixed(2)}</span>
+                        <div className="flex flex-col items-end min-w-24">
+                          <span className="text-sm">
+                            ${currentPrice.toFixed(2)}
+                          </span>
                           <span
                             className={`text-xs font-medium ${
                               percentChange < 0
@@ -215,7 +238,9 @@ export default function LeagueMemberPortfolioModal({
 
                       <div className="text-right">
                         <span className="font-bold">${value.toFixed(2)}</span>
-                        <span className="ml-2 text-xs text-gray-500">({quantity} shares)</span>
+                        <span className="ml-2 text-xs text-gray-500">
+                          ({quantity} shares)
+                        </span>
                       </div>
                     </div>
                   );
@@ -226,6 +251,6 @@ export default function LeagueMemberPortfolioModal({
         )}
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

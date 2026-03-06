@@ -43,6 +43,7 @@
 
 :root {
   --radius: 0.625rem;
+  --ff-chatbot-pinned-width: 0px;
   --background: oklch(0.99 0 0);
   --foreground: oklch(0.15 0.02 145);
   --card: oklch(1 0 0);
@@ -150,4 +151,8 @@
 /* Chat user bubble background color */
 .bg-chat-user-bubble {
   background-color: var(--chat-user-bubble);
+}
+
+.ff-modal-viewport {
+  right: var(--ff-chatbot-pinned-width, 0px);
 }
