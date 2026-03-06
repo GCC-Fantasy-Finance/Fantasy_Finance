@@ -4,7 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import { Button } from "../../components/ui/button";
 import { getStockById, type StockRow } from "@/lib/stocks";
 import LightningBoltIcon from "@/components/ui/lightning-bolt-icon";
-import { Trash, Trash2, TrashIcon } from "lucide-react";
+import { Trash2 } from "lucide-react";
 
 interface DraftQueuePanelProps {
   onStockClick: (stockId: number) => void;
