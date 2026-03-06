@@ -69,16 +69,20 @@ const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
   };
 
   return (
-    <div className="p-2">
-      <h2 className="mb-5 font-semibold">Draft Queue</h2>
+    <div className="flex h-full flex-col">
+      <div className="h-12 flex items-center justify-center border-b border-gray-300">
+        <h2 className="text-lg text-center">Draft Queue</h2>
+      </div>
 
       {!queuedLoaded ? (
         <div>Loading...</div>
       ) : queuedItems.length === 0 ? (
-        <div>No queued stocks</div>
+        <div className="flex min-h-40 items-center justify-center text-center text-gray-400">
+          No queued stocks
+        </div>
       ) : null}
 
-      <ul className="list-none p-0">
+      <ul className="list-none flex-1 overflow-y-auto p-2 pt-8">
         {queuedItems.map((item, index) => {
           const stock = stockMap[item.stock_id];
           const isTopItem = index === 0;
@@ -145,10 +149,7 @@ const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
                 </div>
 
                 {/* SYMBOL */}
-                <span
-                  className="font-semibold leading-none"
-                  title={stock?.name}
-                >
+                <span className="font-medium leading-none" title={stock?.name}>
                   {stock ? stock.stock_symbol : "Loading..."}
                 </span>
               </div>
@@ -180,6 +181,7 @@ const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
             </li>
           );
         })}
+        <li aria-hidden="true" className="h-[120px]" />
       </ul>
     </div>
   );

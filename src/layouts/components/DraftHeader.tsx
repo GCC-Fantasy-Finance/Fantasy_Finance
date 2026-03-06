@@ -178,12 +178,12 @@ const DraftHeader = () => {
 
   const formatTime = (seconds: number) => {
     const units = [
-      { label: "year", value: 365 * 24 * 60 * 60 },
-      { label: "month", value: 30 * 24 * 60 * 60 },
-      { label: "day", value: 24 * 60 * 60 },
-      { label: "hour", value: 60 * 60 },
-      { label: "minute", value: 60 },
-      { label: "second", value: 1 },
+      { label: "y", value: 365 * 24 * 60 * 60 },
+      { label: "m", value: 30 * 24 * 60 * 60 },
+      { label: "d", value: 24 * 60 * 60 },
+      { label: "hr", value: 60 * 60 },
+      { label: "min", value: 60 },
+      { label: "sec", value: 1 },
     ];
 
     let remaining = Math.max(0, Math.floor(seconds));
@@ -195,7 +195,7 @@ const DraftHeader = () => {
       const amount = Math.floor(remaining / unit.value);
       if (amount <= 0) continue;
 
-      parts.push(`${amount} ${unit.label}${amount === 1 ? "" : "s"}`);
+      parts.push(`${amount}${unit.label}${amount === 1 ? "" : "s"}`);
       remaining -= amount * unit.value;
     }
 
@@ -277,9 +277,24 @@ const DraftHeader = () => {
       )}
 
       {showCountdownButton && (
-        <div className="flex-1 text-center text-yellow-600 font-medium">
-          Draft Starts in {formatTime(countdown)}
-        </div>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex-1 text-center text-yellow-600 font-medium cursor-help">
+                Draft Starts in {formatTime(countdown)}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent
+              side="bottom"
+              sideOffset={6}
+              className="text-center whitespace-normal"
+            >
+              {league?.start_time
+                ? `Draft starts on ${formatStartDateTime(league.start_time)}`
+                : "Draft start time is not available yet."}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )}
 
       {showDraftStartDateTime && league?.start_time && (
