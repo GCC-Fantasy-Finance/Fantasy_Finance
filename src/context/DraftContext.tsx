@@ -38,6 +38,10 @@ type DraftContextType = {
   userPresenceStates: Record<string, PresenceState>;
   isMakingPick: boolean;
   draftLoaded: boolean;
+  showPostDraftModal: boolean;
+  setShowPostDraftModal: (show: boolean) => void;
+  dismissPostDraftModal: () => void;
+  leagueEnded: boolean;
   startDraft: () => Promise<void>;
   makePick: (stockId: number) => Promise<void>;
   queueStock: (stockId: number) => Promise<void>;
@@ -64,9 +68,12 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
   const [timer, setTimer] = useState<number | null>(null);
   const [draftStarted, setDraftStarted] = useState(false);
   const [draftEnded, setDraftEnded] = useState(false);
+  const [showPostDraftModal, setShowPostDraftModal] = useState(false);
+  const [postDraftModalDismissed, setPostDraftModalDismissed] = useState(false);
   const [draftRounds, setDraftRounds] = useState(0);
   const [isMakingPick, setIsMakingPick] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
+  const [leagueEnded, setLeagueEnded] = useState(false);
 
   const intervalRef = useRef<number | null>(null);
 
@@ -85,6 +92,29 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
 
   // tab visibility state
   const [tabVisible, setTabVisible] = useState(true);
+
+  // Check if should show modal: draft ended, not dismissed, league not ended
+  useEffect(() => {
+    if (!draftEnded || postDraftModalDismissed || leagueEnded || !myPortfolio?.portfolio_id) {
+      return;
+    }
+
+    const checkAndShowModal = async () => {
+      // Check if user has made any transactions
+      const { count } = await supabase
+        .from("Transactions")
+        .select("transaction_id", { count: "exact" })
+        .eq("portfolio_id", myPortfolio.portfolio_id)
+        .limit(1);
+
+      // Show modal only if user hasn't made any transactions yet
+      if ((count ?? 0) === 0) {
+        setShowPostDraftModal(true);
+      }
+    };
+
+    checkAndShowModal();
+  }, [draftEnded, postDraftModalDismissed, leagueEnded, myPortfolio?.portfolio_id]);
 
   useEffect(() => {
     const handleVisibility = () => {
@@ -117,7 +147,10 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
       usersRef.current = userData ?? [];
 
       if (draftData) hydrateFromDraftRow(draftData);
-      if (leagueData) setLeague(leagueData);
+      if (leagueData) {
+        setLeague(leagueData);
+        setLeagueEnded(leagueData.is_ended);
+      }
       setDraftPicks(picksData.data ?? []);
       setDraftLoaded(true);
     })();
@@ -527,6 +560,13 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
         userPresenceStates,
         isMakingPick,
         draftLoaded,
+        showPostDraftModal,
+        setShowPostDraftModal,
+        dismissPostDraftModal: () => {
+          setShowPostDraftModal(false);
+          setPostDraftModalDismissed(true);
+        },
+        leagueEnded,
         startDraft,
         makePick,
         queueStock,
