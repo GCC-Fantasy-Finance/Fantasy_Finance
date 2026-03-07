@@ -126,7 +126,7 @@ export default function Header({ title }: HeaderProps) {
   }, []);
 
   return (
-    <div className="flex items-center justify-between">
+    <div className="sticky top-0 z-10 flex items-center justify-between">
       <div className="flex h-14 w-14 shrink-0 items-center justify-center border-b border-r border-gray-300 bg-white hover:bg-gray-100 md:hidden">
         <button
           type="button"
