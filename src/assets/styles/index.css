@@ -156,3 +156,13 @@
 .ff-modal-viewport {
   right: var(--ff-chatbot-pinned-width, 0px);
 }
+
+.ff-details-panel {
+  container-type: inline-size;
+}
+
+@container (min-width: 520px) {
+  .ff-details-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

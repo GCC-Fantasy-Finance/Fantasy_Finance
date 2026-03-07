@@ -80,6 +80,69 @@ const AI_QUESTIONS = [
   },
 ];
 
+const STOCK_DETAIL_ITEMS = [
+  {
+    label: "Previous Close",
+    tooltip: "The closing price of the stock on the previous trading day.",
+    getValue: (
+      stock: Stock,
+      _detailsLoading: boolean,
+      _dayRangeDisplay: string,
+      _yearRangeDisplay: string,
+      _formatDetails: (amount: number) => string,
+    ) => `$${stock.previous_close?.toFixed(2)}`,
+    skeletonWidth: "w-20",
+  },
+  {
+    label: "Day Range",
+    tooltip:
+      "The lowest and highest price the stock traded at during the current trading day.",
+    getValue: (
+      _stock: Stock,
+      _detailsLoading: boolean,
+      dayRangeDisplay: string,
+    ) => dayRangeDisplay,
+    skeletonWidth: "w-36",
+  },
+  {
+    label: "Year Range",
+    tooltip:
+      "The lowest and highest price the stock traded at over the past 52 weeks.",
+    getValue: (
+      _stock: Stock,
+      _detailsLoading: boolean,
+      _dayRangeDisplay: string,
+      yearRangeDisplay: string,
+    ) => yearRangeDisplay,
+    skeletonWidth: "w-40",
+  },
+  {
+    label: "Market Cap",
+    tooltip: "The total market value of all outstanding shares of the company.",
+    getValue: (
+      stock: Stock,
+      _detailsLoading: boolean,
+      _dayRangeDisplay: string,
+      _yearRangeDisplay: string,
+      formatDetails: (amount: number) => string,
+    ) => `${formatDetails(stock.market_cap ?? 0)} USD`,
+    skeletonWidth: "w-24",
+  },
+  {
+    label: "Volume",
+    tooltip:
+      "The total number of shares traded during the current trading session.",
+    getValue: (
+      stock: Stock,
+      _detailsLoading: boolean,
+      _dayRangeDisplay: string,
+      _yearRangeDisplay: string,
+      formatDetails: (amount: number) => string,
+    ) => formatDetails(stock.volume ?? 0),
+    skeletonWidth: "w-20",
+  },
+];
+
 export default function StockDetailsModal({ open, stock, onClose }: Props) {
   const { user } = useAuth();
   const { setChatbotState, setIsPinned, setInitialMessage } = useChatbot();
@@ -575,7 +638,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
           <div className="flex flex-1 min-h-0 flex-col lg:flex-row overflow-hidden">
             {/* LEFT — CHART + DETAILS + AI */}
             <div
-              className={`w-full min-w-0 flex flex-col gap-4 border-b lg:border-b-0 lg:border-r border-gray-200 p-4 sm:p-6 overflow-y-auto ${
+              className={`w-full min-w-0 flex flex-col gap-8 border-b lg:border-b-0 lg:border-r border-gray-200 p-4 sm:p-6 overflow-y-auto ${
                 activeTab === "details" ? "flex" : "hidden"
               } lg:flex`}
             >
@@ -641,141 +704,49 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
               </div>
 
               {/* Stock details */}
-              <div className="rounded-lg border border-gray-200 bg-white p-4">
+              <div className="rounded-lg border border-gray-200 bg-white p-4 ff-details-panel">
                 <h4 className="font-medium mb-2">Stock Details</h4>
 
                 <TooltipProvider delayDuration={100}>
-                  <table className="w-full border-separate border-spacing-y-2 text-sm text-gray-900">
-                    <tbody>
-                      <tr>
-                        <td className="pr-4 font-medium">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="cursor-default ">
-                                Previous Close
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent
-                              side="top"
-                              align="start"
-                              className="bg-green-700 text-white text-xs rounded w-56 px-2 py-1"
-                            >
-                              The closing price of the stock on the previous
-                              trading day.
-                            </TooltipContent>
-                          </Tooltip>
-                        </td>
-                        <td>
+                  <div className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm text-gray-900 ff-details-grid">
+                    {STOCK_DETAIL_ITEMS.map((item) => (
+                      <div
+                        key={item.label}
+                        className="flex items-center justify-between border-b border-gray-300 py-1"
+                      >
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-default">{item.label}</span>
+                          </TooltipTrigger>
+                          <TooltipContent
+                            side="top"
+                            align="start"
+                            className="text-white text-xs rounded w-56 px-2 py-1"
+                          >
+                            {item.tooltip}
+                          </TooltipContent>
+                        </Tooltip>
+                        <span className="text-right">
                           {detailsLoading
-                            ? detailSkeleton("w-20")
-                            : `$${stock.previous_close?.toFixed(2)}`}
-                        </td>
-                      </tr>
-
-                      <tr>
-                        <td className="pr-4 font-medium">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="cursor-default ">Day Range</span>
-                            </TooltipTrigger>
-                            <TooltipContent
-                              side="top"
-                              align="start"
-                              className="bg-green-700 text-white text-xs rounded w-56 px-2 py-1"
-                            >
-                              The lowest and highest price the stock traded at
-                              during the current trading day.
-                            </TooltipContent>
-                          </Tooltip>
-                        </td>
-                        <td>
-                          {detailsLoading
-                            ? detailSkeleton("w-36")
-                            : dayRangeDisplay}
-                        </td>
-                      </tr>
-
-                      <tr>
-                        <td className="pr-4 font-medium">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="cursor-default ">
-                                Year Range
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent
-                              side="top"
-                              align="start"
-                              className="bg-green-700 text-white text-xs rounded w-56 px-2 py-1"
-                            >
-                              The lowest and highest price the stock traded at
-                              over the past 52 weeks.
-                            </TooltipContent>
-                          </Tooltip>
-                        </td>
-                        <td>
-                          {detailsLoading
-                            ? detailSkeleton("w-40")
-                            : yearRangeDisplay}
-                        </td>
-                      </tr>
-
-                      <tr>
-                        <td className="pr-4 font-medium">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="cursor-default ">
-                                Market Cap
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent
-                              side="top"
-                              align="start"
-                              className="bg-green-700 text-white text-xs rounded w-56 px-2 py-1"
-                            >
-                              The total market value of all outstanding shares
-                              of the company.
-                            </TooltipContent>
-                          </Tooltip>
-                        </td>
-                        <td>
-                          {detailsLoading
-                            ? detailSkeleton("w-24")
-                            : `${formatDetails(stock.market_cap)} USD`}
-                        </td>
-                      </tr>
-
-                      <tr>
-                        <td className="pr-4 font-medium">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="cursor-default ">Volume</span>
-                            </TooltipTrigger>
-                            <TooltipContent
-                              side="top"
-                              align="start"
-                              className="bg-green-700 text-white text-xs rounded w-56 px-2 py-1"
-                            >
-                              The total number of shares traded during the
-                              current trading session.
-                            </TooltipContent>
-                          </Tooltip>
-                        </td>
-                        <td>
-                          {detailsLoading
-                            ? detailSkeleton("w-20")
-                            : formatDetails(stock.volume)}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                            ? detailSkeleton(item.skeletonWidth)
+                            : item.getValue(
+                                stock,
+                                detailsLoading,
+                                dayRangeDisplay,
+                                yearRangeDisplay,
+                                formatDetails,
+                              )}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </TooltipProvider>
               </div>
 
               {/* AI questions */}
               <div className="mb-10">
                 <h4 className="font-medium mb-2">Learn More</h4>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   {AI_QUESTIONS.map((question) => (
                     <AIQuestionChip
                       key={question.label}
@@ -798,15 +769,15 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
 
             {/* RIGHT — TRADE */}
             <div
-              className={`w-full lg:w-[400px] flex flex-col border-t lg:border-t-0 lg:border-l border-gray-200 p-4 sm:p-6 bg-gray-50 overflow-y-auto flex-1 min-h-0 lg:shrink-0 lg:flex-none ${
+              className={`w-full lg:w-[400px] flex flex-col border-t lg:border-t-0 lg:border-l border-gray-300 p-4 sm:p-6 sm:px-4 bg-gray-50 flex-1 min-h-0 lg:shrink-0 lg:flex-none ${
                 activeTab === "trade" ? "flex" : "hidden"
               } lg:flex`}
             >
-              <h3 className="text-lg font-semibold mb-4 shrink-0">
-                Trade Stock
-              </h3>
+              <header className="shrink-0 border-b border-gray-300 pb-3 mb-4">
+                <h3 className="text-lg font-semibold">Trade Stock</h3>
+              </header>
 
-              <div className="flex-1 min-h-0 space-y-2">
+              <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-3">
                 {loading ? (
                   <p className="text-gray-500 text-sm">Loading portfolios...</p>
                 ) : portfolios.length === 0 ? (
@@ -815,7 +786,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                   portfolios.map((portfolio) => (
                     <div
                       key={portfolio.portfolio_id}
-                      className="bg-white border border-gray-200 rounded p-3 flex items-center justify-between gap-2"
+                      className="bg-white border border-gray-300 rounded-md p-2 pl-3 flex items-center justify-between gap-2"
                     >
                       <p className="font-medium text-sm truncate">
                         {portfolio.is_solo
@@ -823,8 +794,8 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                           : portfolio.league_name || "Unknown League"}
                       </p>
 
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-gray-700">
+                      <div className="flex items-center gap-2 ">
+                        <span className="text-xs font-medium text-gray-500 ">
                           ${portfolio.reserve_value.toFixed(2)}
                         </span>
 
@@ -841,7 +812,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                               </Button>
                             ) : (
                               <Button
-                                className="text-xs h-7 px-2 bg-yellow-500 hover:bg-yellow-600 text-white"
+                                className="text-xs h-7 px-2 border border-red-700 bg-white text-red-700 hover:text-black hover:bg-gray-100"
                                 onClick={async () => {
                                   setPortfolios((prev) =>
                                     prev.map((p) =>
@@ -889,7 +860,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                             </TooltipProvider>
                           ) : (
                             <Button
-                              className="text-xs h-7 px-2 bg-yellow-500 hover:bg-yellow-600 text-white"
+                              className="text-xs h-7 px-2 border border-green-700 bg-white text-green-700 hover:text-black hover:bg-gray-100"
                               onClick={async () => {
                                 setPortfolios((prev) =>
                                   prev.map((p) =>
@@ -988,7 +959,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                     </div>
                   ))
                 )}
-                <div className="h-20" aria-hidden="true" />
+                <div className="h-10" aria-hidden="true" />
               </div>
             </div>
           </div>
