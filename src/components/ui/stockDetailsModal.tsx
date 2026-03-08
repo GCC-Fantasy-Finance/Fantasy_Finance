@@ -62,6 +62,42 @@ type Props = {
   onClose: () => void;
 };
 
+type StockHeaderProps = {
+  stock: Stock;
+  stockPrice: number | null;
+  timeFrame: string;
+};
+
+const StockHeader = ({ stock, stockPrice, timeFrame }: StockHeaderProps) => (
+  <>
+    <div className="flex flex-col gap-2 mb-1">
+      <div className="flex gap-2 items-center mr-6">
+        <img
+          src={stock.logo_url}
+          alt={`${stock.stock_symbol} logo`}
+          className="w-8 h-8 object-cover rounded-sm"
+        />
+        <p className="text-gray-600 flex items-center gap-2 flex-wrap">
+          <span>{stock.stock_symbol}</span>
+        </p>
+        <span className="h-5 w-px mx-1 bg-gray-400" aria-hidden="true" />
+        <h2 className="text-lg line">{stock.name}</h2>
+      </div>
+
+      <div className="flex gap-2  text-3xl">
+        {stockPrice != null ? `$${stockPrice.toFixed(2)}` : "Loading..."}
+        <Ticker
+          currentValue={stockPrice ?? undefined}
+          previousValue={stock.previous_close ?? undefined}
+          dollarAmount={true}
+          background={true}
+          timeFrame={timeFrame}
+        />
+      </div>
+    </div>
+  </>
+);
+
 const AI_QUESTIONS = [
   {
     label: "Is this stock volatile?",
@@ -552,14 +588,14 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
   ];
 
   const modal = (
-    <div className="ff-modal-viewport fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
+    <div className="ff-modal-viewport fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
       <div
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
-        className="relative z-10 w-full max-w-6xl h-[95vh] sm:h-[90vh] rounded bg-white shadow-lg flex flex-col"
+        className="relative z-10 w-full max-w-6xl h-[95vh] sm:h-[90vh] rounded-md bg-white shadow-lg flex flex-col"
       >
         <button
           onClick={onClose}
@@ -572,23 +608,11 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
         <div className="flex flex-1 min-h-0 flex-col">
           {/* Stock name, symbol, ticker, etc. */}
           <div className="border-b border-gray-200 p-4 sm:p-6 lg:hidden">
-            <h2 className="text-2xl font-semibold">
-              {stock.name}
-              {" – "}
-              {stockPrice != null ? `$${stockPrice.toFixed(2)}` : "Loading..."}
-              <Ticker
-                currentValue={stockPrice ?? undefined}
-                previousValue={stock.previous_close ?? undefined}
-              />
-            </h2>
-            <p className="text-gray-600 text-sm flex items-center gap-2 flex-wrap">
-              <span>{stock.stock_symbol}</span>
-              <img
-                src={stock.logo_url}
-                alt={`${stock.stock_symbol} logo`}
-                className="w-8 h-8 object-cover"
-              />
-            </p>
+            <StockHeader
+              stock={stock}
+              stockPrice={stockPrice}
+              timeFrame={timeFrame}
+            />
           </div>
 
           {/* Tabs (small screens) */}
@@ -638,30 +662,16 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
           <div className="flex flex-1 min-h-0 flex-col lg:flex-row overflow-hidden">
             {/* LEFT — CHART + DETAILS + AI */}
             <div
-              className={`w-full min-w-0 flex flex-col gap-8 border-b lg:border-b-0 lg:border-r border-gray-200 p-4 sm:p-6 overflow-y-auto ${
+              className={`w-full min-w-0 flex flex-col gap-4 p-4 sm:p-6 overflow-y-auto ${
                 activeTab === "details" ? "flex" : "hidden"
               } lg:flex`}
             >
               <div className="hidden lg:block">
-                <h2 className="text-2xl font-semibold">
-                  {stock.name}
-                  {" – "}
-                  {stockPrice != null
-                    ? `$${stockPrice.toFixed(2)}`
-                    : "Loading..."}
-                  <Ticker
-                    currentValue={stockPrice ?? undefined}
-                    previousValue={stock.previous_close ?? undefined}
-                  />
-                </h2>
-                <p className="text-gray-600 text-sm flex items-center gap-2 flex-wrap">
-                  <span>{stock.stock_symbol}</span>
-                  <img
-                    src={stock.logo_url}
-                    alt={`${stock.stock_symbol} logo`}
-                    className="w-8 h-8 object-cover"
-                  />
-                </p>
+                <StockHeader
+                  stock={stock}
+                  stockPrice={stockPrice}
+                  timeFrame={timeFrame}
+                />
               </div>
               <div className="rounded-lg border border-gray-200 bg-white p-4">
                 {/* Graph */}
@@ -769,7 +779,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
 
             {/* RIGHT — TRADE */}
             <div
-              className={`w-full lg:w-[400px] flex flex-col border-t lg:border-t-0 lg:border-l border-gray-300 p-4 sm:p-6 sm:px-4 bg-gray-50 flex-1 min-h-0 lg:shrink-0 lg:flex-none ${
+              className={`w-full lg:w-[400px] flex flex-col lg:border-l border-bl-0 border-gray-300 rounded-b-md lg:rounded-r-md lg:rounded-bl-none p-4 sm:p-6 sm:px-4 bg-gray-50 flex-1 min-h-0 lg:shrink-0 lg:flex-none ${
                 activeTab === "trade" ? "flex" : "hidden"
               } lg:flex`}
             >
@@ -786,7 +796,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                   portfolios.map((portfolio) => (
                     <div
                       key={portfolio.portfolio_id}
-                      className="bg-white border border-gray-300 rounded-md p-2 pl-3 flex items-center justify-between gap-2"
+                      className="bg-white border border-gray-200 rounded-md p-2 pl-3 flex items-center justify-between gap-2"
                     >
                       <p className="font-medium text-sm truncate">
                         {portfolio.is_solo
