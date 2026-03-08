@@ -41,7 +41,7 @@ export default function Ticker({
   const isDown = delta < -movementThreshold;
 
   const sizeClass =
-    size === "large" ? "text-lg" : size === "small" ? "text-xs" : "text-sm";
+    size === "large" ? "text-md" : size === "small" ? "text-xs" : "text-sm";
 
   const valueClass = cn(
     displayAs === "percent" && background
@@ -65,7 +65,9 @@ export default function Ticker({
       )}
       aria-label="Daily change"
     >
-      <span className={`flex items-center gap-1 px-2 py-1 ${valueClass}`}>
+      <span
+        className={`flex items-center gap-1 ${size !== "small" ? "px-2 py-1" : ""} ${valueClass}`}
+      >
         {isUp ? (
           <ArrowUp className="h-3.5 w-3.5" />
         ) : isDown ? (

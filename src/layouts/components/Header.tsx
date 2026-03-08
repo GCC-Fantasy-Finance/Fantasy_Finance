@@ -126,7 +126,7 @@ export default function Header({ title }: HeaderProps) {
   }, []);
 
   return (
-    <div className="sticky top-0 z-10 flex items-center justify-between">
+    <div className="sticky top-0 z-40 isolate flex items-center justify-between">
       <div className="flex h-14 w-14 shrink-0 items-center justify-center border-b border-r border-gray-300 bg-white hover:bg-gray-100 md:hidden">
         <button
           type="button"
@@ -170,7 +170,7 @@ export default function Header({ title }: HeaderProps) {
               <X className="h-4 w-4" />
             </button>
             {isSearchFocused && query.length > 0 && (
-              <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-b-sm shadow-lg z-10 max-h-60 overflow-y-auto">
+              <div className="absolute top-full left-0 right-0 z-50 max-h-60 overflow-y-auto rounded-b-sm border border-gray-200 bg-white shadow-lg">
                 {loading && (
                   <div className="p-2 text-sm text-gray-500">Searching...</div>
                 )}
@@ -241,7 +241,7 @@ export default function Header({ title }: HeaderProps) {
                   </button>
                 )}
                 {isSearchFocused && query.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-b-sm shadow-lg z-10 max-h-60 overflow-y-auto">
+                  <div className="absolute top-full left-0 right-0 z-50 max-h-60 overflow-y-auto rounded-b-sm border border-gray-200 bg-white shadow-lg">
                     {loading && (
                       <div className="p-2 text-sm text-gray-500">
                         Searching...

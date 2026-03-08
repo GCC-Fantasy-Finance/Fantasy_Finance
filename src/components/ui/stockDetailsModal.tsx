@@ -9,6 +9,7 @@ import StockChart from "./stockChart";
 // import Sparkles from "@/components/icons/Sparkles";
 import { useTradeModal } from "@/context/TradeModalContext";
 import Ticker from "@/components/ui/ticker";
+import TimeFrameSelector, { type TimeFrameOption } from "./TimeFrameSelector";
 import { supabase } from "@/lib/supabase";
 
 import { addWishlistItemStockPage, removeWishlistItem } from "@/lib/wishlists";
@@ -75,7 +76,7 @@ const StockHeader = ({ stock, stockPrice, timeFrame }: StockHeaderProps) => (
         <img
           src={stock.logo_url}
           alt={`${stock.stock_symbol} logo`}
-          className="w-8 h-8 object-cover rounded-sm"
+          className="w-7 h-7 object-cover rounded-sm"
         />
         <p className="text-gray-600 flex items-center gap-2 flex-wrap">
           <span>{stock.stock_symbol}</span>
@@ -581,7 +582,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
     />
   );
 
-  const timeFrameOptions = [
+  const timeFrameOptions: TimeFrameOption[] = [
     { value: "1D", label: "1D" },
     { value: "1M", label: "1M" },
     { value: "1Y", label: "1Y" },
@@ -679,34 +680,11 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                   <div className="w-full flex justify-between">
                     <h4 className="font-medium">Price History</h4>
 
-                    {/* Time Frame Options */}
-                    <div className="flex items-center justify-end pb-2 mb-2 gap-2">
-                      {timeFrameOptions.map((option, index) => (
-                        <span
-                          key={option.value}
-                          className="flex items-center gap-2"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => setTimeFrame(option.value)}
-                            aria-pressed={timeFrame === option.value}
-                            className={`w-10 text-sm text-center uppercase tracking-wide transition-colors border-b-2 -mb-0.5 pb-1 cursor-pointer ${
-                              timeFrame === option.value
-                                ? "text-green-700 border-green-700 font-semibold"
-                                : "text-gray-400 border-transparent hover:text-gray-700 hover:border-gray-300"
-                            }`}
-                          >
-                            {option.label}
-                          </button>
-                          {index < timeFrameOptions.length - 1 && (
-                            <span
-                              className="h-5 w-px bg-gray-300"
-                              aria-hidden="true"
-                            />
-                          )}
-                        </span>
-                      ))}
-                    </div>
+                    <TimeFrameSelector
+                      options={timeFrameOptions}
+                      value={timeFrame}
+                      onChange={setTimeFrame}
+                    />
                   </div>
 
                   <StockChart id={stock.stock_id || 0} timeFrame={timeFrame} />
