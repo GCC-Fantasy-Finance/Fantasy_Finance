@@ -9,6 +9,7 @@ import StockChart from "./stockChart";
 // import Sparkles from "@/components/icons/Sparkles";
 import { useTradeModal } from "@/context/TradeModalContext";
 import Ticker from "@/components/ui/ticker";
+import TimeFrameSelector, { type TimeFrameOption } from "./TimeFrameSelector";
 import { supabase } from "@/lib/supabase";
 
 import { addWishlistItemStockPage, removeWishlistItem } from "@/lib/wishlists";
@@ -62,6 +63,123 @@ type Props = {
   onClose: () => void;
 };
 
+type StockHeaderProps = {
+  stock: Stock;
+  stockPrice: number | null;
+  timeFrame: string;
+};
+
+const StockHeader = ({ stock, stockPrice, timeFrame }: StockHeaderProps) => (
+  <>
+    <div className="flex flex-col gap-2 mb-1">
+      <div className="flex gap-2 items-center mr-6">
+        <img
+          src={stock.logo_url}
+          alt={`${stock.stock_symbol} logo`}
+          className="w-7 h-7 object-cover rounded-sm"
+        />
+        <p className="text-gray-600 flex items-center gap-2 flex-wrap">
+          <span>{stock.stock_symbol}</span>
+        </p>
+        <span className="h-5 w-px mx-1 bg-gray-400" aria-hidden="true" />
+        <h2 className="text-lg line">{stock.name}</h2>
+      </div>
+
+      <div className="flex gap-2  text-3xl">
+        {stockPrice != null ? `$${stockPrice.toFixed(2)}` : "Loading..."}
+        <Ticker
+          currentValue={stockPrice ?? undefined}
+          previousValue={stock.previous_close ?? undefined}
+          dollarAmount={true}
+          background={true}
+          timeFrame={timeFrame}
+        />
+      </div>
+    </div>
+  </>
+);
+
+const AI_QUESTIONS = [
+  {
+    label: "Is this stock volatile?",
+    getMessage: (name: string, symbol: string) =>
+      `Is ${name} (${symbol}) a volatile stock?`,
+  },
+  {
+    label: "What is the future outlook for this stock?",
+    getMessage: (name: string, symbol: string) =>
+      `What is the future outlook for ${name} (${symbol})?`,
+  },
+  {
+    label: "Tell me more",
+    getMessage: (name: string, symbol: string) =>
+      `Tell me more about ${name} (${symbol})?`,
+  },
+];
+
+const STOCK_DETAIL_ITEMS = [
+  {
+    label: "Previous Close",
+    tooltip: "The closing price of the stock on the previous trading day.",
+    getValue: (
+      stock: Stock,
+      _detailsLoading: boolean,
+      _dayRangeDisplay: string,
+      _yearRangeDisplay: string,
+      _formatDetails: (amount: number) => string,
+    ) => `$${stock.previous_close?.toFixed(2)}`,
+    skeletonWidth: "w-20",
+  },
+  {
+    label: "Day Range",
+    tooltip:
+      "The lowest and highest price the stock traded at during the current trading day.",
+    getValue: (
+      _stock: Stock,
+      _detailsLoading: boolean,
+      dayRangeDisplay: string,
+    ) => dayRangeDisplay,
+    skeletonWidth: "w-36",
+  },
+  {
+    label: "Year Range",
+    tooltip:
+      "The lowest and highest price the stock traded at over the past 52 weeks.",
+    getValue: (
+      _stock: Stock,
+      _detailsLoading: boolean,
+      _dayRangeDisplay: string,
+      yearRangeDisplay: string,
+    ) => yearRangeDisplay,
+    skeletonWidth: "w-40",
+  },
+  {
+    label: "Market Cap",
+    tooltip: "The total market value of all outstanding shares of the company.",
+    getValue: (
+      stock: Stock,
+      _detailsLoading: boolean,
+      _dayRangeDisplay: string,
+      _yearRangeDisplay: string,
+      formatDetails: (amount: number) => string,
+    ) => `${formatDetails(stock.market_cap ?? 0)} USD`,
+    skeletonWidth: "w-24",
+  },
+  {
+    label: "Volume",
+    tooltip:
+      "The total number of shares traded during the current trading session.",
+    getValue: (
+      stock: Stock,
+      _detailsLoading: boolean,
+      _dayRangeDisplay: string,
+      _yearRangeDisplay: string,
+      formatDetails: (amount: number) => string,
+    ) => formatDetails(stock.volume ?? 0),
+    skeletonWidth: "w-20",
+  },
+];
+
 export default function StockDetailsModal({ open, stock, onClose }: Props) {
   const { user } = useAuth();
   const { setChatbotState, setIsPinned, setInitialMessage } = useChatbot();
@@ -77,6 +195,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
   const [detailsLoading, setDetailsLoading] = useState<boolean>(true);
   const [dayRangeDisplay, setDayRangeDisplay] = useState<string>("-");
   const [yearRangeDisplay, setYearRangeDisplay] = useState<string>("-");
+  const [activeTab, setActiveTab] = useState<"details" | "trade">("details");
 
   const formatRangeFallback = (value: any) => {
     if (value == null || value === "") return "-";
@@ -90,6 +209,12 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
     if (!open || stock?.current_price == null) return;
     setStockPrice(stock.current_price);
   }, [open, stock?.current_price]);
+
+  useEffect(() => {
+    if (open) {
+      setActiveTab("details");
+    }
+  }, [open, stock?.stock_id]);
 
   /* ================= REALTIME PRICE ================= */
   useEffect(() => {
@@ -457,15 +582,21 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
     />
   );
 
+  const timeFrameOptions: TimeFrameOption[] = [
+    { value: "1D", label: "1D" },
+    { value: "1M", label: "1M" },
+    { value: "1Y", label: "1Y" },
+  ];
+
   const modal = (
-    <div className="ff-modal-viewport fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
+    <div className="ff-modal-viewport fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
       <div
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
-        className="relative z-10 w-full max-w-6xl h-[95vh] sm:h-[90vh] rounded bg-white shadow-lg flex flex-col"
+        className="relative z-10 w-full max-w-6xl h-[95vh] sm:h-[90vh] rounded-md bg-white shadow-lg flex flex-col"
       >
         <button
           onClick={onClose}
@@ -475,211 +606,225 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
         </button>
 
         {/* CONTENT */}
-        <div className="flex flex-1 min-h-0 flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
-          {/* LEFT — CHART */}
-          <div className="w-full min-w-0 flex flex-col border-b lg:border-b-0 lg:border-r border-gray-200 p-4 sm:p-6">
-            <div className="mb-2">
-              <h2 className="text-2xl font-semibold">
-                {stock.name}
-                {" – "}
-                {stockPrice != null
-                  ? `$${stockPrice.toFixed(2)}`
-                  : "Loading..."}
-                <Ticker
-                  currentValue={stockPrice ?? undefined}
-                  previousValue={stock.previous_close ?? undefined}
-                />
-              </h2>
-              <p className="text-gray-600 text-sm flex items-center gap-2 flex-wrap">
-                <span>{stock.stock_symbol}</span>
-                <img
-                  src={stock.logo_url}
-                  alt={`${stock.stock_symbol} logo`}
-                  className="w-8 h-8 object-cover"
-                />
-              </p>
-            </div>
-
-            <div className="flex-1 min-h-0">
-              <div className="flex flex-wrap items-center gap-2 mb-1">
-                <Button
-                  className="h-[30px] w-16"
-                  onClick={() => setTimeFrame("1D")}
-                  disabled={timeFrame === "1D"}
-                >
-                  1 Day
-                </Button>
-                <Button
-                  className="h-[30px] w-16"
-                  onClick={() => setTimeFrame("1M")}
-                  disabled={timeFrame === "1M"}
-                >
-                  30 Days
-                </Button>
-                <Button
-                  className="h-[30px] w-16"
-                  onClick={() => setTimeFrame("1Y")}
-                  disabled={timeFrame === "1Y"}
-                >
-                  Year
-                </Button>
-              </div>
-
-              <StockChart id={stock.stock_id || 0} timeFrame={timeFrame} />
-            </div>
-
-            {/* AI questions */}
-            <div className="border-t">
-              <AIQuestionChip
-                className="mt-2 ml-2"
-                label="Is this stock volatile?"
-                onClick={() => {
-                  setInitialMessage(
-                    `Is ${stock.name} (${stock.stock_symbol}) a volatile stock?`,
-                  );
-                  setChatbotState("floating");
-                  setIsPinned(true);
-                }}
-              />
-              <AIQuestionChip
-                className="mt-2 ml-2"
-                label="What is the future outlook for this stock?"
-                onClick={() => {
-                  setInitialMessage(
-                    `What is the future outlook for ${stock.name} (${stock.stock_symbol})?`,
-                  );
-                  setChatbotState("floating");
-                  setIsPinned(true);
-                }}
-              />
-              <AIQuestionChip
-                className="mt-2 ml-2"
-                label="Tell me more?"
-                onClick={() => {
-                  setInitialMessage(
-                    `Tell me more about ${stock.name} (${stock.stock_symbol})?`,
-                  );
-                  setChatbotState("floating");
-                  setIsPinned(true);
-                }}
-              />
-            </div>
+        <div className="flex flex-1 min-h-0 flex-col">
+          {/* Stock name, symbol, ticker, etc. */}
+          <div className="border-b border-gray-200 p-4 sm:p-6 lg:hidden">
+            <StockHeader
+              stock={stock}
+              stockPrice={stockPrice}
+              timeFrame={timeFrame}
+            />
           </div>
 
-          {/* RIGHT — TRADE + DETAILS */}
-          <div className="w-full lg:w-[460px] xl:w-[520px] shrink-0 flex flex-col border-t lg:border-t-0 lg:border-l border-gray-200 p-4 sm:p-6 bg-gray-50">
-            <h3 className="text-lg font-semibold mb-4 shrink-0">Trade</h3>
+          {/* Tabs (small screens) */}
+          <nav className="lg:hidden h-12 bg-white border-b border-gray-200 flex items-center px-4 sm:px-6">
+            <ul className="flex w-full">
+              <li className="flex-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("details")}
+                  aria-current={activeTab === "details" ? "page" : undefined}
+                  className={`relative w-full py-3 transition-colors group cursor-pointer text-center ${
+                    activeTab === "details" ? "font-medium text-green-700" : ""
+                  }`}
+                >
+                  <span className="pointer-events-none">Stock Details</span>
+                  <span
+                    className={`absolute -left-0.5 -right-0.5 h-[2.5px] ${
+                      activeTab === "details"
+                        ? "bg-green-700"
+                        : "bg-transparent group-hover:bg-gray-300"
+                    } bottom-0`}
+                  />
+                </button>
+              </li>
+              <li className="flex-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("trade")}
+                  aria-current={activeTab === "trade" ? "page" : undefined}
+                  className={`relative w-full py-3 transition-colors group cursor-pointer text-center ${
+                    activeTab === "trade" ? "font-medium text-green-700" : ""
+                  }`}
+                >
+                  <span className="pointer-events-none">Trade Stock</span>
+                  <span
+                    className={`absolute -left-0.5 -right-0.5 h-[2.5px] ${
+                      activeTab === "trade"
+                        ? "bg-green-700"
+                        : "bg-transparent group-hover:bg-gray-300"
+                    } bottom-0`}
+                  />
+                </button>
+              </li>
+            </ul>
+          </nav>
 
-            <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
-              {loading ? (
-                <p className="text-gray-500 text-sm">Loading portfolios...</p>
-              ) : portfolios.length === 0 ? (
-                <p className="text-gray-500 text-sm">No portfolios found.</p>
-              ) : (
-                portfolios.map((portfolio) => (
-                  <div
-                    key={portfolio.portfolio_id}
-                    className="bg-white border border-gray-200 rounded p-3 flex items-center justify-between gap-2"
-                  >
-                    <p className="font-medium text-sm truncate">
-                      {portfolio.is_solo
-                        ? "Solo"
-                        : portfolio.league_name || "Unknown League"}
-                    </p>
+          <div className="flex flex-1 min-h-0 flex-col lg:flex-row overflow-hidden">
+            {/* LEFT — CHART + DETAILS + AI */}
+            <div
+              className={`w-full min-w-0 flex flex-col gap-4 p-4 sm:p-6 overflow-y-auto ${
+                activeTab === "details" ? "flex" : "hidden"
+              } lg:flex`}
+            >
+              <div className="hidden lg:block">
+                <StockHeader
+                  stock={stock}
+                  stockPrice={stockPrice}
+                  timeFrame={timeFrame}
+                />
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-white p-4">
+                {/* Graph */}
+                <div className=" flex flex-col">
+                  <div className="w-full flex justify-between">
+                    <h4 className="font-medium">Price History</h4>
 
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-gray-700">
-                        ${portfolio.reserve_value.toFixed(2)}
-                      </span>
+                    <TimeFrameSelector
+                      options={timeFrameOptions}
+                      value={timeFrame}
+                      onChange={setTimeFrame}
+                    />
+                  </div>
 
-                      {!portfolio.draft_has_ended && !portfolio.is_solo ? (
-                        portfolio.wishlisted ? (
-                          !portfolio.sectors.includes("Any") &&
-                          !portfolio.sectors.includes(stock.sector || "") ? (
-                            <Button
-                              className="text-xs h-7 px-2 bg-gray-400 text-white cursor-not-allowed"
-                              disabled
-                              title={`This stock's sector (${stock.sector}) is not allowed in this league. Allowed sectors: ${portfolio.sectors.join(", ")}`}
-                            >
-                              Unavailable
-                            </Button>
-                          ) : (
-                            <Button
-                              className="text-xs h-7 px-2 bg-yellow-500 hover:bg-yellow-600 text-white"
-                              onClick={async () => {
-                                setPortfolios((prev) =>
-                                  prev.map((p) =>
-                                    p.portfolio_id === portfolio.portfolio_id
-                                      ? { ...p, wishlisted: false }
-                                      : p,
-                                  ),
-                                );
+                  <StockChart id={stock.stock_id || 0} timeFrame={timeFrame} />
+                </div>
+              </div>
 
-                                await removeWishlistItem(
-                                  portfolio.portfolio_id,
-                                  stock.stock_id!,
-                                );
-                                draft?.removeFromQueueUI(
-                                  stock.stock_id!,
-                                  portfolio.portfolio_id,
-                                );
-                              }}
-                            >
-                              Dequeue
-                            </Button>
-                          )
-                        ) : !portfolio.sectors.includes("Any") &&
-                          !portfolio.sectors.includes(stock.sector || "") ? (
-                          <TooltipProvider delayDuration={100}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span>
-                                  <Button
-                                    className="text-xs h-7 px-2 bg-gray-400 text-white cursor-not-allowed"
-                                    disabled
-                                  >
-                                    Unavailable
-                                  </Button>
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent className="bg-black text-white text-xs rounded max-w-56 whitespace-normal wrap-break-word px-2 py-1">
-                                Sector {stock.sector} is not allowed in this
-                                league.
-                                <br />
-                                Allowed sectors: {portfolio.sectors.join(", ")}
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        ) : (
-                          <Button
-                            className="text-xs h-7 px-2 bg-yellow-500 hover:bg-yellow-600 text-white"
-                            onClick={async () => {
-                              setPortfolios((prev) =>
-                                prev.map((p) =>
-                                  p.portfolio_id === portfolio.portfolio_id
-                                    ? { ...p, wishlisted: true }
-                                    : p,
-                                ),
-                              );
+              {/* Stock details */}
+              <div className="rounded-lg border border-gray-200 bg-white p-4 ff-details-panel">
+                <h4 className="font-medium mb-2">Stock Details</h4>
 
-                              await addWishlistItemStockPage(
-                                portfolio.portfolio_id,
-                                stock.stock_id!,
-                              );
-                              draft?.addToQueueUI(
-                                stock.stock_id!,
-                                portfolio.portfolio_id,
-                              );
-                            }}
+                <TooltipProvider delayDuration={100}>
+                  <div className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm text-gray-900 ff-details-grid">
+                    {STOCK_DETAIL_ITEMS.map((item) => (
+                      <div
+                        key={item.label}
+                        className="flex items-center justify-between border-b border-gray-300 py-1"
+                      >
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-default">{item.label}</span>
+                          </TooltipTrigger>
+                          <TooltipContent
+                            side="top"
+                            align="start"
+                            className="text-white text-xs rounded w-56 px-2 py-1"
                           >
-                            Queue
-                          </Button>
-                        )
-                      ) : (
-                        <>
-                          {!portfolio.sectors.includes("Any") &&
-                          !portfolio.is_solo &&
-                          !portfolio.sectors.includes(stock.sector || "") ? (
+                            {item.tooltip}
+                          </TooltipContent>
+                        </Tooltip>
+                        <span className="text-right">
+                          {detailsLoading
+                            ? detailSkeleton(item.skeletonWidth)
+                            : item.getValue(
+                                stock,
+                                detailsLoading,
+                                dayRangeDisplay,
+                                yearRangeDisplay,
+                                formatDetails,
+                              )}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </TooltipProvider>
+              </div>
+
+              {/* AI questions */}
+              <div className="mb-10">
+                <h4 className="font-medium mb-2">Learn More</h4>
+                <div className="flex gap-2 flex-wrap">
+                  {AI_QUESTIONS.map((question) => (
+                    <AIQuestionChip
+                      key={question.label}
+                      label={question.label}
+                      onClick={() => {
+                        setInitialMessage(
+                          question.getMessage(
+                            stock.name ?? "",
+                            stock.stock_symbol ?? "",
+                          ),
+                        );
+                        setChatbotState("floating");
+                        setIsPinned(true);
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* RIGHT — TRADE */}
+            <div
+              className={`w-full lg:w-[400px] flex flex-col lg:border-l border-bl-0 border-gray-300 rounded-b-md lg:rounded-r-md lg:rounded-bl-none p-4 sm:p-6 sm:px-4 bg-gray-50 flex-1 min-h-0 lg:shrink-0 lg:flex-none ${
+                activeTab === "trade" ? "flex" : "hidden"
+              } lg:flex`}
+            >
+              <header className="shrink-0 border-b border-gray-300 pb-3 mb-4">
+                <h3 className="text-lg font-semibold">Trade Stock</h3>
+              </header>
+
+              <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-3">
+                {loading ? (
+                  <p className="text-gray-500 text-sm">Loading portfolios...</p>
+                ) : portfolios.length === 0 ? (
+                  <p className="text-gray-500 text-sm">No portfolios found.</p>
+                ) : (
+                  portfolios.map((portfolio) => (
+                    <div
+                      key={portfolio.portfolio_id}
+                      className="bg-white border border-gray-200 rounded-md p-2 pl-3 flex items-center justify-between gap-2"
+                    >
+                      <p className="font-medium text-sm truncate">
+                        {portfolio.is_solo
+                          ? "Solo"
+                          : portfolio.league_name || "Unknown League"}
+                      </p>
+
+                      <div className="flex items-center gap-2 ">
+                        <span className="text-xs font-medium text-gray-500 ">
+                          ${portfolio.reserve_value.toFixed(2)}
+                        </span>
+
+                        {!portfolio.draft_has_ended && !portfolio.is_solo ? (
+                          portfolio.wishlisted ? (
+                            !portfolio.sectors.includes("Any") &&
+                            !portfolio.sectors.includes(stock.sector || "") ? (
+                              <Button
+                                className="text-xs h-7 px-2 bg-gray-400 text-white cursor-not-allowed"
+                                disabled
+                                title={`This stock's sector (${stock.sector}) is not allowed in this league. Allowed sectors: ${portfolio.sectors.join(", ")}`}
+                              >
+                                Unavailable
+                              </Button>
+                            ) : (
+                              <Button
+                                className="text-xs h-7 px-2 border border-red-700 bg-white text-red-700 hover:text-black hover:bg-gray-100"
+                                onClick={async () => {
+                                  setPortfolios((prev) =>
+                                    prev.map((p) =>
+                                      p.portfolio_id === portfolio.portfolio_id
+                                        ? { ...p, wishlisted: false }
+                                        : p,
+                                    ),
+                                  );
+
+                                  await removeWishlistItem(
+                                    portfolio.portfolio_id,
+                                    stock.stock_id!,
+                                  );
+                                  draft?.removeFromQueueUI(
+                                    stock.stock_id!,
+                                    portfolio.portfolio_id,
+                                  );
+                                }}
+                              >
+                                Dequeue
+                              </Button>
+                            )
+                          ) : !portfolio.sectors.includes("Any") &&
+                            !portfolio.sectors.includes(stock.sector || "") ? (
                             <TooltipProvider delayDuration={100}>
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -702,183 +847,108 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                               </Tooltip>
                             </TooltipProvider>
                           ) : (
-                            <>
-                              {(portfolio.is_solo || isInDraftPicks) && (
-                                <Button
-                                  onClick={() => handleSell(portfolio)}
-                                  variant="outline"
-                                  disabled={
-                                    !(holdings[portfolio.portfolio_id] > 0)
-                                  }
-                                  className="text-xs h-7 px-2 text-red-600 border-red-300 hover:bg-red-50 disabled:bg-gray-300"
-                                >
-                                  – Sell
-                                </Button>
-                              )}
+                            <Button
+                              className="text-xs h-7 px-2 border border-green-700 bg-white text-green-700 hover:text-black hover:bg-gray-100"
+                              onClick={async () => {
+                                setPortfolios((prev) =>
+                                  prev.map((p) =>
+                                    p.portfolio_id === portfolio.portfolio_id
+                                      ? { ...p, wishlisted: true }
+                                      : p,
+                                  ),
+                                );
 
-                              {!portfolio.is_solo && !isInDraftPicks ? (
-                                <TooltipProvider delayDuration={100}>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <span>
-                                        <Button
-                                          disabled
-                                          className="text-xs h-7 px-2 bg-gray-400 text-white cursor-not-allowed"
-                                        >
-                                          Unavailable
-                                        </Button>
-                                      </span>
-                                    </TooltipTrigger>
-                                    <TooltipContent className="bg-black text-white text-xs rounded max-w-56 whitespace-normal wrap-break-word px-2 py-1">
-                                      This stock is not in your portfolio.
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              ) : (
-                                <Button
-                                  onClick={() => handleBuy(portfolio)}
-                                  disabled={portfolio.reserve_value <= 0}
-                                  className="text-xs h-7 px-2 bg-green-700 hover:bg-green-800 text-white disabled:bg-gray-300"
-                                >
-                                  + Buy
-                                </Button>
-                              )}
-                            </>
-                          )}
-                        </>
-                      )}
+                                await addWishlistItemStockPage(
+                                  portfolio.portfolio_id,
+                                  stock.stock_id!,
+                                );
+                                draft?.addToQueueUI(
+                                  stock.stock_id!,
+                                  portfolio.portfolio_id,
+                                );
+                              }}
+                            >
+                              Queue
+                            </Button>
+                          )
+                        ) : (
+                          <>
+                            {!portfolio.sectors.includes("Any") &&
+                            !portfolio.is_solo &&
+                            !portfolio.sectors.includes(stock.sector || "") ? (
+                              <TooltipProvider delayDuration={100}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span>
+                                      <Button
+                                        className="text-xs h-7 px-2 bg-gray-400 text-white cursor-not-allowed"
+                                        disabled
+                                      >
+                                        Unavailable
+                                      </Button>
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="bg-black text-white text-xs rounded max-w-56 whitespace-normal wrap-break-word px-2 py-1">
+                                    Sector {stock.sector} is not allowed in this
+                                    league.
+                                    <br />
+                                    Allowed sectors:{" "}
+                                    {portfolio.sectors.join(", ")}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              <>
+                                {(portfolio.is_solo || isInDraftPicks) && (
+                                  <Button
+                                    onClick={() => handleSell(portfolio)}
+                                    variant="outline"
+                                    disabled={
+                                      !(holdings[portfolio.portfolio_id] > 0)
+                                    }
+                                    className="text-xs h-7 px-2 text-red-600 border-red-300 hover:bg-red-50 disabled:bg-gray-300"
+                                  >
+                                    – Sell
+                                  </Button>
+                                )}
+
+                                {!portfolio.is_solo && !isInDraftPicks ? (
+                                  <TooltipProvider delayDuration={100}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span>
+                                          <Button
+                                            disabled
+                                            className="text-xs h-7 px-2 bg-gray-400 text-white cursor-not-allowed"
+                                          >
+                                            Unavailable
+                                          </Button>
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent className="bg-black text-white text-xs rounded max-w-56 whitespace-normal wrap-break-word px-2 py-1">
+                                        This stock is not in your portfolio.
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                ) : (
+                                  <Button
+                                    onClick={() => handleBuy(portfolio)}
+                                    disabled={portfolio.reserve_value <= 0}
+                                    className="text-xs h-7 px-2 bg-green-700 hover:bg-green-800 text-white disabled:bg-gray-300"
+                                  >
+                                    + Buy
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Stock details */}
-            <div className="h-[200px] w-full mt-4 pt-4 border-t border-gray-200 shrink-0">
-              <h4 className="text-md font-semibold mb-2">Stock Details</h4>
-
-              <TooltipProvider delayDuration={100}>
-                <table className="w-full border-separate border-spacing-y-2 text-sm text-gray-900">
-                  <tbody>
-                    <tr>
-                      <td className="pr-4 font-medium">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="cursor-default ">
-                              Previous Close
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent
-                            side="top"
-                            align="start"
-                            className="bg-green-700 text-white text-xs rounded w-56 px-2 py-1"
-                          >
-                            The closing price of the stock on the previous
-                            trading day.
-                          </TooltipContent>
-                        </Tooltip>
-                      </td>
-                      <td>
-                        {detailsLoading
-                          ? detailSkeleton("w-20")
-                          : `$${stock.previous_close?.toFixed(2)}`}
-                      </td>
-                    </tr>
-
-                    <tr>
-                      <td className="pr-4 font-medium">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="cursor-default ">Day Range</span>
-                          </TooltipTrigger>
-                          <TooltipContent
-                            side="top"
-                            align="start"
-                            className="bg-green-700 text-white text-xs rounded w-56 px-2 py-1"
-                          >
-                            The lowest and highest price the stock traded at
-                            during the current trading day.
-                          </TooltipContent>
-                        </Tooltip>
-                      </td>
-                      <td>
-                        {detailsLoading
-                          ? detailSkeleton("w-36")
-                          : dayRangeDisplay}
-                      </td>
-                    </tr>
-
-                    <tr>
-                      <td className="pr-4 font-medium">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="cursor-default ">Year Range</span>
-                          </TooltipTrigger>
-                          <TooltipContent
-                            side="top"
-                            align="start"
-                            className="bg-green-700 text-white text-xs rounded w-56 px-2 py-1"
-                          >
-                            The lowest and highest price the stock traded at
-                            over the past 52 weeks.
-                          </TooltipContent>
-                        </Tooltip>
-                      </td>
-                      <td>
-                        {detailsLoading
-                          ? detailSkeleton("w-40")
-                          : yearRangeDisplay}
-                      </td>
-                    </tr>
-
-                    <tr>
-                      <td className="pr-4 font-medium">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="cursor-default ">Market Cap</span>
-                          </TooltipTrigger>
-                          <TooltipContent
-                            side="top"
-                            align="start"
-                            className="bg-green-700 text-white text-xs rounded w-56 px-2 py-1"
-                          >
-                            The total market value of all outstanding shares of
-                            the company.
-                          </TooltipContent>
-                        </Tooltip>
-                      </td>
-                      <td>
-                        {detailsLoading
-                          ? detailSkeleton("w-24")
-                          : `${formatDetails(stock.market_cap)} USD`}
-                      </td>
-                    </tr>
-
-                    <tr>
-                      <td className="pr-4 font-medium">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="cursor-default ">Volume</span>
-                          </TooltipTrigger>
-                          <TooltipContent
-                            side="top"
-                            align="start"
-                            className="bg-green-700 text-white text-xs rounded w-56 px-2 py-1"
-                          >
-                            The total number of shares traded during the current
-                            trading session.
-                          </TooltipContent>
-                        </Tooltip>
-                      </td>
-                      <td>
-                        {detailsLoading
-                          ? detailSkeleton("w-20")
-                          : formatDetails(stock.volume)}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </TooltipProvider>
+                  ))
+                )}
+                <div className="h-10" aria-hidden="true" />
+              </div>
             </div>
           </div>
         </div>

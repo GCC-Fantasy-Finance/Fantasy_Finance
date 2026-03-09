@@ -253,6 +253,7 @@ export default function Sidebar() {
                     </li>
                   );
                 })}
+                <li aria-hidden="true" className="h-9" />
               </ul>
             )}
           </div>
