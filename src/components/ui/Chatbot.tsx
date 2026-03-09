@@ -44,6 +44,7 @@ import {
   type ChatMessage,
 } from "@/lib/chat";
 import SearchIcon from "@/components/ui/search-icon";
+import { useNotifications } from "@/context/NotificationsContext";
 
 interface ChatbotProps {
   disabled?: boolean;
@@ -147,6 +148,7 @@ export default function Chatbot({
   const sidebarRef = useRef<HTMLDivElement>(null);
   const prevStreamingRef = useRef(false);
   const { user } = useAuth();
+  const { notificationsState, setNotificationsState } = useNotifications();
 
   const escapeRegExp = useCallback((value: string) => {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -1149,6 +1151,11 @@ export default function Chatbot({
   const handlePin = () => {
     if (isMobileViewport) {
       return;
+    }
+
+    // Close notifications panel if open
+    if (notificationsState !== "closed") {
+      setNotificationsState("closed");
     }
 
     // Capture current scroll position in floating expanded window as a ratio

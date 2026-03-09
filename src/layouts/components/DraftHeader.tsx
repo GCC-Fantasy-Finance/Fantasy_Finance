@@ -9,8 +9,9 @@ import {
   type LeagueRow,
 } from "../../lib/leagues";
 import { useChatbot } from "@/context/ChatbotContext";
+import { useNotifications } from "@/context/NotificationsContext";
 import { supabase } from "@/lib/supabase";
-import { LogOut, Sparkles } from "lucide-react";
+import { LogOut, Sparkles, Bell } from "lucide-react";
 import { getStockById, type StockRow } from "@/lib/stocks";
 import LightningBoltIcon from "@/components/ui/lightning-bolt-icon";
 import {
@@ -44,6 +45,9 @@ const DraftHeader = () => {
     setIsPinned,
     setResumeRequested,
   } = useChatbot();
+
+  const { notificationsState, setNotificationsState, unreadCount } =
+    useNotifications();
 
   const [conversationTitle, setConversationTitle] = useState<string | null>(
     null,
@@ -148,6 +152,20 @@ const DraftHeader = () => {
 
     loadNextAuto();
   }, [queuedItems, myPortfolio, leagueId, draftedStockIds]);
+
+  const handleNotificationsToggle = () => {
+    setChatbotState("closed");
+    setIsPinned(false);
+    setNotificationsState(notificationsState === "closed" ? "open" : "closed");
+  };
+
+  const handleChatbotOpen = () => {
+    const isMobileScreen = window.matchMedia("(max-width: 1023px)").matches;
+    setNotificationsState("closed");
+    setResumeRequested(Boolean(lastConversationId));
+    setChatbotState("floating");
+    setIsPinned(!isMobileScreen);
+  };
 
   const showCountdownButton =
     draftLoaded &&
@@ -332,6 +350,22 @@ const DraftHeader = () => {
           </div>
         </header>
 
+        {/* Notifications Button */}
+        {notificationsState === "closed" && (
+          <div
+            onClick={handleNotificationsToggle}
+            className="flex h-14 w-14 shrink-0 items-center justify-center border-l border-gray-300 bg-white hover:bg-gray-100 cursor-pointer relative"
+          >
+            <Bell className="w-6 h-6 text-green-700" />
+            {unreadCount > 0 && (
+              <span className="absolute top-2 right-2 h-5 w-5 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Chatbot Button */}
         {chatbotState === "closed" && (
           <div
             onClick={() => {
@@ -341,6 +375,7 @@ const DraftHeader = () => {
               setResumeRequested(Boolean(lastConversationId));
               setChatbotState("floating");
               setIsPinned(shouldPinChat);
+              handleChatbotOpen();
             }}
             className="flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-0.5 border-l border-gray-300 bg-white text-sm hover:bg-gray-100 cursor-pointer lg:w-48 lg:items-start lg:px-4"
           >
