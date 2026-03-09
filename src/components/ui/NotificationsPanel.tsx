@@ -10,6 +10,7 @@ import {
 import { X, Bell, CheckCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "./button";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "./tooltip";
 
 export default function NotificationsPanel() {
   const { user } = useAuth();
@@ -134,15 +135,21 @@ export default function NotificationsPanel() {
         <h2 className="text-sm font-semibold text-green-600">Notifications</h2>
       </div>
       <div className="flex items-center gap-2">
-        <Button
-          onClick={handleMarkAllAsViewed}
-          variant="ghost"
-          size="sm"
-          title="Mark all as read"
-          className="h-8 w-8 p-0 opacity-100!"
-        >
-          <CheckCheck className="w-4 h-4" />
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={handleMarkAllAsViewed}
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 opacity-100!"
+              >
+                <CheckCheck className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Mark all as read</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <Button
           onClick={handleClose}
           className="h-8 w-8 p-0 opacity-100!"
