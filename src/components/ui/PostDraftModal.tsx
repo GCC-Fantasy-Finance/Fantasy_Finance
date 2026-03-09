@@ -24,7 +24,6 @@ interface PostDraftBuyModalProps {
 
 export default function PostDraftBuyModal({
   open,
-  draftedStockIds,
   portfolioId,
   onClose,
   onStockClick,
@@ -39,15 +38,32 @@ export default function PostDraftBuyModal({
   const [buyAmounts, setBuyAmounts] = useState<Record<number, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
-  // Load drafted stocks
+  // Load drafted stocks for current user
   useEffect(() => {
-    if (!open || draftedStockIds.size === 0) {
+    if (!open || !user?.id || !portfolioId) {
       setDraftedStocks([]);
       return;
     }
 
     const loadStocks = async () => {
-      const ids = Array.from(draftedStockIds);
+      // Fetch draft picks for the current user and portfolio
+      const { data: picks, error: picksError } = await supabase
+        .from("Draft Picks")
+        .select("stock_id")
+        .eq("portfolio_id", portfolioId);
+
+      if (picksError) {
+        console.error("Error loading draft picks:", picksError);
+        setDraftedStocks([]);
+        return;
+      }
+
+      const ids = (picks ?? []).map((pick: any) => pick.stock_id);
+      if (ids.length === 0) {
+        setDraftedStocks([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("Stocks")
         .select("stock_id, stock_symbol, name, current_price")
@@ -68,7 +84,7 @@ export default function PostDraftBuyModal({
     };
 
     loadStocks();
-  }, [open, draftedStockIds]);
+  }, [open, user?.id, portfolioId]);
 
   // Load portfolio reserve
   useEffect(() => {
