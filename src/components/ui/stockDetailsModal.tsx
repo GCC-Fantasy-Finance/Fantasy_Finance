@@ -69,7 +69,9 @@ type StockHeaderProps = {
   timeFrame: string;
 };
 
-const StockHeader = ({ stock, stockPrice, timeFrame }: StockHeaderProps) => (
+const StockHeader = ({ stock, stockPrice
+  // , timeFrame // add timeframe once it is needed 
+}: StockHeaderProps) => (
   <>
     <div className="flex flex-col gap-2 mb-1">
       <div className="flex gap-2 items-center mr-6">
@@ -92,7 +94,7 @@ const StockHeader = ({ stock, stockPrice, timeFrame }: StockHeaderProps) => (
           previousValue={stock.previous_close ?? undefined}
           dollarAmount={true}
           background={true}
-          timeFrame={timeFrame}
+          timeFrame={"1D"}
         />
       </div>
     </div>
