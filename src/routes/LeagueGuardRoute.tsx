@@ -12,14 +12,20 @@ export default function LeagueRoute({ children }: LeagueRouteProps) {
   const { leagueId } = useParams<{ leagueId: string }>();
   const location = useLocation();
 
-  const [checking, setChecking] = useState(true);
-  const [allowed, setAllowed] = useState(false);
-  const [isEnded, setIsEnded] = useState(false);
+  const [checkResult, setCheckResult] = useState<{
+    leagueId: string;
+    allowed: boolean;
+    isEnded: boolean;
+  } | null>(null);
+
+  // checking is derived synchronously: if the result isn't for the current leagueId,
+  // we're still loading — this prevents stale state from a previous league being applied.
+  const checking = !checkResult || checkResult.leagueId !== leagueId;
 
   useEffect(() => {
     const checkLeagueAccess = async () => {
       if (!user || !leagueId) {
-        setChecking(false);
+        setCheckResult(null);
         return;
       }
 
@@ -37,15 +43,11 @@ export default function LeagueRoute({ children }: LeagueRouteProps) {
           .single(),
       ]);
 
-      if (!portfolioResult.error && portfolioResult.data) {
-        setAllowed(true);
-      }
-
-      if (!leagueResult.error && leagueResult.data?.is_ended) {
-        setIsEnded(true);
-      }
-
-      setChecking(false);
+      setCheckResult({
+        leagueId,
+        allowed: !portfolioResult.error && !!portfolioResult.data,
+        isEnded: !leagueResult.error && !!leagueResult.data?.is_ended,
+      });
     };
 
     checkLeagueAccess();
@@ -66,13 +68,17 @@ export default function LeagueRoute({ children }: LeagueRouteProps) {
     return <Navigate to="/login" replace />;
   }
 
-  if (!allowed) {
+  if (!checkResult?.allowed) {
     return <Navigate to="/" replace />;
   }
 
   const resultsPath = `/league/${leagueId}/results`;
-  if (isEnded && location.pathname !== resultsPath) {
+  if (checkResult.isEnded && location.pathname !== resultsPath) {
     return <Navigate to={resultsPath} replace />;
+  }
+
+  if (!checkResult.isEnded && location.pathname === resultsPath) {
+    return <Navigate to={`/league/${leagueId}`} replace />;
   }
 
   return <>{children}</>;
