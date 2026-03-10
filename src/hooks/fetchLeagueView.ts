@@ -1,6 +1,6 @@
 import { getDraftByLeague, type DraftRow } from "@/lib/drafts";
 import { getPortfoliosByLeague } from "@/lib/portfolios";
-import { calculatePortfolioValue } from "@/lib/portfolioValue";
+import { buildSortedLeaderboardEntries } from "@/lib/leagues";
 import { supabase } from "@/lib/supabase";
 
 export type LeagueView = {
@@ -111,77 +111,7 @@ export async function fetchLeagueView(
     ]);
 
     const portfolios = (portfoliosData ?? []) as LeaguePortfolioWithUser[];
-    const portfolioIds = portfolios.map((portfolio) => portfolio.portfolio_id);
-
-    let holdingsByPortfolio = new Map<
-      number,
-      Array<{
-        quantity?: number | null;
-        stock?: { current_price?: number | null };
-      }>
-    >();
-
-    if (portfolioIds.length > 0) {
-      const { data: holdingsRows } = await supabase
-        .from("Portfolio Holdings")
-        .select("portfolio_id, stock_id, quantity")
-        .in("portfolio_id", portfolioIds);
-
-      const stockIds = Array.from(
-        new Set(
-          (holdingsRows ?? [])
-            .map((holding: any) => Number(holding.stock_id))
-            .filter((stockId) => Number.isFinite(stockId))
-        )
-      );
-
-      const stockPricesById = new Map<number, number>();
-      if (stockIds.length > 0) {
-        const { data: stockRows } = await supabase
-          .from("Stocks")
-          .select("stock_id, current_price")
-          .in("stock_id", stockIds);
-
-        for (const stock of stockRows ?? []) {
-          stockPricesById.set(
-            Number((stock as any).stock_id),
-            Number((stock as any).current_price ?? 0)
-          );
-        }
-      }
-
-      holdingsByPortfolio = (holdingsRows ?? []).reduce(
-        (map, holding: any) => {
-          const portfolioId = Number(holding.portfolio_id);
-          const list = map.get(portfolioId) ?? [];
-          list.push({
-            quantity: Number(holding.quantity ?? 0),
-            stock: {
-              current_price: stockPricesById.get(Number(holding.stock_id)) ?? 0,
-            },
-          });
-          map.set(portfolioId, list);
-          return map;
-        },
-        new Map<
-          number,
-          Array<{
-            quantity?: number | null;
-            stock?: { current_price?: number | null };
-          }>
-        >()
-      );
-    }
-
-    const leaderboard = portfolios
-      .map((portfolio) => ({
-        ...portfolio,
-        live_value: calculatePortfolioValue({
-          holdings: holdingsByPortfolio.get(portfolio.portfolio_id) ?? [],
-          reserveValue: portfolio.reserve_value,
-        }),
-      }))
-      .sort((a, b) => Number(b.live_value ?? 0) - Number(a.live_value ?? 0));
+    const leaderboard = await buildSortedLeaderboardEntries(portfolios);
 
     const result: LeagueViewResult = {
       league: leagueData as LeagueView,

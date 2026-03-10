@@ -1,23 +1,32 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+
 import { usePageTitle } from "../../../hooks/usePageTitle";
 import PageContent from "../../../layouts/components/PageContent";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { getLeagueById } from "@/lib/leagues";
+import {
+  getLeagueById,
+  getUserRankInLeague,
+  getUserRankInSoloLeaderboard,
+  withLiveValues,
+} from "@/lib/leagues";
+import { getPortfoliosByUser } from "@/lib/portfolios";
+import HomePageCard from "@/components/ui/homepagecard";
 
 type PortfolioCard = {
   portfolio_id: number;
   is_solo: boolean;
   league_id?: number | null;
+  net_value?: number | null;
   previous_close_value?: number | null;
   reserve_value?: number | null;
   name: string;
+  rank?: number | null;
 };
 
 function Home() {
   usePageTitle("Home");
-  const navigate = useNavigate();
+  
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [portfolios, setPortfolios] = useState<PortfolioCard[]>([]);
@@ -32,13 +41,10 @@ function Home() {
 
       setLoading(true);
       try {
-        const { data, error } = await supabase
-          .from("Portfolios")
-          .select("portfolio_id,is_solo,league_id,previous_close_value,reserve_value")
-          .eq("user_id", user.id);
-
-        if (error) throw error;
+        const data = await getPortfoliosByUser(user.id as unknown as number);
         const rows = (data ?? []) as any[];
+
+
 
         // Ensure a Solo portfolio exists
         const hasSolo = rows.some((r) => r.is_solo === true);
@@ -52,24 +58,70 @@ function Home() {
           if (!insErr && inserted) working.unshift(inserted);
         }
 
-        // Enrich with display names
-        const cards: PortfolioCard[] = [];
-        for (const r of working) {
-          let name = "Solo";
-          if (!r.is_solo && r.league_id) {
-            const league = await getLeagueById(Number(r.league_id));
-            name = league?.name ?? "League";
-          }
-          cards.push({
+        // Enrich with display names and ranks (batched in parallel)
+        const leagueIds = Array.from(
+          new Set(
+            working
+              .filter((r) => !r.is_solo && r.league_id)
+              .map((r) => Number(r.league_id))
+              .filter((leagueId) => Number.isFinite(leagueId))
+          )
+        );
+
+        const [soloRank, leagueDetails, portfoliosWithNet] = await Promise.all([
+          working.some((r) => r.is_solo)
+            ? getUserRankInSoloLeaderboard(user.id)
+            : Promise.resolve(null),
+          Promise.all(
+            leagueIds.map(async (leagueId) => {
+              const [league, rank] = await Promise.all([
+                getLeagueById(leagueId),
+                getUserRankInLeague(leagueId, user.id),
+              ]);
+              return [
+                leagueId,
+                {
+                  name: league?.name ?? "League",
+                  rank,
+                },
+              ] as const;
+            })
+          ),
+          withLiveValues(
+            working.map((r) => ({
+              portfolio_id: Number(r.portfolio_id),
+              reserve_value: r.reserve_value ?? 0,
+            }))
+          ),
+        ]);
+
+        const leagueInfoById = new Map(leagueDetails);
+        const netValueByPortfolioId = new Map(
+          portfoliosWithNet.map((portfolio) => [
+            Number(portfolio.portfolio_id),
+            Number(portfolio.live_value ?? 0),
+          ])
+        );
+
+        const cards: PortfolioCard[] = working.map((r) => {
+          const isSolo = Boolean(r.is_solo);
+          const leagueId = r.league_id != null ? Number(r.league_id) : null;
+          const leagueInfo = leagueId != null ? leagueInfoById.get(leagueId) : null;
+
+          return {
             portfolio_id: Number(r.portfolio_id),
-            is_solo: Boolean(r.is_solo),
-            league_id: r.league_id ?? null,
+            is_solo: isSolo,
+            league_id: leagueId,
+            net_value:
+              netValueByPortfolioId.get(Number(r.portfolio_id)) ??
+              Number(r.previous_close_value ?? 0),
             previous_close_value: r.previous_close_value ?? 0,
             reserve_value: r.reserve_value ?? 0,
-            
-            name,
-          });
-        }
+            name: isSolo ? "Solo" : leagueInfo?.name ?? "League",
+            rank: isSolo ? soloRank : leagueInfo?.rank ?? null,
+          };
+        });
+
         setPortfolios(cards);
       } catch (err) {
         console.error("Failed to load portfolios:", err);
@@ -83,30 +135,41 @@ function Home() {
 
   return (
     <PageContent>
-      <h2 className="text-xl font-semibold mb-4">My Portfolios</h2>
+      <h2 className="text-xl font-semibold mb-4">Portfolios</h2>
       {loading ? (
         <p className="text-gray-600">Loading...</p>
       ) : portfolios.length === 0 ? (
         <p className="text-gray-600">No portfolios yet.</p>
       ) : (
-        <div className="flex flex-col gap-3">
-          {portfolios.map((p) => (
-            <button
-              key={p.portfolio_id}
-              type="button"
-              onClick={() => {
-                if (p.is_solo) navigate("/solo");
-                else navigate(`/league/${p.league_id}`);
-              }}
-              className="w-full text-left rounded-lg border shadow-sm px-4 py-3 bg-white hover:bg-gray-50 cursor-pointer"
-            >
-              <div className="flex items-center justify-between">
-                <div className="font-medium">{p.is_solo ? "Solo" : p.name}</div>
-                <div className="text-sm text-gray-700">${Number(p.previous_close_value ?? 0).toFixed(2)}</div>
-              </div>
-            </button>
-          ))}
-        </div>
+        (() => {
+          const soloPortfolio = portfolios.find((portfolio) => portfolio.is_solo);
+          const leaguePortfolios = portfolios.filter((portfolio) => !portfolio.is_solo);
+
+          return (
+            <div className="flex flex-col gap-4">
+              {soloPortfolio ? (
+                <div className="w-[100%]">
+                  <HomePageCard key={soloPortfolio.portfolio_id} {...soloPortfolio} />
+                </div>
+              ) : null}
+
+              {leaguePortfolios.length > 0 ? (
+                <>
+                  <div className="w-[100%]">
+                    <div className="h-px w-full bg-gray-300" />
+                  </div>
+                  <div className="w-[100%]">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {leaguePortfolios.map((portfolio) => (
+                        <HomePageCard key={portfolio.portfolio_id} {...portfolio} />
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          );
+        })()
       )}
     </PageContent>
   );

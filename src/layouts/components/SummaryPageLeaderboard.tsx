@@ -116,8 +116,8 @@ export default function SummaryPageLeaderboard({
 										<TableCell
 											className={`px-4 ${isFallbackValue ? "text-gray-500" : ""}`}
 										>
-											<div className="flex items-center gap-6">
-												<span>
+											<div className="flex items-center justify-between gap-6 w-full">
+												<span className="tabular-nums">
 													$
 													{portfolioValue.toLocaleString(undefined, {
 														minimumFractionDigits: 2,
@@ -127,6 +127,7 @@ export default function SummaryPageLeaderboard({
 												<Ticker
 													currentValue={portfolioValue}
 													previousValue={entry.previous_close_value}
+													className="w-[96px] justify-end tabular-nums"
 												/>
 											</div>
 										</TableCell>
