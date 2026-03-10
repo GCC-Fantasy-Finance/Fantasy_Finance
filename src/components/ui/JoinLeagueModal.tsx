@@ -96,13 +96,23 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
       }
       if (portfolioError) throw portfolioError;
 
-      const { error: supaError } = await supabase
+      const { data: portfolioData, error: supaError } = await supabase
         .from("Portfolios")
         .insert([portfolioPayload])
         .select()
         .single();
 
       if (supaError) throw supaError;
+
+      const { error: historyError } = await supabase
+        .from("Portfolio Histories")
+        .insert([
+          {
+            portfolio_id: portfolioData?.portfolio_id,
+            value: 10000,
+          },
+        ]);
+      if (historyError) throw historyError;
 
       window.location.reload();
 
