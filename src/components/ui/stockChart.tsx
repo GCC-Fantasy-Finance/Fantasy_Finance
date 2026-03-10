@@ -229,7 +229,7 @@ export default function StockChart({ id, timeFrame }: { id: number, timeFrame: s
         />
 
         <Area
-          type="monotone"
+          type="linear"
           dataKey="close"
           stroke={data[data.length - 1]?.close >= data[0]?.close ? "#0da70d" : "#ff4d4f"}
           fill="url(#lineGradient)"
