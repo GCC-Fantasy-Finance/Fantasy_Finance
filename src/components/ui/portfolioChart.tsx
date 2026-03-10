@@ -2,6 +2,9 @@
 import { useEffect, useState } from "react";
 
 import { getPortfolioHistory } from "@/lib/portfolioHistory";
+import { calculatePortfolioValue } from "@/lib/portfolioValue";
+import { fetchPortfolioHoldingsWithStocks } from "@/hooks/fetchPortfolio";
+import { supabase } from "@/lib/supabase";
 import {
   AreaChart,
   XAxis,
@@ -24,6 +27,7 @@ export default function PortfolioChart({
   timeFrame: string;
 }) {
   const [data, setData] = useState<Point[]>([]);
+
   useEffect(() => {
     // runs once when the component mounts (i.e. modal opens)
     const fetchHistory = async () => {
@@ -42,6 +46,40 @@ export default function PortfolioChart({
             close: Number(d.value.toFixed(2)),
           };
         });
+
+      // Fetch current portfolio value and add as live point
+      try {
+        const { data: portfolio } = await supabase
+          .from("Portfolios")
+          .select("portfolio_id, reserve_value")
+          .eq("portfolio_id", id)
+          .single();
+
+        if (portfolio) {
+          const { holdings } = await fetchPortfolioHoldingsWithStocks(
+            portfolio.portfolio_id
+          );
+
+          const currentValue = calculatePortfolioValue({
+            holdings: holdings as any,
+            reserveValue: portfolio.reserve_value,
+          });
+
+          // Add current date data point
+          const today = new Date();
+          const month = today.toLocaleString("en-US", { month: "short" });
+          const day = today.getDate();
+          const year = today.getFullYear();
+
+          formatted.push({
+            date: `${month} ${day}, ${year}`,
+            close: Number(currentValue.toFixed(2)),
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching current portfolio value:", error);
+      }
+
       setData(formatted);
     };
     try {

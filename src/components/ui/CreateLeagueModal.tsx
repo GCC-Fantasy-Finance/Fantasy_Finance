@@ -180,7 +180,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
 
       if (error) throw error;
 
-      const { error: portfolioError } = await supabase
+      const { data: portfolioData,error: portfolioError } = await supabase
         .from("Portfolios")
         .insert([
           {
@@ -191,7 +191,9 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
             is_solo: false,
             last_recalculated: new Date().toISOString(),
           },
-        ]);
+        ])
+        .select()
+        .single();
       if (portfolioError) throw portfolioError;
 
       const { error: draftError } = await supabase.from("Drafts").insert([
@@ -209,6 +211,14 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
         },
       ]);
       if (draftError) throw draftError;
+
+      const {error: historyError} = await supabase.from("Portfolio Histories").insert([
+        {
+          portfolio_id: portfolioData?.portfolio_id,
+          value: 10000, // portfolio_id and league_id are the same for solo portfolios
+        },
+      ]);
+      if (historyError) throw historyError;
 
       toast.success("League created");
       window.dispatchEvent(
