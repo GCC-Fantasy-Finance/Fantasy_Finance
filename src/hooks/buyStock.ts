@@ -91,13 +91,13 @@ export async function buyStock(params: {
     return { success: false, message: "Unable to determine portfolio id" };
   }
 
-  const cost = p * q;
+  const cost = Math.round((p * q) * 100) / 100; // Round to 2 decimals
   if (reserve < cost) {
     return { success: false, message: "Insufficient reserve value" };
   }
 
   // 2) deduct reserve_value (keep previous_close_value the same per requirement)
-  const newReserve = reserve - cost;
+  const newReserve = Math.round((reserve - cost) * 100) / 100; // Round to 2 decimals
   const { error: updateErr } = await supabase
     .from("Portfolios")
     .update({ reserve_value: newReserve })
