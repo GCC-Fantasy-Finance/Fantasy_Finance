@@ -27,6 +27,10 @@ export default function LeagueInviteModal({
     name?: string;
     owner_id?: string;
     start_time?: string;
+    finish_time?: string;
+    has_trading?: boolean;
+    has_drafting?: boolean;
+    sectors?: string;
   } | null>(null);
   const [leagueLoading, setLeagueLoading] = useState(true);
   const [declineLoading, setDeclineLoading] = useState(false);
@@ -64,7 +68,7 @@ export default function LeagueInviteModal({
         setLeagueLoading(true);
         const { data, error } = await supabase
           .from("Leagues")
-          .select("name, owner_id, start_time")
+          .select("name, owner_id, start_time, finish_time, has_trading, has_drafting, sectors")
           .eq("league_id", leagueId)
           .single();
 
@@ -232,17 +236,35 @@ export default function LeagueInviteModal({
               Loading league details...
             </div>
           ) : leagueDetails ? (
-            <div className="bg-gray-50 rounded p-3 mb-6">
-              <div className="space-y-2 text-sm">
-                <div>
-                  <span className="text-gray-600">League:</span>
-                  <span className="ml-2 font-medium">{leagueDetails.name}</span>
+            <div className="bg-gray-50 rounded p-4 mb-6 space-y-3">
+              <div>
+                <span className="text-gray-600 font-medium">League:</span>
+                <span className="ml-2 font-semibold text-gray-900">{leagueDetails.name}</span>
+              </div>
+
+              {/* Sector Restrictions */}
+              {leagueDetails.sectors && (
+                <div className="text-xs">
+                  <span className="text-gray-600">Allowed sectors:</span>
+                  <span className="ml-2 text-gray-700">{leagueDetails.sectors}</span>
                 </div>
+              )}
+
+              {/* Timeline */}
+              <div className="text-xs space-y-1 pt-2 border-t border-gray-200">
                 {leagueDetails.start_time && (
                   <div>
                     <span className="text-gray-600">Starts:</span>
-                    <span className="ml-2 font-medium">
+                    <span className="ml-2 text-gray-700">
                       {new Date(leagueDetails.start_time).toLocaleDateString()}
+                    </span>
+                  </div>
+                )}
+                {leagueDetails.finish_time && (
+                  <div>
+                    <span className="text-gray-600">Ends:</span>
+                    <span className="ml-2 text-gray-700">
+                      {new Date(leagueDetails.finish_time).toLocaleDateString()}
                     </span>
                   </div>
                 )}

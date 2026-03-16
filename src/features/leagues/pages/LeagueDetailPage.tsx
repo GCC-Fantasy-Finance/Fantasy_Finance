@@ -5,6 +5,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "../../../components/ui/button";
+import SearchIcon from "../../../components/ui/search-icon";
 import { type DraftRow } from "@/lib/drafts";
 import Leaderboard from "@/layouts/components/Leaderboard";
 import LeagueMemberPortfolioModal from "@/components/ui/LeagueMemberPortfolioModal";
@@ -191,7 +192,8 @@ export default function LeagueDetailPage() {
     <PageContent>
       <div className="max-w-3xl">
         {(!draft || !draft.is_started) && profile?.id === league?.owner_id && (
-          <Button onClick={() => setShowInviteModal(true)} className="mb-6">
+          <Button onClick={() => setShowInviteModal(true)} className="mb-6 flex items-center gap-2">
+            <SearchIcon className="w-4 h-4" />
             Invite Members
           </Button>
         )}

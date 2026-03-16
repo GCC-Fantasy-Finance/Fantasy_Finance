@@ -7,7 +7,7 @@ import {
   markAllNotificationsAsViewed,
   type Notification,
 } from "@/lib/notifications";
-import { X, Bell, CheckCheck } from "lucide-react";
+import { X, Bell, CheckCheck, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "./button";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "./tooltip";
@@ -167,6 +167,28 @@ export default function NotificationsPanel() {
     }
   };
 
+  const handleHideNotification = async (e: React.MouseEvent, notificationId: number) => {
+    e.stopPropagation();
+    try {
+      const { error } = await supabase
+        .from("Notifications")
+        .update({ is_hidden: true })
+        .eq("notification_id", notificationId);
+
+      if (!error) {
+        setNotifications((prev) =>
+          prev.filter((n) => n.notification_id !== notificationId)
+        );
+        const hiddenNotification = notifications.find(n => n.notification_id === notificationId);
+        if (hiddenNotification && !hiddenNotification.was_viewed) {
+          setUnreadCount((prev) => Math.max(0, prev - 1));
+        }
+      }
+    } catch (err) {
+      console.error("Error hiding notification:", err);
+    }
+  };
+
   const handleMarkAllAsViewed = async () => {
     if (!user) return;
     await markAllNotificationsAsViewed(user.id);
@@ -177,8 +199,8 @@ export default function NotificationsPanel() {
   const renderHeader = () => (
     <div className="flex items-center justify-between h-14 px-4 border-b border-gray-200 shrink-0">
       <div className="flex items-center gap-2">
-        <Bell className="w-4 h-4 text-green-600" />
-        <h2 className="text-sm font-semibold text-green-600">Notifications</h2>
+        <Bell className="w-4 h-4 text-green-700" />
+        <h2 className="text-md font-medium text-green-700">Notifications</h2>
       </div>
       <div className="flex items-center gap-2">
         <TooltipProvider>
@@ -252,6 +274,14 @@ export default function NotificationsPanel() {
                   )}
                 </p>
               </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="text-gray-700 hover:text-red-700 hover:bg-red-500/10 shrink-0"
+                onClick={(e) => handleHideNotification(e, notification.notification_id)}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
             </div>
           ))}
         </div>
