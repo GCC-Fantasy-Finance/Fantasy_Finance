@@ -147,6 +147,7 @@ export default function NotificationsPanel() {
         leagueId: notification.league_id,
         message: notification.message,
       });
+      setNotificationsState("closed");
       return;
     }
 
