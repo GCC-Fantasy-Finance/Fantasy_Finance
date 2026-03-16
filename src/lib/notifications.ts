@@ -8,6 +8,7 @@ export interface Notification {
   league_id: number | null;
   message: string;
   user_id: string;
+  is_hidden: boolean;
 }
 
 /**
@@ -18,6 +19,8 @@ export async function getUserNotifications(userId: string) {
     .from("Notifications")
     .select("*")
     .eq("user_id", userId)
+    .eq("is_hidden", false)
+    .neq("status", "cancelled")
     .order("created_at", { ascending: false });
 
   if (error) {

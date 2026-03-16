@@ -11,6 +11,8 @@ import { X, Bell, CheckCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "./button";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "./tooltip";
+import LeagueInviteModal from "./LeagueInviteModal";
+import { supabase } from "@/lib/supabase";
 
 export default function NotificationsPanel() {
   const { user } = useAuth();
@@ -21,6 +23,12 @@ export default function NotificationsPanel() {
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [panelWidth, setPanelWidth] = useState<number | null>(null);
   const [isResizing, setIsResizing] = useState(false);
+  const [leagueInviteModal, setLeagueInviteModal] = useState<{
+    open: boolean;
+    notificationId: number;
+    leagueId: number;
+    message: string;
+  }>({ open: false, notificationId: 0, leagueId: 0, message: "" });
   const panelRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -55,6 +63,32 @@ export default function NotificationsPanel() {
       void fetchNotifications();
     }
   }, [notificationsState, fetchNotifications]);
+
+  // Subscribe to real-time notification changes
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`notifications:${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "Notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          // Refetch notifications when any change occurs
+          void fetchNotifications();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchNotifications]);
 
   const startResizing = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -104,21 +138,33 @@ export default function NotificationsPanel() {
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
     }
+
+    // Handle League Invite separately - show modal instead of closing
+    if (notification.category === "League Invite" && notification.league_id) {
+      setLeagueInviteModal({
+        open: true,
+        notificationId: notification.notification_id,
+        leagueId: notification.league_id,
+        message: notification.message,
+      });
+      return;
+    }
+
     setNotificationsState("closed");
+
     if (notification.category === "League Completed" && notification.league_id) {
       navigate(`/league/${notification.league_id}/results`);
     } else if (notification.category === "Dividend") {
       if (notification.league_id) {
-        // TODO: where to send user (league could be completed)? open stock details? 
-        // navigate(`/league/${notification.league_id}/results`);
+        // send user to league page
+        navigate(`/league/${notification.league_id}`);
       } else {
-        // TODO: where to send user? open stock details?
+        // send user to solo
         navigate(`/solo`);
       }
     } else if (notification.category === "Badge") {
       navigate(`/profile/badges`);
     }
-    
   };
 
   const handleMarkAllAsViewed = async () => {
@@ -236,28 +282,54 @@ export default function NotificationsPanel() {
           {renderHeader()}
           {renderContent()}
         </div>
+        <LeagueInviteModal
+          open={leagueInviteModal.open}
+          notificationId={leagueInviteModal.notificationId}
+          leagueId={leagueInviteModal.leagueId}
+          message={leagueInviteModal.message}
+          onClose={() =>
+            setLeagueInviteModal({ ...leagueInviteModal, open: false })
+          }
+          onResponse={() => {
+            void fetchNotifications();
+          }}
+        />
       </div>
     );
   }
 
   return (
-    <div
-      ref={panelRef}
-      className={`relative h-full bg-white border-l border-gray-200 flex flex-col ${
-        panelWidth ? "" : "w-64 lg:w-[400px] xl:w-[400px]"
-      } min-w-64 lg:min-w-80 xl:min-w-[400px] max-w-[90vw] md:max-w-[400px] xl:max-w-[600px]`}
-      style={panelWidth ? { width: panelWidth } : undefined}
-    >
-      {/* Resize Handle */}
+    <div>
       <div
-        className="absolute -left-px top-0 bottom-0 w-4 cursor-col-resize -translate-x-1/2 flex justify-center group"
-        onMouseDown={startResizing}
+        ref={panelRef}
+        className={`relative h-full bg-white border-l border-gray-200 flex flex-col ${
+          panelWidth ? "" : "w-64 lg:w-[400px] xl:w-[400px]"
+        } min-w-64 lg:min-w-80 xl:min-w-[400px] max-w-[90vw] md:max-w-[400px] xl:max-w-[600px]`}
+        style={panelWidth ? { width: panelWidth } : undefined}
       >
-        <div className="w-px h-full bg-transparent group-hover:bg-gray-400 transition-colors" />
-      </div>
+        {/* Resize Handle */}
+        <div
+          className="absolute -left-px top-0 bottom-0 w-4 cursor-col-resize -translate-x-1/2 flex justify-center group"
+          onMouseDown={startResizing}
+        >
+          <div className="w-px h-full bg-transparent group-hover:bg-gray-400 transition-colors" />
+        </div>
 
-      {renderHeader()}
-      {renderContent()}
+        {renderHeader()}
+        {renderContent()}
+      </div>
+      <LeagueInviteModal
+        open={leagueInviteModal.open}
+        notificationId={leagueInviteModal.notificationId}
+        leagueId={leagueInviteModal.leagueId}
+        message={leagueInviteModal.message}
+        onClose={() =>
+          setLeagueInviteModal({ ...leagueInviteModal, open: false })
+        }
+        onResponse={() => {
+          void fetchNotifications();
+        }}
+      />
     </div>
   );
 }
