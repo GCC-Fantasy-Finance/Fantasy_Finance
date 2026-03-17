@@ -31,7 +31,15 @@ export default function PortfolioHoldingCard({
 
   return (
     <div
-      className={`relative grid w-full cursor-pointer grid-cols-[20%_minmax(0,200px)_minmax(0,200px)_auto] items-center justify-items-start gap-4 border-x border-t border-gray-300 bg-white px-4 py-4 transition-all hover:bg-gray-50 max-[540px]:grid-cols-2 rounded-none ${showBottomBorder ? "border-b" : "border-b-0"} ${showTopRounded ? "rounded-t-lg" : ""} ${showBottomRounded ? "rounded-b-lg" : ""}`}
+      role="button"
+      tabIndex={0}
+      className={`grid w-full cursor-pointer grid-cols-[20%_minmax(0,200px)_minmax(0,200px)_auto] items-center justify-items-start gap-4 border-x border-t border-gray-300 bg-white px-4 py-4 transition-all hover:bg-gray-50 max-[540px]:grid-cols-2 rounded-none ${showBottomBorder ? "border-b" : "border-b-0"} ${showTopRounded ? "rounded-t-lg" : ""} ${showBottomRounded ? "rounded-b-lg" : ""}`}
+      onClick={() => onOpenStockDetails(holding.stock?.stock_id)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          onOpenStockDetails(holding.stock?.stock_id);
+        }
+      }}
     >
       <button
         type="button"
