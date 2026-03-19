@@ -156,7 +156,7 @@ export default function Sidebar() {
             alt="Fantasy Finance Logo"
             className="w-9 h-9 mr-2"
           />
-          <h1 className="text-sm font-bold leading-none text-green-700">
+          <h1 className="text-sm font-bold leading-none text-green-800">
             FANTASY
             <br />
             FINANCE
@@ -164,7 +164,7 @@ export default function Sidebar() {
         </div>
 
         {/* Navigation Links */}
-        <nav className="flex-1 flex flex-col min-h-0">
+        <nav className="flex-1 flex flex-col min-h-0" aria-label="Sidebar navigation">
           <ul className="">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -194,7 +194,7 @@ export default function Sidebar() {
             <div className="border-t-2 border-gray-300" />
           </div>
 
-          <h3 className="px-4 text-xs font-semibold text-gray-500">LEAGUES</h3>
+          <h2 className="px-4 text-xs font-semibold text-gray-500">LEAGUES</h2>
 
           <div className="flex gap-2 px-4 mt-2">
             <Button

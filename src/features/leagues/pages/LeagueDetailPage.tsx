@@ -5,9 +5,11 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "../../../components/ui/button";
+import SearchIcon from "../../../components/ui/search-icon";
 import { type DraftRow } from "@/lib/drafts";
 import Leaderboard from "@/layouts/components/Leaderboard";
 import LeagueMemberPortfolioModal from "@/components/ui/LeagueMemberPortfolioModal";
+import InviteMembersModal from "@/components/ui/InviteMembersModal";
 import { calculatePortfolioValue } from "@/lib/portfolioValue";
 import {
   fetchLeagueView,
@@ -55,6 +57,7 @@ export default function LeagueDetailPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   usePageTitle(league ? `${league.name}` : "League");
 
@@ -105,7 +108,61 @@ export default function LeagueDetailPage() {
     };
   }, [leagueId]);
 
-  
+  // Subscribe to real-time portfolio changes (members joining/leaving)
+  useEffect(() => {
+    if (!leagueId) return;
+
+    let isMounted = true;
+    const numericLeagueId = Number(leagueId);
+
+    const refetchLeaderboard = async () => {
+      try {
+        const result = await fetchLeagueView(numericLeagueId, {
+          useCache: false,
+          forceRefresh: true,
+        });
+        if (!isMounted) return;
+        setLeaderboard(result.leaderboard as PortfolioWithUser[]);
+      } catch (err) {
+        console.error("Error refreshing leaderboard:", err);
+      }
+    };
+
+    const channel = supabase
+      .channel(`league-portfolios-${numericLeagueId}`, {
+        config: { broadcast: { self: true } },
+      })
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "Portfolios",
+        },
+        (payload: any) => {
+          if (!isMounted) return;
+          
+          const payloadLeagueId = payload.new?.league_id || payload.old?.league_id;
+          
+          // For DELETE events, payload.old only contains the primary key
+          // So we can't determine the league. Refetch anyway since deletions are rare.
+          if (payload.eventType === "DELETE" || payloadLeagueId === numericLeagueId) {
+            console.log(`Portfolio ${payload.eventType} detected, refetching leaderboard...`);
+            refetchLeaderboard();
+          }
+        }
+      )
+      .subscribe((status: string) => {
+        if (status === "SUBSCRIBED") {
+          console.log("Leaderboard subscribed to live portfolio updates");
+        }
+      });
+
+    return () => {
+      isMounted = false;
+      channel.unsubscribe();
+    };
+  }, [leagueId]);
 
   if (loading) {
     return (
@@ -134,6 +191,23 @@ export default function LeagueDetailPage() {
   return (
     <PageContent>
       <div className="max-w-3xl">
+        {(!draft || !draft.is_started) && profile?.id === league?.owner_id && (
+          <Button onClick={() => setShowInviteModal(true)} className="mb-6 flex items-center gap-2">
+            <SearchIcon className="w-4 h-4" />
+            Invite Members
+          </Button>
+        )}
+
+        <InviteMembersModal
+          open={showInviteModal}
+          leagueId={leagueId}
+          leagueName={league?.name || ""}
+          ownerName={owner?.username || ""}
+          ownerId={league?.owner_id}
+          leaderboard={leaderboard}
+          onClose={() => setShowInviteModal(false)}
+        />
+
         {draft && (
           <Button onClick={() => navigate(`/draft/${leagueId}`)}>
             {!draft.is_ended ? "Enter Draft Room" : "View Draft Results"}

@@ -1,11 +1,12 @@
 import { Outlet } from "react-router-dom";
 import { useChatbot } from "../context/ChatbotContext";
 import Chatbot from "../components/ui/Chatbot";
+import NotificationsPanel from "../components/ui/NotificationsPanel";
 import BuyStockModal from "@/components/ui/BuyStockModal";
 import SellStockModal from "@/components/ui/SellStockModal";
 
 export default function AppLayout() {
-  const { isPinned, setIsPinned, isDisabled } = useChatbot();
+  const { isPinned: isChatbotPinned, setIsPinned, isDisabled } = useChatbot();
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -14,10 +15,13 @@ export default function AppLayout() {
         <Outlet />
       </div>
 
+      {/* Notifications Panel */}
+      <NotificationsPanel />
+
       {/* Right-side Chatbot panel */}
       <Chatbot
         disabled={isDisabled}
-        isPinned={isPinned}
+        isPinned={isChatbotPinned}
         onPinnedChange={setIsPinned}
       />
 

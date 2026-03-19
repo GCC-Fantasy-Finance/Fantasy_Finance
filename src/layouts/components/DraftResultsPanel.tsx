@@ -94,7 +94,7 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="w-full overflow-x-auto pt-3">
+      <section className="w-full overflow-x-auto pt-3" aria-label="Draft picks overview">
         <div className="mx-auto flex w-max min-w-full justify-center gap-1 px-3 items-start">
           {users.map((user, userIdx) => {
             const isMe = user.portfolio_id === myPortfolio?.portfolio_id;
@@ -213,7 +213,7 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
                             if (stockId) onStockClick(stockId);
                           }}
                         >
-                          <span className="absolute top-0 right-1 text-[0.6rem] font-medium opacity-70 pointer-events-none">
+                          <span className="absolute top-0 right-1 text-[0.6rem] font-medium text-gray-600 pointer-events-none">
                             {roundNumber}.{pickInRound}
                           </span>
                           {text}
@@ -226,7 +226,7 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
             );
           })}
         </div>
-      </div>
+      </section>
     </TooltipProvider>
   );
 };

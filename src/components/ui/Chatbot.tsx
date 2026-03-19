@@ -44,6 +44,7 @@ import {
   type ChatMessage,
 } from "@/lib/chat";
 import SearchIcon from "@/components/ui/search-icon";
+import { useNotifications } from "@/context/NotificationsContext";
 
 interface ChatbotProps {
   disabled?: boolean;
@@ -147,6 +148,7 @@ export default function Chatbot({
   const sidebarRef = useRef<HTMLDivElement>(null);
   const prevStreamingRef = useRef(false);
   const { user } = useAuth();
+  const { notificationsState, setNotificationsState } = useNotifications();
 
   const escapeRegExp = useCallback((value: string) => {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -1151,6 +1153,11 @@ export default function Chatbot({
       return;
     }
 
+    // Close notifications panel if open
+    if (notificationsState !== "closed") {
+      setNotificationsState("closed");
+    }
+
     // Capture current scroll position in floating expanded window as a ratio
     const el = floatingMessagesRef.current;
     if (el) {
@@ -1949,6 +1956,8 @@ export default function Chatbot({
           </div>
 
           <button
+            type="button"
+            aria-label="Open AI assistant"
             onClick={handleToggle}
             className={`fixed bottom-6 right-6 z-90 h-14 w-14 cursor-pointer rounded-full shadow-lg flex items-center justify-center transition-all duration-200 bg-green-700 hover:bg-green-800 ${
               state === "closed"
@@ -1957,6 +1966,7 @@ export default function Chatbot({
             }`}
           >
             <Stars className="h-6 w-6 text-white" />
+            <span className="sr-only">Open AI assistant</span>
           </button>
         </div>
       ) : (
@@ -1991,6 +2001,8 @@ export default function Chatbot({
 
           {/* Floating Button */}
           <button
+            type="button"
+            aria-label={state === "closed" ? "Open AI assistant" : "Close AI assistant"}
             onClick={handleToggle}
             className="h-14 w-14 cursor-pointer rounded-full shadow-lg flex items-center justify-center transition-all duration-200 bg-green-700 hover:bg-green-800"
           >
@@ -1999,6 +2011,9 @@ export default function Chatbot({
             ) : (
               <X className="h-6 w-6 text-white" />
             )}
+            <span className="sr-only">
+              {state === "closed" ? "Open AI assistant" : "Close AI assistant"}
+            </span>
           </button>
         </div>
       )}

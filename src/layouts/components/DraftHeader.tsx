@@ -9,8 +9,9 @@ import {
   type LeagueRow,
 } from "../../lib/leagues";
 import { useChatbot } from "@/context/ChatbotContext";
+import { useNotifications } from "@/context/NotificationsContext";
 import { supabase } from "@/lib/supabase";
-import { LogOut, Sparkles } from "lucide-react";
+import { LogOut, Sparkles, Bell } from "lucide-react";
 import { getStockById, type StockRow } from "@/lib/stocks";
 import LightningBoltIcon from "@/components/ui/lightning-bolt-icon";
 import {
@@ -44,6 +45,9 @@ const DraftHeader = () => {
     setIsPinned,
     setResumeRequested,
   } = useChatbot();
+
+  const { notificationsState, setNotificationsState, unreadCount } =
+    useNotifications();
 
   const [conversationTitle, setConversationTitle] = useState<string | null>(
     null,
@@ -148,6 +152,20 @@ const DraftHeader = () => {
 
     loadNextAuto();
   }, [queuedItems, myPortfolio, leagueId, draftedStockIds]);
+
+  const handleNotificationsToggle = () => {
+    setChatbotState("closed");
+    setIsPinned(false);
+    setNotificationsState(notificationsState === "closed" ? "open" : "closed");
+  };
+
+  const handleChatbotOpen = () => {
+    const isMobileScreen = window.matchMedia("(max-width: 1023px)").matches;
+    setNotificationsState("closed");
+    setResumeRequested(Boolean(lastConversationId));
+    setChatbotState("floating");
+    setIsPinned(!isMobileScreen);
+  };
 
   const showCountdownButton =
     draftLoaded &&
@@ -312,9 +330,9 @@ const DraftHeader = () => {
   );
 
   return (
-    <div className="w-full bg-white border-b border-gray-300">
+    <header className="w-full bg-white border-b border-gray-300" aria-label="Draft controls and navigation">
       <div className="flex w-full h-14">
-        <header className="h-14 bg-white flex items-center flex-1 min-w-0">
+        <nav className="h-14 bg-white flex items-center flex-1 min-w-0">
           <button
             onClick={() => navigate(`/league/${leagueId}`)}
             className="shrink-0 flex gap-1 px-5 items-center cursor-pointer hover:bg-gray-100 h-full border-r border-gray-300 hover:text-green-800"
@@ -330,8 +348,26 @@ const DraftHeader = () => {
           <div className="hidden min-[901px]:flex items-center gap-3 pr-4 shrink-0 justify-center">
             {renderDraftControls()}
           </div>
-        </header>
+        </nav>
 
+        {/* Notifications Button */}
+        {notificationsState === "closed" && (
+          <button
+            type="button"
+            aria-label="Open notifications"
+            onClick={handleNotificationsToggle}
+            className="flex h-14 w-14 shrink-0 items-center justify-center border-l border-gray-300 bg-white hover:bg-gray-100 cursor-pointer relative"
+          >
+            <Bell className="w-6 h-6 text-green-700" />
+            {unreadCount > 0 && (
+              <span className="absolute top-2 right-2 h-5 w-5 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </button>
+        )}
+
+        {/* Chatbot Button */}
         {chatbotState === "closed" && (
           <div
             onClick={() => {
@@ -341,7 +377,11 @@ const DraftHeader = () => {
               setResumeRequested(Boolean(lastConversationId));
               setChatbotState("floating");
               setIsPinned(shouldPinChat);
+              handleChatbotOpen();
             }}
+            role="button"
+            tabIndex={0}
+            aria-label={lastConversationId ? "Resume chat" : "Start new chat"}
             className="flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-0.5 border-l border-gray-300 bg-white text-sm hover:bg-gray-100 cursor-pointer lg:w-48 lg:items-start lg:px-4"
           >
             <div className="flex gap-1 items-center">
@@ -364,7 +404,7 @@ const DraftHeader = () => {
           {renderDraftControls()}
         </div>
       )}
-    </div>
+    </header>
   );
 };
 
