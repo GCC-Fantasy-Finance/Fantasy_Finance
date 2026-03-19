@@ -11,6 +11,7 @@ import Leaderboard from "@/layouts/components/Leaderboard";
 import LeagueMemberPortfolioModal from "@/components/ui/LeagueMemberPortfolioModal";
 import InviteMembersModal from "@/components/ui/InviteMembersModal";
 import KickMember from "@/components/ui/kickMember";
+import ShieldLoadingIcon from "@/components/ui/ShieldLoadingIcon";
 import { calculatePortfolioValue } from "@/lib/portfolioValue";
 import {
   fetchLeagueView,
@@ -207,6 +208,10 @@ export default function LeagueDetailPage() {
 
   return (
     <PageContent>
+      <div className="flex flex-col items-center justify-center gap-4 py-12 mb-8">
+        <ShieldLoadingIcon />
+        <p className="text-gray-600">Loading league…</p>
+      </div>
       <div className="max-w-3xl">
         {(!draft || !draft.is_started) && profile?.id === league?.owner_id && (
           <Button onClick={() => setShowInviteModal(true)} className="mb-6 flex items-center gap-2">

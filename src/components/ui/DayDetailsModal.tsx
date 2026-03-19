@@ -4,6 +4,12 @@ import { X } from "lucide-react";
 import Ticker from "./ticker";
 import StockDetailsModal from "./stockDetailsModal";
 import { supabase } from "@/lib/supabase";
+import { 
+  calculateDayTransactionImpact, 
+  getComparisonPrices,
+  calculateDollarPnL,
+  type DayTransactionImpact 
+} from "@/lib/transactionImpact";
 
 type StockHolding = {
   stock_id: number;
@@ -16,6 +22,12 @@ type StockHolding = {
   tradedAction?: "BUY" | "SELL";
   avgTradePrice?: number;
   avgSellPrice?: number;
+  // New fields for better mid-day accounting
+  transactionImpact?: DayTransactionImpact;
+  compareFrom?: number; // Price to compare from for this day
+  compareTo?: number; // Price to compare to for this day
+  dollarPnL?: number; // Dollar gain/loss for the day
+  dollarPnLDescription?: string; // Description of the P&L
 };
 
 type SelectedPoint = {
@@ -194,9 +206,14 @@ export default function DayDetailsModal({
         });
 
         // Get stock prices for the selected date and previous date
+        // Include stocks that are currently held OR that were traded on the selected day
         const stockIds = Object.keys(holdingsMap)
           .map(Number)
-          .filter(stockId => holdingsMap[stockId].quantity > 0);
+          .filter(stockId => {
+            const currentQuantity = holdingsMap[stockId].quantity;
+            const tradedOnDay = !!transactionsOnSelectedDay[stockId];
+            return currentQuantity > 0 || tradedOnDay;
+          });
 
         if (stockIds.length === 0) {
           setHoldings([]);
@@ -265,9 +282,12 @@ export default function DayDetailsModal({
           }
         });
 
-        // Convert to array and filter out stocks with 0 quantity
+        // Convert to array and filter out stocks with 0 quantity UNLESS they were traded today
         const holdingsList: StockHolding[] = Object.entries(holdingsMap)
-          .filter(([_, holding]) => holding.quantity > 0)
+          .filter(([stockId, holding]) => {
+            const stockIdNum = Number(stockId);
+            return holding.quantity > 0 || !!transactionsOnSelectedDay[stockIdNum];
+          })
           .map(([stockId, holding]) => {
             const stockIdNum = Number(stockId);
             const tradedToday = !!transactionsOnSelectedDay[stockIdNum];
@@ -275,26 +295,65 @@ export default function DayDetailsModal({
             let tradedAction: "BUY" | "SELL" | undefined;
             let avgTradePrice: number | undefined;
             let avgSellPrice: number | undefined;
+            let transactionImpact: DayTransactionImpact | undefined;
+            let compareFrom: number | undefined;
+            let compareTo: number | undefined;
             
             if (tradedToday) {
-              const dayTransactions = transactionsOnSelectedDay[stockIdNum];
+              const dayTransactionsOnSelectedDay = transactionsOnSelectedDay[stockIdNum];
+              
+              // Convert to transaction records format for the impact calculation
+              const txRecords = dayTransactionsOnSelectedDay.map((t: any) => ({
+                stock_id: stockIdNum,
+                quantity: t.quantity,
+                transaction_type: t.type as "BUY" | "SELL",
+                created_at: "", // Not needed for this calculation
+                price_per_share: t.price || 0,
+              }));
+              
+              // Calculate transaction impact using the new utility
+              const endOfDayPrice = selectedPriceMap[stockIdNum] || 0;
+              transactionImpact = calculateDayTransactionImpact(stockIdNum, txRecords, endOfDayPrice);
+              
+              // Get comparison prices
+              const previousPrice = previousPriceMap[stockIdNum] || endOfDayPrice || 0;
+              const comparisonPrices = getComparisonPrices(transactionImpact, previousPrice, endOfDayPrice);
+              compareFrom = comparisonPrices.compare_from;
+              compareTo = comparisonPrices.compare_to;
+              
               // Determine primary action (if mixed, prioritize BUY)
-              const hasBuy = dayTransactions.some(t => t.type === "BUY");
+              const hasBuy = transactionImpact.bought_quantity > 0;
               tradedAction = hasBuy ? "BUY" : "SELL";
               
-              // If bought today, use the average buy price as comparison point
+              // Set average prices
               if (tradedAction === "BUY") {
-                const buyTransactions = dayTransactions.filter(t => t.type === "BUY");
-                const totalBuyCost = buyTransactions.reduce((sum, t) => sum + ((t.price || 0) * (t.quantity || 0)), 0);
-                const totalBuyQuantity = buyTransactions.reduce((sum, t) => sum + (t.quantity || 0), 0);
-                avgTradePrice = totalBuyQuantity > 0 ? totalBuyCost / totalBuyQuantity : undefined;
+                avgTradePrice = transactionImpact.avg_buy_price;
               } else if (tradedAction === "SELL") {
-                // For sold today, use the average sell price
-                const sellTransactions = dayTransactions.filter(t => t.type === "SELL");
-                const totalSellCost = sellTransactions.reduce((sum, t) => sum + ((t.price || 0) * (t.quantity || 0)), 0);
-                const totalSellQuantity = sellTransactions.reduce((sum, t) => sum + (t.quantity || 0), 0);
-                avgSellPrice = totalSellQuantity > 0 ? totalSellCost / totalSellQuantity : undefined;
+                avgSellPrice = transactionImpact.avg_sell_price;
               }
+            }
+            
+            // Calculate dollar P&L for the day
+            let dollarPnL: number | undefined;
+            let dollarPnLDescription: string | undefined;
+            
+            if (transactionImpact) {
+              const endOfDayPrice = selectedPriceMap[stockIdNum] || 0;
+              const previousPrice = previousPriceMap[stockIdNum] || endOfDayPrice || 0;
+              const pnlCalc = calculateDollarPnL(
+                transactionImpact,
+                endOfDayPrice,
+                previousPrice,
+                holding.quantity
+              );
+              dollarPnL = pnlCalc.pnl_dollars;
+              dollarPnLDescription = pnlCalc.description;
+            } else {
+              // No trades: simple price change
+              const endOfDayPrice = selectedPriceMap[stockIdNum] || 0;
+              const previousPrice = previousPriceMap[stockIdNum] || endOfDayPrice || 0;
+              dollarPnL = (endOfDayPrice - previousPrice) * holding.quantity;
+              dollarPnLDescription = `Held ${holding.quantity}`;
             }
             
             return {
@@ -303,11 +362,16 @@ export default function DayDetailsModal({
               stock_name: holding.stock?.name || "Unknown Stock",
               quantity: holding.quantity,
               currentPrice: selectedPriceMap[stockIdNum] || 0,
-              previousPrice: avgTradePrice || previousPriceMap[stockIdNum] || selectedPriceMap[stockIdNum] || 0,
+              previousPrice: compareFrom ?? avgTradePrice ?? (previousPriceMap[stockIdNum] || selectedPriceMap[stockIdNum] || 0),
               tradedToday,
               tradedAction,
               avgTradePrice,
               avgSellPrice,
+              transactionImpact,
+              compareFrom,
+              compareTo,
+              dollarPnL,
+              dollarPnLDescription,
             };
           });
 
@@ -449,9 +513,6 @@ export default function DayDetailsModal({
               {holdings.length > 0 ? (
                 <div className="space-y-2">
                   {holdings.map((holding) => {
-                const totalValue = holding.quantity * holding.currentPrice;
-                const previousTotalValue = holding.quantity * holding.previousPrice;
-
                 return (
                   <div
                     key={holding.stock_id}
@@ -465,9 +526,13 @@ export default function DayDetailsModal({
                         <span className={`text-xs px-2 py-0.5 rounded font-medium ${
                           holding.tradedAction === "BUY" 
                             ? "bg-green-100 text-green-700" 
-                            : "bg-green-100 text-green-700"
+                            : "bg-red-100 text-red-700"
                         }`}>
-                          {holding.tradedAction === "BUY" ? "Bought" : "Sold"} today
+                          {holding.transactionImpact?.bought_quantity && holding.transactionImpact?.sold_quantity 
+                            ? `B${holding.transactionImpact.bought_quantity.toFixed(0)}/S${holding.transactionImpact.sold_quantity.toFixed(0)}`
+                            : holding.tradedAction === "BUY" 
+                            ? "Bought today" 
+                            : "Sold today"}
                         </span>
                       )}
                     </div>
@@ -479,32 +544,12 @@ export default function DayDetailsModal({
                         <p className="font-bold text-lg">{holding.quantity.toFixed(2)}</p>
                       </div>
                       <div>
-                        <div className="text-xs text-gray-600 mb-1">Change</div>
-                        {holding.tradedToday && holding.tradedAction === "BUY" && holding.avgTradePrice ? (
-                          <Ticker
-                            currentValue={holding.currentPrice}
-                            previousValue={holding.avgTradePrice}
-                            displayAs="percent"
-                            dollarAmount
-                            size="small"
-                          />
-                        ) : holding.tradedToday && holding.tradedAction === "SELL" && holding.avgSellPrice ? (
-                          <Ticker
-                            currentValue={holding.avgSellPrice}
-                            previousValue={holding.previousPrice}
-                            displayAs="percent"
-                            dollarAmount
-                            size="small"
-                          />
-                        ) : (
-                          <Ticker
-                            currentValue={totalValue}
-                            previousValue={previousTotalValue}
-                            displayAs="percent"
-                            dollarAmount
-                            size="small"
-                          />
-                        )}
+                        <div className="text-xs text-gray-600 mb-1">P&L</div>
+                        <div className={`font-bold text-lg ${
+                          (holding.dollarPnL ?? 0) >= 0 ? "text-green-600" : "text-red-600"
+                        }`}>
+                          {(holding.dollarPnL ?? 0) >= 0 ? "+" : ""}{(holding.dollarPnL ?? 0).toFixed(2)}
+                        </div>
                       </div>
                     </div>
                   </div>
