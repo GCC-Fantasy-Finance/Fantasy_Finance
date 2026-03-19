@@ -209,7 +209,7 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
   });
 
   return (
-    <div className="flex flex-col h-full min-h-0 @container">
+    <section className="flex flex-col h-full min-h-0 @container" aria-label="Stock search and filter">
       <div className="p-2 flex flex-col gap-2 items-stretch [@container(min-width:700px)]:flex-row [@container(min-width:700px)]:items-end">
         <div className="relative w-full [@container(min-width:700px)]:flex-1">
           <Input
@@ -408,9 +408,9 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
             </div>
           )}
         </div>
-      </div>
-    </div>
-  );
-};
+        </div>
+      </section>
+    );
+  };
 
-export default DraftSearchPanel;
+  export default DraftSearchPanel;

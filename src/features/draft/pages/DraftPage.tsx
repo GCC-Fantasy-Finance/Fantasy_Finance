@@ -157,18 +157,18 @@ const DraftPageContent = () => {
       ref={draftContainerRef}
       className="h-screen flex flex-col overflow-hidden"
     >
-      <div id="draft-header">
-        <DraftHeader />
-      </div>
+      <DraftHeader />
 
-      <div className="flex-1 flex flex-col min-h-0">
-        {/* TOP PANEL */}
-        <div
+      <main className="flex-1 flex flex-col min-h-0">
+        {/* TOP PANEL - DRAFT RESULTS */}
+        <section
           style={{ height: `${topHeight}%` }}
           className="min-h-[60px] overflow-auto border-b border-gray-300 bg-gray-100"
+          aria-label="Draft results and picks"
+          tabIndex={0}
         >
           <DraftResultsPanel onStockClick={handleStockClick} />
-        </div>
+        </section>
 
         {/* VERTICAL RESIZER */}
         <div
@@ -179,11 +179,12 @@ const DraftPageContent = () => {
         </div>
 
         {/* BOTTOM PANELS */}
-        <div
+        <section
           id="bottom-panels"
           className={`flex flex-1 min-h-0 bg-white ${
             isCompactBottomPanels ? "flex-col" : "relative"
           }`}
+          aria-label="Stock search and queue"
         >
           {isCompactBottomPanels && (
             <nav className="h-12 bg-white border-b border-gray-300 flex items-center px-6">
@@ -282,12 +283,13 @@ const DraftPageContent = () => {
                     }`
                   : "shrink-0 min-w-[300px] max-w-[350px] overflow-auto"
               }
+              tabIndex={0}
             >
               <DraftQueuePanel onStockClick={handleStockClick} />
             </div>
           </div>
-        </div>
-      </div>
+        </section>
+      </main>
 
       {/* GLOBAL STOCK MODAL FOR DRAFT ROOM */}
       <StockDetailsModal
