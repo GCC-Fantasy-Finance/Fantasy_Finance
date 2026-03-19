@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { Menu, Sparkles, X } from "lucide-react";
+import { Menu, Sparkles, X, Bell } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import StockDetailsModal from "@/components/ui/stockDetailsModal";
 import { useChatbot } from "@/context/ChatbotContext";
+import { useNotifications } from "@/context/NotificationsContext";
 import { getAllStocks } from "@/lib/stocks";
 import { Input } from "@/components/ui/input";
 import { useLayout } from "@/context/LayoutContext";
@@ -37,6 +38,8 @@ export default function Header({ title }: HeaderProps) {
     setIsPinned,
     setResumeRequested,
   } = useChatbot();
+  const { notificationsState, setNotificationsState, unreadCount } =
+    useNotifications();
   const [conversationTitle, setConversationTitle] = useState<string | null>(
     null,
   );
@@ -87,7 +90,7 @@ export default function Header({ title }: HeaderProps) {
 
     const timeout = setTimeout(() => {
       setLoading(false);
-    }, 5000); // Safety timeout
+    }, 5000);
     return () => clearTimeout(timeout);
   }, [query]);
 
@@ -125,6 +128,22 @@ export default function Header({ title }: HeaderProps) {
     return () => mediaQuery.removeEventListener("change", handleViewportChange);
   }, []);
 
+  const handleNotificationsToggle = () => {
+    setChatbotState("closed");
+    setIsPinned(false);
+    setNotificationsState(
+      notificationsState === "closed" ? "open" : "closed",
+    );
+  };
+
+  const handleChatbotOpen = () => {
+    const isMobileScreen = window.matchMedia("(max-width: 1023px)").matches;
+    setNotificationsState("closed");
+    setResumeRequested(Boolean(lastConversationId));
+    setChatbotState("floating");
+    setIsPinned(!isMobileScreen);
+  };
+
   return (
     <div className="sticky top-0 z-40 isolate flex items-center justify-between">
       <div className="flex h-14 w-14 shrink-0 items-center justify-center border-b border-r border-gray-300 bg-white hover:bg-gray-100 md:hidden">
@@ -138,13 +157,13 @@ export default function Header({ title }: HeaderProps) {
         </button>
       </div>
 
-      <header className="h-14 bg-white border-b border-gray-300 flex items-center justify-between pl-3 sm:pl-6 w-full gap-3 ">
+      <header className="h-14 bg-white border-b border-gray-300 flex items-center justify-between pl-3 sm:pl-6 w-full gap-3">
         {isMobileSearchOpen ? (
           <div
             ref={searchContainerRef}
             className="relative w-full lg:hidden mr-6"
           >
-            <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center pointer-events-none z-10 ">
+            <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center pointer-events-none z-10">
               <SearchIcon className="w-4 h-4 text-gray-400" />
             </div>
             <Input
@@ -279,13 +298,13 @@ export default function Header({ title }: HeaderProps) {
           </>
         )}
 
-        {/* Stock Details Modal */}
         <StockDetailsModal
           open={showModal}
           stock={selectedStock}
           onClose={() => setShowModal(false)}
         />
       </header>
+
       {!isMobileSearchOpen && (
         <div className="flex h-14 w-14 shrink-0 items-center justify-center border-b border-l border-gray-300 bg-white hover:bg-gray-100 lg:hidden">
           <button
@@ -301,16 +320,26 @@ export default function Header({ title }: HeaderProps) {
           </button>
         </div>
       )}
+
+      {/* Notifications Button - hidden only when notifications panel is open */}
+      {notificationsState === "closed" && (
+        <div
+          onClick={handleNotificationsToggle}
+          className="flex h-14 w-14 shrink-0 items-center justify-center border-b border-l border-gray-300 bg-white hover:bg-gray-100 cursor-pointer relative"
+        >
+          <Bell className="w-6 h-6 text-green-700" />
+          {unreadCount > 0 && (
+            <span className="absolute top-2 right-2 h-5 w-5 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Chatbot Button - hidden only when chatbot panel is open */}
       {chatbotState === "closed" && (
         <div
-          onClick={() => {
-            const isMobileScreen = window.matchMedia(
-              "(max-width: 1023px)",
-            ).matches;
-            setResumeRequested(Boolean(lastConversationId));
-            setChatbotState("floating");
-            setIsPinned(!isMobileScreen);
-          }}
+          onClick={handleChatbotOpen}
           className="flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-0.5 border-b border-l border-gray-300 bg-white text-sm hover:bg-gray-100 cursor-pointer lg:w-48 lg:items-start lg:px-4"
         >
           <div className="flex gap-1 items-center">
