@@ -330,9 +330,9 @@ const DraftHeader = () => {
   );
 
   return (
-    <div className="w-full bg-white border-b border-gray-300">
-      <header className="flex w-full h-14" aria-label="Draft page header">
-        <div className="h-14 bg-white flex items-center flex-1 min-w-0">
+    <header className="w-full bg-white border-b border-gray-300" aria-label="Draft controls and navigation">
+      <div className="flex w-full h-14">
+        <nav className="h-14 bg-white flex items-center flex-1 min-w-0">
           <button
             onClick={() => navigate(`/league/${leagueId}`)}
             className="shrink-0 flex gap-1 px-5 items-center cursor-pointer hover:bg-gray-100 h-full border-r border-gray-300 hover:text-green-800"
@@ -348,7 +348,7 @@ const DraftHeader = () => {
           <div className="hidden min-[901px]:flex items-center gap-3 pr-4 shrink-0 justify-center">
             {renderDraftControls()}
           </div>
-        </div>
+        </nav>
 
         {/* Notifications Button */}
         {notificationsState === "closed" && (
@@ -381,6 +381,9 @@ const DraftHeader = () => {
               setIsPinned(shouldPinChat);
               handleChatbotOpen();
             }}
+            role="button"
+            tabIndex={0}
+            aria-label={lastConversationId ? "Resume chat" : "Start new chat"}
             className="flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-0.5 border-l border-gray-300 bg-white text-sm hover:bg-gray-100 cursor-pointer lg:w-48 lg:items-start lg:px-4"
           >
             <div className="flex gap-1 items-center">
@@ -403,7 +406,7 @@ const DraftHeader = () => {
           {renderDraftControls()}
         </div>
       )}
-    </div>
+    </header>
   );
 };
 

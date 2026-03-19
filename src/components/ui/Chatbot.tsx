@@ -1959,6 +1959,7 @@ export default function Chatbot({
             type="button"
             aria-label="Open AI assistant"
             onClick={handleToggle}
+            aria-label="Toggle chatbot"
             className={`fixed bottom-6 right-6 z-90 h-14 w-14 cursor-pointer rounded-full shadow-lg flex items-center justify-center transition-all duration-200 bg-green-700 hover:bg-green-800 ${
               state === "closed"
                 ? "opacity-100 pointer-events-auto"
@@ -2004,6 +2005,7 @@ export default function Chatbot({
             type="button"
             aria-label={state === "closed" ? "Open AI assistant" : "Close AI assistant"}
             onClick={handleToggle}
+            aria-label={state === "closed" ? "Open chatbot" : "Close chatbot"}
             className="h-14 w-14 cursor-pointer rounded-full shadow-lg flex items-center justify-center transition-all duration-200 bg-green-700 hover:bg-green-800"
           >
             {state === "closed" ? (

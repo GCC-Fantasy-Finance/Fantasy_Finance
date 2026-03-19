@@ -69,15 +69,15 @@ const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
   };
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="h-12 flex items-center justify-center border-b border-gray-300">
+    <section className="flex h-full flex-col" aria-label="Draft queue">
+      <header className="h-12 flex items-center justify-center border-b border-gray-300">
         <h2 className="text-lg text-center">Draft Queue</h2>
-      </div>
+      </header>
 
       {!queuedLoaded ? (
         <div>Loading...</div>
       ) : queuedItems.length === 0 ? (
-        <div className="flex min-h-40 items-center justify-center text-center text-gray-400">
+        <div className="flex min-h-40 items-center justify-center text-center text-gray-600">
           No queued stocks
         </div>
       ) : null}
@@ -183,7 +183,7 @@ const DraftQueuePanel = ({ onStockClick }: DraftQueuePanelProps) => {
         })}
         <li aria-hidden="true" className="h-[120px]" />
       </ul>
-    </div>
+    </section>
   );
 };
 
