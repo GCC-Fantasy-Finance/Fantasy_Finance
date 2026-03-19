@@ -331,8 +331,8 @@ const DraftHeader = () => {
 
   return (
     <div className="w-full bg-white border-b border-gray-300">
-      <div className="flex w-full h-14">
-        <header className="h-14 bg-white flex items-center flex-1 min-w-0">
+      <header className="flex w-full h-14" aria-label="Draft page header">
+        <div className="h-14 bg-white flex items-center flex-1 min-w-0">
           <button
             onClick={() => navigate(`/league/${leagueId}`)}
             className="shrink-0 flex gap-1 px-5 items-center cursor-pointer hover:bg-gray-100 h-full border-r border-gray-300 hover:text-green-800"
@@ -348,11 +348,13 @@ const DraftHeader = () => {
           <div className="hidden min-[901px]:flex items-center gap-3 pr-4 shrink-0 justify-center">
             {renderDraftControls()}
           </div>
-        </header>
+        </div>
 
         {/* Notifications Button */}
         {notificationsState === "closed" && (
-          <div
+          <button
+            type="button"
+            aria-label="Open notifications"
             onClick={handleNotificationsToggle}
             className="flex h-14 w-14 shrink-0 items-center justify-center border-l border-gray-300 bg-white hover:bg-gray-100 cursor-pointer relative"
           >
@@ -362,12 +364,14 @@ const DraftHeader = () => {
                 {unreadCount > 9 ? "9+" : unreadCount}
               </span>
             )}
-          </div>
+          </button>
         )}
 
         {/* Chatbot Button */}
         {chatbotState === "closed" && (
-          <div
+          <button
+            type="button"
+            aria-label={lastConversationId ? "Resume chat" : "Start new chat"}
             onClick={() => {
               const shouldPinChat = window.matchMedia(
                 "(min-width: 1024px)",
@@ -390,9 +394,9 @@ const DraftHeader = () => {
                 ? conversationTitle || "Loading..."
                 : "Start a new conversation"}
             </p>
-          </div>
+          </button>
         )}
-      </div>
+      </header>
 
       {showMobileSecondRow && (
         <div className="hidden max-[900px]:flex items-center justify-end gap-3 px-4 h-14 border-t border-gray-300">

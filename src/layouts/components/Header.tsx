@@ -145,7 +145,7 @@ export default function Header({ title }: HeaderProps) {
   };
 
   return (
-    <div className="sticky top-0 z-40 isolate flex items-center justify-between">
+    <header className="sticky top-0 z-40 isolate flex items-center justify-between" aria-label="Page header">
       <div className="flex h-14 w-14 shrink-0 items-center justify-center border-b border-r border-gray-300 bg-white hover:bg-gray-100 md:hidden">
         <button
           type="button"
@@ -157,7 +157,7 @@ export default function Header({ title }: HeaderProps) {
         </button>
       </div>
 
-      <header className="h-14 bg-white border-b border-gray-300 flex items-center justify-between pl-3 sm:pl-6 w-full gap-3">
+      <div className="h-14 bg-white border-b border-gray-300 flex items-center justify-between pl-3 sm:pl-6 w-full gap-3">
         {isMobileSearchOpen ? (
           <div
             ref={searchContainerRef}
@@ -303,7 +303,7 @@ export default function Header({ title }: HeaderProps) {
           stock={selectedStock}
           onClose={() => setShowModal(false)}
         />
-      </header>
+      </div>
 
       {!isMobileSearchOpen && (
         <div className="flex h-14 w-14 shrink-0 items-center justify-center border-b border-l border-gray-300 bg-white hover:bg-gray-100 lg:hidden">
@@ -323,7 +323,9 @@ export default function Header({ title }: HeaderProps) {
 
       {/* Notifications Button - hidden only when notifications panel is open */}
       {notificationsState === "closed" && (
-        <div
+        <button
+          type="button"
+          aria-label="Open notifications"
           onClick={handleNotificationsToggle}
           className="flex h-14 w-14 shrink-0 items-center justify-center border-b border-l border-gray-300 bg-white hover:bg-gray-100 cursor-pointer relative"
         >
@@ -333,12 +335,14 @@ export default function Header({ title }: HeaderProps) {
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
-        </div>
+        </button>
       )}
 
       {/* Chatbot Button - hidden only when chatbot panel is open */}
       {chatbotState === "closed" && (
-        <div
+        <button
+          type="button"
+          aria-label={lastConversationId ? "Resume chat" : "Start new chat"}
           onClick={handleChatbotOpen}
           className="flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-0.5 border-b border-l border-gray-300 bg-white text-sm hover:bg-gray-100 cursor-pointer lg:w-48 lg:items-start lg:px-4"
         >
@@ -353,8 +357,8 @@ export default function Header({ title }: HeaderProps) {
               ? conversationTitle || "Loading..."
               : "Start a new conversation"}
           </p>
-        </div>
+        </button>
       )}
-    </div>
+    </header>
   );
 }
