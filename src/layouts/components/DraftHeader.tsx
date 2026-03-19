@@ -369,9 +369,7 @@ const DraftHeader = () => {
 
         {/* Chatbot Button */}
         {chatbotState === "closed" && (
-          <button
-            type="button"
-            aria-label={lastConversationId ? "Resume chat" : "Start new chat"}
+          <div
             onClick={() => {
               const shouldPinChat = window.matchMedia(
                 "(min-width: 1024px)",
@@ -397,9 +395,9 @@ const DraftHeader = () => {
                 ? conversationTitle || "Loading..."
                 : "Start a new conversation"}
             </p>
-          </button>
+          </div>
         )}
-      </header>
+      </div>
 
       {showMobileSecondRow && (
         <div className="hidden max-[900px]:flex items-center justify-end gap-3 px-4 h-14 border-t border-gray-300">
