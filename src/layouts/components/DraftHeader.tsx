@@ -352,7 +352,9 @@ const DraftHeader = () => {
 
         {/* Notifications Button */}
         {notificationsState === "closed" && (
-          <div
+          <button
+            type="button"
+            aria-label="Open notifications"
             onClick={handleNotificationsToggle}
             className="flex h-14 w-14 shrink-0 items-center justify-center border-l border-gray-300 bg-white hover:bg-gray-100 cursor-pointer relative"
           >
@@ -362,7 +364,7 @@ const DraftHeader = () => {
                 {unreadCount > 9 ? "9+" : unreadCount}
               </span>
             )}
-          </div>
+          </button>
         )}
 
         {/* Chatbot Button */}

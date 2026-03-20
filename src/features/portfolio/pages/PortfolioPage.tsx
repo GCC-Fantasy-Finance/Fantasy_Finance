@@ -424,9 +424,9 @@ export default function PortfolioPage({
 
       {isLeagueMode && hasDrafting && (
         <div className="mb-6 rounded-lg border border-gray-300 bg-white px-4 py-3">
-          <h3 className="mb-2 text-sm font-semibold text-gray-900">
+          <h2 className="mb-2 text-sm font-semibold text-gray-900">
             Your Drafted Stocks
-          </h3>
+          </h2>
           {draftedStocks.length === 0 ? (
             <EmptyPortfolioState message="No drafted stocks yet." />
           ) : (
@@ -446,7 +446,7 @@ export default function PortfolioPage({
         </div>
       )}
 
-      <h3 className="mb-3 text-lg font-semibold">My Stocks</h3>
+      <h2 className="mb-3 text-lg font-semibold">My Stocks</h2>
 
       <div className="">
         {holdings.length === 0 ? (
