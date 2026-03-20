@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { Compass } from "lucide-react";
 import StockDetailsModal from "@/components/ui/stockDetailsModal";
 import PortfolioChart from "@/components/ui/portfolioChart";
 import { useAuth } from "@/context/AuthContext";
@@ -61,6 +63,7 @@ export default function PortfolioPage({
   wrapWithPageContent = false,
 }: PortfolioPageProps) {
   const auth = useAuth();
+  const navigate = useNavigate();
   const { openSell, openBuy } = useTradeModal();
 
   const [loading, setLoading] = useState(true);
@@ -310,7 +313,9 @@ export default function PortfolioPage({
   const reserveValue = Number(totals?.reserve_value ?? 0);
   const investedValue = calculateInvestedValue(holdings);
   const netValue = calculatePortfolioValue({ holdings, reserveValue });
-  const previousCloseValue = Number(totals?.previous_close_value ?? netValue);
+  const rawPreviousCloseValue = Number(totals?.previous_close_value ?? 0);
+  const previousCloseValue =
+    rawPreviousCloseValue > 0 ? rawPreviousCloseValue : netValue;
   const allTimeBaselineValue = portfolio ? INITIAL_PORTFOLIO_VALUE : netValue;
 
   const hasAllocationData = investedValue + reserveValue > 0;
@@ -474,6 +479,17 @@ export default function PortfolioPage({
           stock={selectedStock}
           onClose={() => setStockDetailsModalOpen(false)}
         />
+      </div>
+
+      <div className="mt-8 flex justify-center">
+        <button
+          type="button"
+          onClick={() => navigate("/discover")}
+          className="cursor-pointer px-2 py-[3px] text-green-700 rounded-full hover:bg-green-700/10 border border-green-700/30"
+        >
+          <Compass className="size-4 inline mb-1 mr-1 text-green-700" />
+          <span className="text-sm">Discover</span>
+        </button>
       </div>
     </div>
   );

@@ -102,7 +102,10 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
         .select()
         .single();
 
-      if (supaError) throw supaError;
+      if (supaError) {
+        setError("You have been kicked from this league.")
+        return
+      };
 
       const { error: historyError } = await supabase
         .from("Portfolio Histories")
