@@ -12,6 +12,7 @@ type Props = {
   message: string;
   onClose: () => void;
   onResponse: () => void;
+  onResponseComplete?: () => void;
 };
 
 export default function LeagueInviteModal({
@@ -21,6 +22,7 @@ export default function LeagueInviteModal({
   message,
   onClose,
   onResponse,
+  onResponseComplete,
 }: Props) {
   const modalRef = useRef<HTMLDivElement | null>(null);
   const [leagueDetails, setLeagueDetails] = useState<{
@@ -100,6 +102,7 @@ export default function LeagueInviteModal({
 
       onResponse();
       onClose();
+      onResponseComplete?.();
     } catch (err) {
       console.error("Error declining notification:", err);
       toast.error("Failed to decline invite");
@@ -187,6 +190,7 @@ export default function LeagueInviteModal({
       toast.success("Joined league successfully!");
       onResponse();
       onClose();
+      onResponseComplete?.();
       
       // Reload page to reflect new portfolio and league
       setTimeout(() => {

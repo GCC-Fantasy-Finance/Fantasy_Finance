@@ -147,7 +147,6 @@ export default function NotificationsPanel() {
         leagueId: notification.league_id,
         message: notification.message,
       });
-      setNotificationsState("closed");
       return;
     }
 
@@ -318,11 +317,14 @@ export default function NotificationsPanel() {
           notificationId={leagueInviteModal.notificationId}
           leagueId={leagueInviteModal.leagueId}
           message={leagueInviteModal.message}
-          onClose={() =>
-            setLeagueInviteModal({ ...leagueInviteModal, open: false })
-          }
+          onClose={() => {
+            setLeagueInviteModal({ ...leagueInviteModal, open: false });
+          }}
           onResponse={() => {
             void fetchNotifications();
+          }}
+          onResponseComplete={() => {
+            setNotificationsState("closed");
           }}
         />
       </div>
@@ -354,11 +356,14 @@ export default function NotificationsPanel() {
         notificationId={leagueInviteModal.notificationId}
         leagueId={leagueInviteModal.leagueId}
         message={leagueInviteModal.message}
-        onClose={() =>
-          setLeagueInviteModal({ ...leagueInviteModal, open: false })
-        }
+        onClose={() => {
+          setLeagueInviteModal({ ...leagueInviteModal, open: false });
+        }}
         onResponse={() => {
           void fetchNotifications();
+        }}
+        onResponseComplete={() => {
+          setNotificationsState("closed");
         }}
       />
     </div>
