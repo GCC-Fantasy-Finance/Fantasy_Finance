@@ -8,6 +8,7 @@ import { getAllStocks } from "@/lib/stocks";
 import { Input } from "@/components/ui/input";
 import { useLayout } from "@/context/LayoutContext";
 import SearchIcon from "@/components/ui/search-icon";
+import { getSearchScore } from "@/lib/searchUtils";
 
 interface StockRow {
   stock_id?: number;
@@ -73,11 +74,14 @@ export default function Header({ title }: HeaderProps) {
 
     getAllStocks()
       .then((data) => {
-        const filtered = data.filter(
-          (stock) =>
-            stock.name?.toLowerCase().includes(query.toLowerCase()) ||
-            stock.stock_symbol?.toLowerCase().includes(query.toLowerCase()),
-        );
+        const queryLower = query.toLowerCase();
+        const filtered = data
+          .filter(
+            (stock) =>
+              stock.name?.toLowerCase().includes(queryLower) ||
+              stock.stock_symbol?.toLowerCase().includes(queryLower),
+          )
+          .sort((a, b) => getSearchScore(b, query) - getSearchScore(a, query));
         setResults(filtered);
       })
       .catch((error) => {
