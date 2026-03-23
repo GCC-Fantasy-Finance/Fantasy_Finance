@@ -257,6 +257,7 @@ export default function LeagueDetailPage() {
           portfolioId={selectedPortfolio?.portfolio_id ?? null}
           memberName={selectedPortfolio?.Profiles?.username ?? "Unknown User"}
           memberAvatarUrl={selectedPortfolio?.Profiles?.avatar_url}
+          memberUserId={selectedPortfolio?.user_id}
           fallbackNetValue={
             selectedPortfolio
               ? calculatePortfolioValue({
