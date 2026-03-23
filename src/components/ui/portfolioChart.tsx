@@ -258,10 +258,25 @@ export default function PortfolioChart({
           .lt("timestamp_of", selectedDayStartForHistory.toISOString())
           .order("timestamp_of", { ascending: false });
 
+        // If no prices for selected day (intraday/today), fetch current prices from Stocks table
+        let selectedDayPricesForMap = selectedDayPrices;
+        if (!selectedDayPrices || selectedDayPrices.length === 0) {
+          const { data: currentPrices = [] } = await supabase
+            .from("Stocks")
+            .select("stock_id, current_price")
+            .in("stock_id", stockIds);
+          
+          // Convert to same format as Stock Histories
+          selectedDayPricesForMap = (currentPrices || []).map((stock: any) => ({
+            stock_id: stock.stock_id,
+            price: stock.current_price,
+          }));
+        }
+
         const selectedPriceMap: Record<number, number> = {};
         const previousPriceMap: Record<number, number> = {};
 
-        (selectedDayPrices || []).forEach((entry: any) => {
+        (selectedDayPricesForMap || []).forEach((entry: any) => {
           if (!selectedPriceMap[entry.stock_id]) {
             selectedPriceMap[entry.stock_id] = entry.price;
           }
@@ -392,7 +407,7 @@ export default function PortfolioChart({
         {/* Show loading state or top 3 movers from that day - only if stocks are owned */}
         {isLoadingHoldings && dayHoldings && dayHoldings.length > 0 ? (
           <div>
-            <p className="text-xs font-semibold text-gray-700 mb-2">Top Movers</p>
+            <p className="text-xs font-semibold text-gray-700 mb-2">Your Gains/Losses</p>
             <div className="space-y-2">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="flex justify-between items-center gap-2">
@@ -404,7 +419,7 @@ export default function PortfolioChart({
           </div>
         ) : dayHoldings && dayHoldings.length > 0 ? (
           <div>
-            <p className="text-xs font-semibold text-gray-700 mb-2">Top Movers</p>
+            <p className="text-xs font-semibold text-gray-700 mb-2">Your Gains/Losses</p>
             <div className="space-y-2">
               {dayHoldings.map((holding: any) => {
                 const dollarPnL = holding.dollarPnL ?? 0;

@@ -514,71 +514,87 @@ export default function DayDetailsModal({
               
               {/* Holdings */}
               {holdings.length > 0 ? (
-                <div className="space-y-2">
-                  {holdings.map((holding) => {
-                return (
-                  <div
-                    key={holding.stock_id}
-                    className="p-2 bg-gray-50 rounded border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => handleStockClick(holding.stock_id, holding.stock_symbol, holding.stock_name, holding.currentPrice)}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      {/* Symbol and Trading Badge */}
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <p className="font-semibold text-sm">{holding.stock_symbol}</p>
-                        {holding.tradedToday && (
-                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium whitespace-nowrap ${
-                            holding.tradedAction === "BUY" 
-                              ? "bg-green-100 text-green-700" 
-                              : "bg-red-100 text-red-700"
-                          }`}>
-                            {holding.transactionImpact?.bought_quantity && holding.transactionImpact?.sold_quantity 
-                              ? `B${holding.transactionImpact.bought_quantity.toFixed(0)}/S${holding.transactionImpact.sold_quantity.toFixed(0)}`
-                              : holding.tradedAction === "BUY" 
-                              ? "Bought" 
-                              : "Sold"}
+                <div>
+                  {holdings.map((holding, index) => {
+                    return (
+                      <div
+                        key={holding.stock_id}
+                        role="button"
+                        tabIndex={0}
+                        className={`relative grid w-full cursor-pointer grid-cols-[20%_minmax(0,200px)_minmax(0,200px)_auto] items-center justify-items-start gap-4 border-x border-t border-gray-300 bg-white px-4 py-4 transition-all hover:bg-gray-50 ${index === holdings.length - 1 ? "border-b" : "border-b-0"} ${index === 0 ? "rounded-t-lg" : ""} ${index === holdings.length - 1 ? "rounded-b-lg" : ""}`}
+                        onClick={() => handleStockClick(holding.stock_id, holding.stock_symbol, holding.stock_name, holding.currentPrice)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            handleStockClick(holding.stock_id, holding.stock_symbol, holding.stock_name, holding.currentPrice);
+                          }
+                        }}
+                      >
+                        <button
+                          type="button"
+                          aria-label={`Open details for ${holding.stock_symbol}`}
+                          className="absolute inset-0 z-0 cursor-pointer"
+                          onClick={() => handleStockClick(holding.stock_id, holding.stock_symbol, holding.stock_name, holding.currentPrice)}
+                        >
+                          <span className="sr-only">Open details for {holding.stock_symbol}</span>
+                        </button>
+
+                        {/* Symbol and Trading Badge */}
+                        <div className="relative z-10 cursor-pointer text-left flex min-w-0 flex-col font-medium">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <p>{holding.stock_symbol}</p>
+                            {holding.tradedToday && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded font-medium whitespace-nowrap ${
+                                holding.tradedAction === "BUY" 
+                                  ? "bg-green-100 text-green-700" 
+                                  : "bg-red-100 text-red-700"
+                              }`}>
+                                {holding.transactionImpact?.bought_quantity && holding.transactionImpact?.sold_quantity 
+                                  ? `B${holding.transactionImpact.bought_quantity.toFixed(0)}/S${holding.transactionImpact.sold_quantity.toFixed(0)}`
+                                  : holding.tradedAction === "BUY" 
+                                  ? "Bought" 
+                                  : "Sold"}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-sm font-normal text-gray-500">
+                            {holding.stock_name}
                           </span>
-                        )}
-                      </div>
+                        </div>
 
-                      {/* Price */}
-                      <div className="text-right">
-                        <p className="font-bold text-sm">${holding.currentPrice.toFixed(2)}</p>
-                      </div>
+                        {/* Price and Daily Change % */}
+                        <div className="relative z-10 cursor-pointer flex min-w-0 flex-col text-left">
+                          <span className="text-xs text-gray-500">PRICE:</span>
+                          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+                            <span>${holding.currentPrice.toFixed(2)}</span>
+                            {(() => {
+                              const compareFrom = holding.compareFrom ?? holding.previousPrice ?? holding.currentPrice;
+                              const compareTo = holding.compareTo ?? holding.currentPrice;
+                              const percentChange = compareFrom > 0 ? ((compareTo - compareFrom) / compareFrom) * 100 : 0;
+                              return (
+                                <span className={`text-xs font-medium ${percentChange >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                  {percentChange >= 0 ? "+" : ""}{percentChange.toFixed(1)}%
+                                </span>
+                              );
+                            })()}
+                          </div>
+                        </div>
 
-                      {/* Daily Change % */}
-                      <div className="text-right">
-                        {(() => {
-                          const compareFrom = holding.compareFrom ?? holding.previousPrice ?? holding.currentPrice;
-                          const compareTo = holding.compareTo ?? holding.currentPrice;
-                          const percentChange = compareFrom > 0 ? ((compareTo - compareFrom) / compareFrom) * 100 : 0;
-                          return (
-                            <p className={`font-bold text-sm ${percentChange >= 0 ? "text-green-600" : "text-red-600"}`}>
-                              {percentChange >= 0 ? "+" : ""}{percentChange.toFixed(1)}%
-                            </p>
-                          );
-                        })()}
-                      </div>
-
-                      {/* Shares */}
-                      <div className="text-right">
-                        <p className="text-xs text-gray-600">Qty</p>
-                        <p className="font-bold text-sm">{holding.quantity.toFixed(2)}</p>
-                      </div>
-
-                      {/* P&L */}
-                      <div className="text-right">
-                        <p className="text-xs text-gray-600">P&L</p>
-                        <div className={`font-bold text-sm ${
-                          (holding.dollarPnL ?? 0) >= 0 ? "text-green-600" : "text-red-600"
-                        }`}>
-                          {(holding.dollarPnL ?? 0) >= 0 ? "+" : ""}{(holding.dollarPnL ?? 0).toFixed(2)}
+                        {/* Quantity and P&L */}
+                        <div className="relative z-10 cursor-pointer min-w-0 text-left flex flex-col">
+                          <span className="text-xs text-gray-500">YOU OWN:</span>
+                          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+                            <span className="font-medium">${(holding.currentPrice * holding.quantity).toFixed(2)}</span>
+                            <span className="text-xs text-gray-500">{holding.quantity.toFixed(2)} shares</span>
+                            <div className={`text-xs font-medium ${
+                              (holding.dollarPnL ?? 0) >= 0 ? "text-green-600" : "text-red-600"
+                            }`}>
+                              ({(holding.dollarPnL ?? 0) >= 0 ? "+" : ""}{(holding.dollarPnL ?? 0).toFixed(2)})
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                );
-              })}
+                    );
+                  })}
                 </div>
               ) : null}
             </div>
