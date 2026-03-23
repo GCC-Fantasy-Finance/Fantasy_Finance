@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { Navigate, useParams, useLocation } from "react-router-dom";
+import ShieldLoadingIcon from "@/components/ui/ShieldLoadingIcon";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "../context/AuthContext";
 
@@ -56,9 +57,9 @@ export default function LeagueRoute({ children }: LeagueRouteProps) {
   if (loading || checking) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
-          <p className="mt-2 text-gray-600">Checking league access...</p>
+        <div className="flex flex-col items-center justify-center gap-4">
+          <ShieldLoadingIcon />
+          <p className="text-gray-600">Checking league access...</p>
         </div>
       </div>
     );

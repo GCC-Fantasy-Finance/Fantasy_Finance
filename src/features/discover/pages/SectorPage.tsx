@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import PageContent from "../../../layouts/components/PageContent";
+import ShieldLoadingIcon from "@/components/ui/ShieldLoadingIcon";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { getAllStocks } from "@/lib/stocks";
 import { calculateStockPercentChange } from "@/lib/utils";
@@ -143,8 +144,9 @@ function SectorPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {loading ? (
-              <div className="md:col-span-3 border border-gray-300 rounded-md px-4 py-6 text-center text-gray-600 bg-white">
-                Loading trending stocks...
+              <div className="md:col-span-3 flex flex-col items-center justify-center gap-4 py-12">
+                <ShieldLoadingIcon />
+                <p className="text-gray-600">Loading trending stocks...</p>
               </div>
             ) : trendingStocks.length === 0 ? (
               <div className="md:col-span-3 border border-gray-300 rounded-md px-4 py-6 text-center text-gray-600 bg-white">
@@ -200,8 +202,11 @@ function SectorPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-gray-600 py-6">
-                      Loading stocks...
+                    <TableCell colSpan={4} className="text-center py-12">
+                      <div className="flex flex-col items-center justify-center gap-4">
+                        <ShieldLoadingIcon />
+                        <p className="text-gray-600">Loading stocks...</p>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : visibleStocks.length === 0 ? (

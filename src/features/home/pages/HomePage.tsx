@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { usePageTitle } from "../../../hooks/usePageTitle";
 import PageContent from "../../../layouts/components/PageContent";
+import ShieldLoadingIcon from "@/components/ui/ShieldLoadingIcon";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import {
@@ -383,7 +384,10 @@ function Home() {
         </div>
       </div>
       {loading ? (
-        <p className="text-gray-600">Loading...</p>
+        <div className="flex flex-col items-center justify-center gap-4 py-12 mb-8">
+          <ShieldLoadingIcon />
+          <p className="text-gray-600">Loading...</p>
+        </div>
       ) : portfolios.length === 0 ? (
         <p className="text-gray-600">No portfolios yet.</p>
       ) : (

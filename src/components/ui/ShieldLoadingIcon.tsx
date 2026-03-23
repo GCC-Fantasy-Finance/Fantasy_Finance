@@ -15,12 +15,14 @@ export default function ShieldLoadingIcon() {
       endHold: 550,
     };
     const N = 4;
+    const AH_W = 34;
+    const AH_X = 174.47;
 
     const barRects = [0, 1, 2, 3].map((i) =>
       document.getElementById("br" + i)
     );
     const trendline = document.getElementById("trendline");
-    const arrowhead = document.getElementById("arrowhead");
+    const arrowheadRect = document.getElementById("ahr");
     const VB_H = 286.11;
 
     function easeOut(t: number) {
@@ -87,24 +89,31 @@ export default function ShieldLoadingIcon() {
     ) {
       const r = barRects[i];
       if (!r) return;
-      const fromY = parseFloat(r.getAttribute("y") || "0");
-      const fromH = parseFloat(r.getAttribute("height") || "0");
-      const toY = visible ? 0 : VB_H;
-      const toH = visible ? VB_H : 0;
-      addAnim(startTime, dur, 0, 1, easeFn, (p) => {
-        r.setAttribute("y", String(fromY + (toY - fromY) * p));
-        r.setAttribute("height", String(fromH + (toH - fromH) * p));
-      });
+      if (visible) {
+        // Fill top-down: y fixed at 0, height grows from 0 → VB_H
+        addAnim(startTime, dur, 0, VB_H, easeFn, (v) => {
+          r.setAttribute("y", "0");
+          r.setAttribute("height", String(v));
+        });
+      } else {
+        // Wipe top-down: bottom edge fixed at VB_H, y slides down
+        const fromY = parseFloat(r.getAttribute("y") || "0");
+        const fromH = parseFloat(r.getAttribute("height") || "0");
+        addAnim(startTime, dur, 0, 1, easeFn, (p) => {
+          r.setAttribute("y", String(fromY + (VB_H - fromY) * p));
+          r.setAttribute("height", String(fromH + (0 - fromH) * p));
+        });
+      }
     }
 
     function animateDraw(
       startTime: number,
       dur: number,
       easeFn: (t: number) => number,
+      from: number = 1,
       onDone?: () => void
     ) {
       if (!trendline) return;
-      const from = parseFloat(trendline.getAttribute("stroke-dashoffset") || "0");
       addAnim(startTime, dur, from, 0, easeFn, (v) => {
         if (trendline) {
           trendline.setAttribute("stroke-dashoffset", String(v));
@@ -127,25 +136,30 @@ export default function ShieldLoadingIcon() {
       }, onDone);
     }
 
-    function animateArrowheadStroke(
+    function animateArrowhead(
       show: boolean,
       startTime: number,
       dur: number,
       easeFn: (t: number) => number
     ) {
-      if (!arrowhead) return;
+      if (!arrowheadRect) return;
+      const fromW = parseFloat(arrowheadRect.getAttribute("width") || "0");
+      const fromX = parseFloat(arrowheadRect.getAttribute("x") || "174.47");
       if (show) {
-        const from = parseFloat(arrowhead.getAttribute("stroke-dashoffset") || "0");
-        addAnim(startTime, dur, from, 0, easeFn, (v) => {
-          if (arrowhead) {
-            arrowhead.setAttribute("stroke-dashoffset", String(v));
+        addAnim(startTime, dur, 0, 1, easeFn, (p) => {
+          if (arrowheadRect) {
+            arrowheadRect.setAttribute("x", String(AH_X));
+            arrowheadRect.setAttribute("width", String(AH_W * p));
           }
         });
       } else {
-        const from = parseFloat(arrowhead.getAttribute("stroke-dashoffset") || "0");
-        addAnim(startTime, dur, from, -1, easeFn, (v) => {
-          if (arrowhead) {
-            arrowhead.setAttribute("stroke-dashoffset", String(v));
+        addAnim(startTime, dur, 0, 1, easeFn, (p) => {
+          if (arrowheadRect) {
+            arrowheadRect.setAttribute(
+              "x",
+              String(fromX + (AH_W - fromW) + fromW * p)
+            );
+            arrowheadRect.setAttribute("width", String(fromW * (1 - p)));
           }
         });
       }
@@ -168,13 +182,13 @@ export default function ShieldLoadingIcon() {
       t += N * T.wipeBarStagger + T.wipeBarDur;
 
       animateUndraw(t, T.arrowUndrawDur, easeIn);
-      animateArrowheadStroke(false, t, T.arrowUndrawDur, easeIn);
+      animateArrowhead(false, t + T.arrowUndrawDur * 0.72, T.arrowUndrawDur * 0.28, easeIn);
       t += T.arrowUndrawDur;
 
       t += T.shieldPause;
 
-      animateDraw(t, T.arrowDrawDur, easeOut);
-      animateArrowheadStroke(true, t, T.arrowDrawDur, easeOut);
+      animateDraw(t, T.arrowDrawDur, easeOut, 1);
+      animateArrowhead(true, t + T.arrowDrawDur * 0.82, T.arrowDrawDur * 0.18, easeOut);
       t += T.arrowDrawDur;
 
       t += T.barDelay;
@@ -201,9 +215,8 @@ export default function ShieldLoadingIcon() {
         trendline.setAttribute("stroke-dasharray", "1 1");
         trendline.setAttribute("stroke-dashoffset", "0");
       }
-      if (arrowhead) {
-        arrowhead.setAttribute("stroke-dasharray", "1 1");
-        arrowhead.setAttribute("stroke-dashoffset", "0");
+      if (arrowheadRect) {
+        arrowheadRect.setAttribute("width", String(AH_W));
       }
     }
 
@@ -239,6 +252,10 @@ export default function ShieldLoadingIcon() {
         </clipPath>
         <clipPath id="bc3">
           <rect id="br3" x="165.16" width="29.89" y="286.11" height="0" />
+        </clipPath>
+
+        <clipPath id="ahc">
+          <rect id="ahr" x="174.47" y="40" width="0" height="46" />
         </clipPath>
       </defs>
 
@@ -297,18 +314,17 @@ export default function ShieldLoadingIcon() {
         strokeDashoffset="0"
       />
 
-      <polygon
-        id="arrowhead"
-        points="205.23,47.98 174.47,58.24 203.15,80.34"
-        fill="none"
-        stroke="white"
-        strokeWidth="5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        pathLength="1"
-        strokeDasharray="1 1"
-        strokeDashoffset="0"
-      />
+      <g clipPath="url(#ahc)">
+        <polygon
+          id="arrowhead"
+          points="205.23,47.98 174.47,58.24 203.15,80.34"
+          fill="white"
+          stroke="white"
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </g>
     </svg>
   );
 }
