@@ -389,8 +389,8 @@ export default function PortfolioChart({
           </div>
         </div>
 
-        {/* Show loading state or top 3 movers from that day */}
-        {isLoadingHoldings ? (
+        {/* Show loading state or top 3 movers from that day - only if stocks are owned */}
+        {isLoadingHoldings && dayHoldings && dayHoldings.length > 0 ? (
           <div>
             <p className="text-xs font-semibold text-gray-700 mb-2">Top Movers</p>
             <div className="space-y-2">
