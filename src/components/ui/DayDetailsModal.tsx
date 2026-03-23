@@ -584,12 +584,12 @@ export default function DayDetailsModal({
                           <span className="text-xs text-gray-500">YOU OWN:</span>
                           <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
                             <span className="font-medium">${(holding.currentPrice * holding.quantity).toFixed(2)}</span>
-                            <span className="text-xs text-gray-500">{holding.quantity.toFixed(2)} shares</span>
                             <div className={`text-xs font-medium ${
                               (holding.dollarPnL ?? 0) >= 0 ? "text-green-600" : "text-red-600"
                             }`}>
                               ({(holding.dollarPnL ?? 0) >= 0 ? "+" : ""}{(holding.dollarPnL ?? 0).toFixed(2)})
                             </div>
+                            <span className="text-xs text-gray-500">{holding.quantity.toFixed(2)} shares</span>
                           </div>
                         </div>
                       </div>
