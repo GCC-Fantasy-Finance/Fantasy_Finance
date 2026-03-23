@@ -422,6 +422,7 @@ export default function PortfolioChart({
                 );
               })}
             </div>
+            <p className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200">Click to see more</p>
           </div>
         ) : null}
       </div>
@@ -441,7 +442,7 @@ export default function PortfolioChart({
   };
 
   return (
-    <div ref={containerRef} className="relative w-full">
+    <div ref={containerRef} className="relative w-full cursor-pointer">
       <ResponsiveContainer width="100%" height={300}>
         <AreaChart
           data={data}
