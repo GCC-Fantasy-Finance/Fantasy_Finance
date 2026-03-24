@@ -209,8 +209,7 @@ export default function LeagueDetailPage() {
   return (
     <PageContent>
       {loading && (
-        <div className="flex flex-col items-center justify-center gap-4 py-12 mb-8">
-          <ShieldLoadingIcon />
+        <div className="flex items-center justify-center py-12 mb-8">
           <p className="text-gray-600">Loading league…</p>
         </div>
       )}

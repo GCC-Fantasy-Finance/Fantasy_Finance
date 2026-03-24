@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Compass } from "lucide-react";
 import StockDetailsModal from "@/components/ui/stockDetailsModal";
-import ShieldLoadingIcon from "@/components/ui/ShieldLoadingIcon";
 import PortfolioChart from "@/components/ui/portfolioChart";
 import { useAuth } from "@/context/AuthContext";
 import { useTradeModal } from "@/context/TradeModalContext";
@@ -339,8 +338,7 @@ export default function PortfolioPage({
     allocationTotal > 0 ? (reserveValue / allocationTotal) * 100 : 0;
 
   const content = loading ? (
-    <div className="flex flex-col items-center justify-center gap-4 py-12 mb-8">
-      <ShieldLoadingIcon />
+    <div className="flex items-center justify-center py-12 mb-8">
       <p className="text-gray-600">Loading portfolio...</p>
     </div>
   ) : (
