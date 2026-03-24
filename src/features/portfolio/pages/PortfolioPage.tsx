@@ -451,27 +451,51 @@ export default function PortfolioPage({
         </div>
       )}
 
-      <h2 className="mb-3 text-lg font-semibold">My Stocks</h2>
+      <h2 className="mb-2 text-lg font-semibold">My Stocks</h2>
+
+      
 
       <div className="">
         {holdings.length === 0 ? (
-          <EmptyPortfolioState message="No holdings yet." />
+          <div className="mb-4 flex justify-start">
+            <button
+              type="button"
+              onClick={() => navigate("/discover")}
+              className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-green-700/30 px-4 py-2 text-green-700 hover:bg-green-700/10"
+            >
+              <Compass className="size-5 text-green-700" />
+              <span className="text-base leading-none">No stocks yet – Discover?</span>
+            </button>
+          </div>
         ) : (
-          holdings.map((holding, index) => {
-            return (
-              <PortfolioHoldingCard
-                key={holding.portfolio_holding_id}
-                holding={holding}
-                onOpenStockDetails={handleOpenStockDetails}
-                onSell={handleSell}
-                onBuy={handleBuy}
-                onBookmark={() => toast.info("Bookmark not implemented yet")}
-                showBottomBorder={index === holdings.length - 1}
-                showTopRounded={index === 0}
-                showBottomRounded={index === holdings.length - 1}
-              />
-            );
-          })
+          <>
+            {holdings.map((holding, index) => {
+              return (
+                <PortfolioHoldingCard
+                  key={holding.portfolio_holding_id}
+                  holding={holding}
+                  onOpenStockDetails={handleOpenStockDetails}
+                  onSell={handleSell}
+                  onBuy={handleBuy}
+                  onBookmark={() => toast.info("Bookmark not implemented yet")}
+                  showBottomBorder={index === holdings.length - 1}
+                  showTopRounded={index === 0}
+                  showBottomRounded={index === holdings.length - 1}
+                />
+              );
+            })}
+
+            <div className="mt-4 mb-4 flex justify-center">
+              <button
+                type="button"
+                onClick={() => navigate("/discover")}
+                className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-green-700/30 px-4 py-2 text-green-700 hover:bg-green-700/10"
+              >
+                <Compass className="size-5 text-green-700" />
+                <span className="text-base leading-none">Discover More Stocks</span>
+              </button>
+            </div>
+          </>
         )}
 
         <StockDetailsModal
@@ -481,16 +505,6 @@ export default function PortfolioPage({
         />
       </div>
 
-      <div className="mt-8 flex justify-center">
-        <button
-          type="button"
-          onClick={() => navigate("/discover")}
-          className="cursor-pointer px-2 py-[3px] text-green-700 rounded-full hover:bg-green-700/10 border border-green-700/30"
-        >
-          <Compass className="size-4 inline mb-1 mr-1 text-green-700" />
-          <span className="text-sm">Discover</span>
-        </button>
-      </div>
     </div>
   );
 

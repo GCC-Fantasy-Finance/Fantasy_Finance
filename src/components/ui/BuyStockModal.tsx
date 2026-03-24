@@ -61,7 +61,6 @@ export default function BuyStockModal() {
       setSubmitting(true);
       const quantity = Number((parsedAmount / price).toFixed(6));
       const res = await buyStock({
-        userId: user.id,
         stockId: stock!.stock_id,
         price,
         quantity,
