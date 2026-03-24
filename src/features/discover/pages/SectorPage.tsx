@@ -7,6 +7,7 @@ import { getAllStocks } from "@/lib/stocks";
 import { calculateStockPercentChange } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import StockDetailsModal from "@/components/ui/stockDetailsModal";
+import { getSearchScore } from "@/lib/searchUtils";
 import {
   Table,
   TableBody,
@@ -97,10 +98,13 @@ function SectorPage() {
       return stocks;
     }
 
-    return stocks.filter((stock) =>
-      stock.name.toLowerCase().includes(query) ||
-      stock.stock_symbol.toLowerCase().includes(query),
-    );
+    return stocks
+      .filter(
+        (stock) =>
+          stock.name.toLowerCase().includes(query) ||
+          stock.stock_symbol.toLowerCase().includes(query),
+      )
+      .sort((a, b) => getSearchScore(b, query) - getSearchScore(a, query));
   }, [searchQuery, stocks]);
 
   const trendingStocks = useMemo(() => {
