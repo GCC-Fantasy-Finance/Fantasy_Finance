@@ -43,6 +43,10 @@ type LeagueSidebarEntry = LeagueRow & {
   previous_close_value: number;
 };
 
+const SIDEBAR_LEAGUES_REFRESH_MS = 30_000;
+let cachedSidebarLeagues: LeagueSidebarEntry[] = [];
+let cachedSidebarLeaguesAt = 0;
+
 export default function Sidebar() {
   const location = useLocation();
   const { profile } = useAuth();
@@ -50,8 +54,9 @@ export default function Sidebar() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   // const [error, setError] = useState<string | null>(null);
   const [isJoinOpen, setIsJoinOpen] = useState(false);
-  const [leagues, setLeagues] = useState<LeagueSidebarEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [leagues, setLeagues] =
+    useState<LeagueSidebarEntry[]>(cachedSidebarLeagues);
+  const [loading, setLoading] = useState(cachedSidebarLeagues.length === 0);
 
   const navItems: NavItem[] = [
     { name: "Home", path: "/", icon: Home },
@@ -185,20 +190,69 @@ export default function Sidebar() {
     return sidebarEntries;
   }
 
-  const reloadLeagues = useCallback(async () => {
-    setLoading(true);
-    const timeoutPromise = new Promise((resolve) =>
-      setTimeout(() => resolve([]), 5000),
-    );
+  const reloadLeagues = useCallback(
+    async (options?: { silent?: boolean }) => {
+      const silent = options?.silent ?? false;
+      if (!silent && leagues.length === 0) {
+        setLoading(true);
+      }
 
-    Promise.race([fetchLeagues(), timeoutPromise])
-      .then((data) => setLeagues(data as any[]))
-      .catch(() => setLeagues([]))
-      .finally(() => setLoading(false));
-  }, [profile]);
+      const timeoutPromise = new Promise((resolve) =>
+        setTimeout(() => resolve("__timeout__"), 5000),
+      );
+
+      Promise.race([fetchLeagues(), timeoutPromise])
+        .then((data) => {
+          if (data === "__timeout__") return;
+          const nextLeagues = data as LeagueSidebarEntry[];
+          setLeagues(nextLeagues);
+          cachedSidebarLeagues = nextLeagues;
+          cachedSidebarLeaguesAt = Date.now();
+        })
+        .catch(() => {
+          if (leagues.length === 0) {
+            setLeagues([]);
+          }
+        })
+        .finally(() => {
+          if (!silent || leagues.length === 0) {
+            setLoading(false);
+          }
+        });
+    },
+    [leagues.length, profile],
+  );
 
   useEffect(() => {
-    reloadLeagues();
+    const hasRecentCache =
+      cachedSidebarLeagues.length > 0 &&
+      Date.now() - cachedSidebarLeaguesAt < SIDEBAR_LEAGUES_REFRESH_MS;
+
+    if (hasRecentCache) {
+      setLeagues(cachedSidebarLeagues);
+      setLoading(false);
+      return;
+    }
+
+    void reloadLeagues({ silent: leagues.length > 0 });
+  }, [reloadLeagues]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      void reloadLeagues({ silent: true });
+    }, SIDEBAR_LEAGUES_REFRESH_MS);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void reloadLeagues({ silent: true });
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [reloadLeagues]);
 
   useEffect(() => {
@@ -207,7 +261,7 @@ export default function Sidebar() {
 
   useEffect(() => {
     const handleLeaguesUpdated = () => {
-      reloadLeagues();
+      void reloadLeagues({ silent: true });
     };
 
     window.addEventListener("ff:leagues-updated", handleLeaguesUpdated);
