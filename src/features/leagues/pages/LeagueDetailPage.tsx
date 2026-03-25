@@ -246,6 +246,8 @@ export default function LeagueDetailPage() {
                 (entry) => entry.portfolio_id === portfolioId
               );
               if (selectedEntry) {
+                console.log("DEBUG LeagueDetailPage: selectedEntry =", selectedEntry);
+                console.log("DEBUG LeagueDetailPage: user_id =", selectedEntry.user_id);
                 setSelectedPortfolio(selectedEntry);
               }
             }}
@@ -257,6 +259,7 @@ export default function LeagueDetailPage() {
           portfolioId={selectedPortfolio?.portfolio_id ?? null}
           memberName={selectedPortfolio?.Profiles?.username ?? "Unknown User"}
           memberAvatarUrl={selectedPortfolio?.Profiles?.avatar_url}
+          memberUserId={selectedPortfolio?.user_id}
           fallbackNetValue={
             selectedPortfolio
               ? calculatePortfolioValue({

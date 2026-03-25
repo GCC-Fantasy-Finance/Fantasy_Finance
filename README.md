@@ -14,7 +14,8 @@ Feature Pages (not a complete list):
     - Portfolio
     - Settings
 - Profile
-    - Friends
+    - Profile
+    - Badges
 
 
 

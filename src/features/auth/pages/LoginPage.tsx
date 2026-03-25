@@ -9,13 +9,17 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [resetMessage, setResetMessage] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signIn, user } = useAuth();
+  const { signIn, forgotPassword, user, requiresPasswordReset } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
   if (user) {
-    return <Navigate to="/" replace />;
+    return (
+      <Navigate to={requiresPasswordReset ? "/reset-password" : "/"} replace />
+    );
   }
 
   const shouldShowSignupConfirmation =
@@ -26,6 +30,7 @@ export default function LoginPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
+    setResetMessage("");
     setLoading(true);
 
     const { error } = await signIn(email, password);
@@ -38,6 +43,29 @@ export default function LoginPage() {
     }
   };
 
+  const handleForgotPassword = async () => {
+    setError("");
+    setResetMessage("");
+
+    if (!email.trim()) {
+      setError("Enter your email first to reset your password");
+      return;
+    }
+
+    setResetLoading(true);
+    const { error } = await forgotPassword(email.trim());
+    setResetLoading(false);
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
+    setResetMessage(
+      "Password reset email sent. Check your inbox (and spam folder).",
+    );
+  };
+
   return (
     <div className="w-full max-w-sm">
       <form className="space-y-4" onSubmit={handleSubmit}>
@@ -45,13 +73,18 @@ export default function LoginPage() {
           <div className="rounded-md bg-gray-100 border border-green-700 p-3">
             <p className="text-sm font-medium text-green-700">
               Account confirmation email sent. Please confirm your email before
-              signing in.
+              signing in. (Check spam folder)
             </p>
           </div>
         )}
         {error && (
           <div className="rounded-md bg-red-50 p-3">
             <p className="text-sm text-red-800">{error}</p>
+          </div>
+        )}
+        {resetMessage && (
+          <div className="rounded-md border border-green-700 bg-gray-100 p-3">
+            <p className="text-sm font-medium text-green-700">{resetMessage}</p>
           </div>
         )}
 
@@ -77,9 +110,17 @@ export default function LoginPage() {
         <div>
           <label
             htmlFor="password"
-            className="block text-sm font-semibold text-gray-700 mb-1"
+            className="flex justify-between text-sm font-semibold text-gray-700 mb-1"
           >
             Password
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={loading || resetLoading}
+              className="text-sm font-normal text-gray-600 underline cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {resetLoading ? "Sending reset email..." : "Forgot password?"}
+            </button>
           </label>
           <div className="relative">
             <input
