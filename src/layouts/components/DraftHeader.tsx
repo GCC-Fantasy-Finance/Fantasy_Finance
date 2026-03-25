@@ -330,7 +330,10 @@ const DraftHeader = () => {
   );
 
   return (
-    <header className="w-full bg-white border-b border-gray-300" aria-label="Draft controls and navigation">
+    <header
+      className="w-full bg-white border-b border-gray-300"
+      aria-label="Draft controls and navigation"
+    >
       <div className="flex w-full h-14">
         <nav className="h-14 bg-white flex items-center flex-1 min-w-0">
           <button
@@ -381,19 +384,21 @@ const DraftHeader = () => {
             }}
             role="button"
             tabIndex={0}
-            aria-label={lastConversationId ? "Resume chat" : "Start new chat"}
+            aria-label={
+              lastConversationId ? "Resume chat" : "Start new AI chat"
+            }
             className="flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-0.5 border-l border-gray-300 bg-white text-sm hover:bg-gray-100 cursor-pointer lg:w-48 lg:items-start lg:px-4"
           >
             <div className="flex gap-1 items-center">
               <Sparkles className="w-6 h-6 lg:w-3 lg:h-3 text-green-700" />
               <p className="hidden lg:block text-green-700 text-xs font-medium">
-                {lastConversationId ? "Resume Chat" : "New Chat"}
+                {lastConversationId ? "Resume Chat" : "New AI Chat"}
               </p>
             </div>
             <p className="hidden lg:block text-gray-700 text-xs truncate">
               {lastConversationId
                 ? conversationTitle || "Loading..."
-                : "Start a new conversation"}
+                : "Consult expert financial AI"}
             </p>
           </div>
         )}

@@ -2230,13 +2230,16 @@ export default function Chatbot({
             type="button"
             aria-label="Open AI assistant"
             onClick={handleToggle}
-            className={`fixed bottom-6 right-6 z-90 h-14 w-14 cursor-pointer rounded-full shadow-lg flex items-center justify-center transition-all duration-200 bg-green-700 hover:bg-green-800 ${
+            className={`fixed bottom-6 right-6 z-90 py-2 px-4 cursor-pointer rounded-full shadow-lg flex items-center justify-center transition-all duration-200 bg-green-700 hover:bg-green-800 ${
               state === "closed"
                 ? "opacity-100 pointer-events-auto"
                 : "opacity-0 pointer-events-none"
             }`}
           >
-            <Stars className="h-6 w-6 text-white" />
+            <div className="flex items-center gap-2 text-white">
+              <Stars className="h-5 w-5" />
+              New Chat
+            </div>
             <span className="sr-only">Open AI assistant</span>
           </button>
         </div>
@@ -2277,12 +2280,18 @@ export default function Chatbot({
               state === "closed" ? "Open AI assistant" : "Close AI assistant"
             }
             onClick={handleToggle}
-            className="h-14 w-14 cursor-pointer rounded-full shadow-lg flex items-center justify-center transition-all duration-200 bg-green-700 hover:bg-green-800"
+            className="py-2 px-4 cursor-pointer rounded-full shadow-lg flex items-center justify-center transition-all duration-200 bg-green-700 hover:bg-green-800"
           >
             {state === "closed" ? (
-              <Stars className="h-6 w-6 text-white" />
+              <div className="flex items-center gap-2 text-white">
+                <Stars className="h-5 w-5" />
+                New Chat
+              </div>
             ) : (
-              <X className="h-6 w-6 text-white" />
+              <div className="flex items-center gap-2 text-white">
+                <X className="h-5 w-5" />
+                Close
+              </div>
             )}
             <span className="sr-only">
               {state === "closed" ? "Open AI assistant" : "Close AI assistant"}

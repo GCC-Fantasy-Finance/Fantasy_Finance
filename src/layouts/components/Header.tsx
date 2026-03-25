@@ -135,9 +135,7 @@ export default function Header({ title }: HeaderProps) {
   const handleNotificationsToggle = () => {
     setChatbotState("closed");
     setIsPinned(false);
-    setNotificationsState(
-      notificationsState === "closed" ? "open" : "closed",
-    );
+    setNotificationsState(notificationsState === "closed" ? "open" : "closed");
   };
 
   const handleChatbotOpen = () => {
@@ -149,7 +147,10 @@ export default function Header({ title }: HeaderProps) {
   };
 
   return (
-    <header className="sticky top-0 z-40 isolate flex items-center justify-between" aria-label="Page header">
+    <header
+      className="sticky top-0 z-40 isolate flex items-center justify-between"
+      aria-label="Page header"
+    >
       <div className="flex h-14 w-14 shrink-0 items-center justify-center border-b border-r border-gray-300 bg-white hover:bg-gray-100 md:hidden">
         <button
           type="button"
@@ -346,20 +347,20 @@ export default function Header({ title }: HeaderProps) {
       {chatbotState === "closed" && (
         <button
           type="button"
-          aria-label={lastConversationId ? "Resume chat" : "Start new chat"}
+          aria-label={lastConversationId ? "Resume chat" : "Start new AI chat"}
           onClick={handleChatbotOpen}
           className="flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-0.5 border-b border-l border-gray-300 bg-white text-sm hover:bg-gray-100 cursor-pointer lg:w-48 lg:items-start lg:px-4"
         >
           <div className="flex gap-1 items-center">
             <Sparkles className="w-6 h-6 lg:w-3 lg:h-3 text-green-700" />
             <p className="hidden lg:block text-green-700 text-xs font-medium">
-              {lastConversationId ? "Resume Chat" : "New Chat"}
+              {lastConversationId ? "Resume Chat" : "New AI Chat"}
             </p>
           </div>
           <p className="hidden lg:block text-gray-700 text-xs truncate">
             {lastConversationId
               ? conversationTitle || "Loading..."
-              : "Start a new conversation"}
+              : "Ask anything"}
           </p>
         </button>
       )}
