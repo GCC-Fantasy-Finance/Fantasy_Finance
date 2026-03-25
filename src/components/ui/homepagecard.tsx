@@ -30,15 +30,14 @@ export default function HomePageCard(portfolio: PortfolioCard) {
   const netValue = Number(
     portfolio.net_value ?? portfolio.previous_close_value ?? 0,
   );
-  const previousValue = Number(portfolio.previous_close_value ?? netValue);
   const previousCloseValue = Number(portfolio.previous_close_value ?? 0);
   const baselineValue = previousCloseValue > 0 ? previousCloseValue : netValue;
   const reserveValue = Number(portfolio.reserve_value ?? 0);
   const amountInvested = netValue - reserveValue;
   const isLeagueEnded =
     !portfolio.is_solo && Boolean(portfolio.is_league_ended);
-  const isLeagueUp = netValue > previousValue;
-  const isLeagueDown = netValue < previousValue;
+  const isLeagueUp = netValue > previousCloseValue;
+  const isLeagueDown = netValue < previousCloseValue;
 
   return (
     <button

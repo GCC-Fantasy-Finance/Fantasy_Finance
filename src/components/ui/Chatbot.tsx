@@ -1965,7 +1965,7 @@ export default function Chatbot({
                 : "opacity-0 pointer-events-none"
             }`}
           >
-            <div className="flex items-center gap-1 text-white">
+            <div className="flex items-center gap-2 text-white">
               <Stars className="h-5 w-5" />
               New Chat
             </div>
@@ -2012,12 +2012,12 @@ export default function Chatbot({
             className="py-2 px-4 cursor-pointer rounded-full shadow-lg flex items-center justify-center transition-all duration-200 bg-green-700 hover:bg-green-800"
           >
             {state === "closed" ? (
-              <div className="flex items-center gap-1 text-white">
+              <div className="flex items-center gap-2 text-white">
                 <Stars className="h-5 w-5" />
                 New Chat
               </div>
             ) : (
-              <div className="flex items-center gap-1 text-white">
+              <div className="flex items-center gap-2 text-white">
                 <X className="h-5 w-5" />
                 Close
               </div>

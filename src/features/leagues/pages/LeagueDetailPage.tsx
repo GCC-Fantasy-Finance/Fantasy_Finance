@@ -10,6 +10,7 @@ import { type DraftRow } from "@/lib/drafts";
 import Leaderboard from "@/layouts/components/Leaderboard";
 import LeagueMemberPortfolioModal from "@/components/ui/LeagueMemberPortfolioModal";
 import InviteMembersModal from "@/components/ui/InviteMembersModal";
+import KickMember from "@/components/ui/kickMember";
 import { calculatePortfolioValue } from "@/lib/portfolioValue";
 import {
   fetchLeagueView,
@@ -58,6 +59,8 @@ export default function LeagueDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showKickModal, setShowKickModal] = useState(false);
+  const [joinCodeCopied, setJoinCodeCopied] = useState(false);
 
   usePageTitle(league ? `${league.name}` : "League");
 
@@ -107,6 +110,20 @@ export default function LeagueDetailPage() {
       mounted = false;
     };
   }, [leagueId]);
+
+  const handleCopyJoinCode = async () => {
+    const joinCode = String((league as any)?.join_code ?? "").trim();
+    if (!joinCode) return;
+
+    try {
+      await navigator.clipboard.writeText(joinCode);
+      setJoinCodeCopied(true);
+      window.setTimeout(() => setJoinCodeCopied(false), 1500);
+    } catch (err) {
+      console.error("Failed to copy join code:", err);
+      alert("Unable to copy join code. Please copy it manually.");
+    }
+  };
 
   // Subscribe to real-time portfolio changes (members joining/leaving)
   useEffect(() => {
@@ -208,6 +225,13 @@ export default function LeagueDetailPage() {
           onClose={() => setShowInviteModal(false)}
         />
 
+        <KickMember
+          open={showKickModal}
+          leagueId={leagueId}
+          ownerId={league?.owner_id}
+          onClose={() => setShowKickModal(false)}
+        />
+
         {draft && (
           <Button onClick={() => navigate(`/draft/${leagueId}`)}>
             {!draft.is_ended ? "Enter Draft Room" : "View Draft Results"}
@@ -222,6 +246,8 @@ export default function LeagueDetailPage() {
                 (entry) => entry.portfolio_id === portfolioId
               );
               if (selectedEntry) {
+                console.log("DEBUG LeagueDetailPage: selectedEntry =", selectedEntry);
+                console.log("DEBUG LeagueDetailPage: user_id =", selectedEntry.user_id);
                 setSelectedPortfolio(selectedEntry);
               }
             }}
@@ -233,6 +259,7 @@ export default function LeagueDetailPage() {
           portfolioId={selectedPortfolio?.portfolio_id ?? null}
           memberName={selectedPortfolio?.Profiles?.username ?? "Unknown User"}
           memberAvatarUrl={selectedPortfolio?.Profiles?.avatar_url}
+          memberUserId={selectedPortfolio?.user_id}
           fallbackNetValue={
             selectedPortfolio
               ? calculatePortfolioValue({
@@ -256,17 +283,32 @@ export default function LeagueDetailPage() {
           Owner: {owner?.username ?? owner?.email ?? "Unknown"}
         </p>
 
-        <p className="text-sm text-gray-500 mb-4">
-          Join Code:{" "}
-          <span className="font-mono bg-gray-100 px-2 py-1 rounded">
-            {(league as any).join_code}
-          </span>
-        </p>
+        <div className="text-sm text-gray-500 mb-4 flex items-center gap-2 flex-wrap">
+          <span>Join Code:</span>
+          <button
+            type="button"
+            aria-label="Copy join code"
+            title="Copy join code"
+            onClick={handleCopyJoinCode}
+            className="relative group font-mono bg-gray-100 px-2 py-1 rounded cursor-pointer overflow-hidden"
+          >
+            <span
+              className={`transition-opacity duration-150 ${joinCodeCopied ? "opacity-0" : "group-hover:opacity-0"}`}
+            >
+              {(league as any).join_code}
+            </span>
+            <span
+              className={`absolute inset-0 flex items-center justify-center transition-opacity duration-150 ${joinCodeCopied ? "opacity-100 text-green-700" : "opacity-0 group-hover:opacity-100"}`}
+            >
+              {joinCodeCopied ? "Copied!" : "Copy"}
+            </span>
+          </button>
+        </div>
 
         {/* Leave League */}
         <Button
           variant="outline"
-          className="mt-1 text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700"
+          className="mt-1 mx-2 text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700"
           onClick={() => {
             if (window.confirm("Are you sure you want to leave this league?")) {
               supabase
@@ -285,12 +327,23 @@ export default function LeagueDetailPage() {
                     );
                     navigate("/");
                   }
-                });
+              });
             }
           }}
         >
           Leave League
         </Button>
+
+        {/* Kick Member (only for owner) */}
+        {profile?.id === league?.owner_id && (
+        <Button
+          variant="outline"
+          className="mt-1 mx-2 text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700"
+          onClick={() => setShowKickModal(true)}
+            >
+              Kick Member
+            </Button>
+          )}
       </div>
     </PageContent>
   );

@@ -23,6 +23,7 @@ interface AuthContextType {
   profile: Profile | null;
   session: Session | null;
   loading: boolean;
+  requiresPasswordReset: boolean;
   signUp: (
     email: string,
     password: string,
@@ -32,6 +33,7 @@ interface AuthContextType {
     email: string,
     password: string,
   ) => Promise<{ error: AuthError | null }>;
+  forgotPassword: (email: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   updateAvatar: (file: File) => Promise<{ error: Error | null }>;
   removeAvatar: () => Promise<{ error: Error | null }>;
@@ -40,12 +42,32 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const PASSWORD_RECOVERY_REQUIRED_KEY = "password_recovery_required";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [requiresPasswordReset, setRequiresPasswordReset] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    return (
+      window.sessionStorage.getItem(PASSWORD_RECOVERY_REQUIRED_KEY) === "true"
+    );
+  });
+
+  const markPasswordResetRequired = () => {
+    setRequiresPasswordReset(true);
+    window.sessionStorage.setItem(PASSWORD_RECOVERY_REQUIRED_KEY, "true");
+  };
+
+  const clearPasswordResetRequired = () => {
+    setRequiresPasswordReset(false);
+    window.sessionStorage.removeItem(PASSWORD_RECOVERY_REQUIRED_KEY);
+  };
 
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase
@@ -86,6 +108,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
 
+        if (!session?.user) {
+          clearPasswordResetRequired();
+        }
+
         if (session?.user) {
           fetchProfile(session.user.id)
             .then((profileData) => {
@@ -111,9 +137,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+
+      if (event === "PASSWORD_RECOVERY" && session?.user) {
+        markPasswordResetRequired();
+      }
 
       if (session?.user) {
         fetchProfile(session.user.id)
@@ -126,6 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         // SIGNED_OUT, USER_DELETED, TOKEN_REFRESHED with null session, etc.
         setProfile(null);
+        clearPasswordResetRequired();
       }
 
       finishLoading();
@@ -161,6 +192,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
+  const forgotPassword = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    return { error };
+  };
+
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -172,6 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setUser(null);
     setProfile(null);
+    clearPasswordResetRequired();
   };
 
   const deleteOldAvatar = async (avatarUrl: string) => {
@@ -317,6 +356,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error };
       }
 
+      clearPasswordResetRequired();
       toast.success("Password updated successfully");
       return { error: null };
     } catch (err) {
@@ -346,8 +386,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile,
     session,
     loading,
+    requiresPasswordReset,
     signUp,
     signIn,
+    forgotPassword,
     signOut,
     updateAvatar,
     removeAvatar,

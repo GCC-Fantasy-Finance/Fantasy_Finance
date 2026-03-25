@@ -180,7 +180,6 @@ export default function PostDraftBuyModal({
         const quantity = Number((amount / stock.current_price).toFixed(6));
 
         const res = await buyStock({
-          userId: user.id,
           stockId: stock.stock_id,
           price: stock.current_price,
           quantity,

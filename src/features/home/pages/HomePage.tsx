@@ -248,11 +248,28 @@ function Home() {
               is_solo: true,
               previous_close_value: 10000,
               reserve_value: 10000,
+              last_recalculated: new Date().toISOString(),
             })
             .select(
               "portfolio_id,is_solo,league_id,previous_close_value,reserve_value",
             )
             .maybeSingle();
+
+          if (!insErr && inserted?.portfolio_id) {
+            const { error: historyError } = await supabase
+              .from("Portfolio Histories")
+              .insert([
+                {
+                  portfolio_id: inserted.portfolio_id,
+                  value: 10000,
+                },
+              ]);
+
+            if (historyError) {
+              throw historyError;
+            }
+          }
+
           if (!insErr && inserted) working.unshift(inserted);
         }
 

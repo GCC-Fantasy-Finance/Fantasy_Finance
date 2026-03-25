@@ -21,6 +21,20 @@ const AVAILABLE_SECTORS = [
   "Communication Services",
 ];
 
+const SECTOR_STOCK_COUNTS: Record<string, number> = {
+  Technology: 29,
+  Finance: 29,
+  Healthcare: 30,
+  Energy: 19,
+  Industrials: 22,
+  "Consumer Discretionary": 24,
+  "Consumer Staples": 21,
+  Materials: 15,
+  "Real Estate": 20,
+  Utilities: 15,
+  "Communication Services": 19,
+};
+
 type Props = {
   open: boolean;
   onClose: () => void;
@@ -93,7 +107,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
 
   console.log("USER:", user);
 
-  // Focus + ESC
+  // ESC handling
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -103,9 +117,14 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
       }
     };
     document.addEventListener("keydown", onKey);
-    setTimeout(() => nameRef.current?.focus(), 0);
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose, showDropdown]);
+
+  // Only auto-focus league name when modal first opens.
+  useEffect(() => {
+    if (!open) return;
+    setTimeout(() => nameRef.current?.focus(), 0);
+  }, [open]);
 
   // Reset modal when closed
   useEffect(() => {
@@ -124,6 +143,27 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
       setLoading(false);
     }
   }, [open]);
+
+  const totalStocksInSelectedSectors =
+    selectedSectors.size === 0
+      ? AVAILABLE_SECTORS.reduce(
+          (sum, sector) => sum + (SECTOR_STOCK_COUNTS[sector] ?? 0),
+          0,
+        )
+      : Array.from(selectedSectors).reduce(
+          (sum, sector) => sum + (SECTOR_STOCK_COUNTS[sector] ?? 0),
+          0,
+        );
+
+  const sectorSummaryLabel =
+    selectedSectors.size === 0
+      ? `Any (${totalStocksInSelectedSectors} stocks)`
+      : `${selectedSectors.size} selected (${totalStocksInSelectedSectors} stocks)`;
+
+  const maxMembers =
+    typeof draftRounds === "number" && draftRounds > 0
+      ? Math.floor(totalStocksInSelectedSectors / draftRounds)
+      : 0;
 
   if (!open) return null;
 
@@ -425,15 +465,16 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
           <div className="relative" ref={dropdownRef}>
             <button
               type="button"
+              onMouseDown={() => {
+                (document.activeElement as HTMLElement | null)?.blur();
+              }}
               onClick={(e) => {
                 e.stopPropagation();
                 setShowDropdown((v) => !v);
               }}
               className="w-full rounded border px-3 py-2 text-sm flex justify-between items-center"
             >
-              {selectedSectors.size === 0
-                ? "Any"
-                : `${selectedSectors.size} selected`}
+              {sectorSummaryLabel}
               <ChevronDown className="w-4 h-4" />
             </button>
 
@@ -458,14 +499,20 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
                         setSelectedSectors(next);
                       }}
                     />
-                    <span className="text-sm">{sector}</span>
+                    <span className="text-sm">
+                      {sector} ({SECTOR_STOCK_COUNTS[sector] ?? 0})
+                    </span>
                   </label>
                 ))}
               </div>
             )}
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          <p className="text-xs text-gray-500">
+            Max {maxMembers} members
+          </p>
+
+          <div className="flex justify-center gap-2 pt-2">
             <Button
               type="button"
               variant="outline"

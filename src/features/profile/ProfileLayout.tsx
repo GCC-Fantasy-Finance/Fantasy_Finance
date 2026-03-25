@@ -11,7 +11,6 @@ export default function ProfileLayout() {
 
   const subNavItems = [
     { name: "Profile", path: "/profile" },
-    { name: "Friends", path: "/profile/friends" },
     { name: "Badges", path: "/profile/badges" },
   ];
 

@@ -52,13 +52,6 @@ export interface Friend_Requests {
   status: string;
 }
 
-export interface Friendships {
-  friendship_id: number;
-  created_at: string;
-  user_1_id: string;
-  user_2_id: string;
-}
-
 export interface Leagues {
   league_id: number;
   created_at: string;
