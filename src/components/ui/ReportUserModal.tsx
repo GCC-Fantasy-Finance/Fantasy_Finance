@@ -27,9 +27,21 @@ export default function ReportUserModal({ open, userName, reportedUserId, onClos
   const [customMessage, setCustomMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
+  if (open) {
+    console.debug("ReportUserModal opened with reportedUserId:", reportedUserId, "type:", typeof reportedUserId);
+    if (!reportedUserId) {
+      console.warn("WARNING: reportedUserId is missing or empty!");
+    }
+  }
+
   const handleSubmit = async () => {
-    if (!user?.id || !reportedUserId) {
-      toast.error("Unable to submit report");
+    if (!user?.id) {
+      toast.error("Unable to submit report: user not authenticated");
+      return;
+    }
+
+    if (!reportedUserId) {
+      toast.error("Unable to submit report: user ID is missing");
       return;
     }
 
@@ -38,12 +50,37 @@ export default function ReportUserModal({ open, userName, reportedUserId, onClos
       return;
     }
 
+    // Ensure both user IDs are valid UUID strings
+    const reportingUserIdStr = String(user.id).trim();
+    const reportedUserIdStr = String(reportedUserId).trim();
+    
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    if (!uuidRegex.test(reportingUserIdStr)) {
+      console.error("Invalid reporting user UUID:", reportingUserIdStr);
+      toast.error("Authentication error: invalid session. Please refresh and try again.");
+      return;
+    }
+
+    if (!uuidRegex.test(reportedUserIdStr)) {
+      console.error("Invalid reported user UUID:", reportedUserIdStr);
+      toast.error("Cannot report user: invalid user ID. Please try again or contact support.");
+      return;
+    }
+
     setLoading(true);
 
     try {
+      console.log("DEBUG: About to call submit_report with:", {
+        p_reporting_user: user.id,
+        p_reported_user: reportedUserIdStr,
+        p_reason: selectedReason,
+        p_custom_message: selectedReason === "other" ? customMessage : null,
+      });
+
       const { data, error } = await supabase.rpc("submit_report", {
         p_reporting_user: user.id,
-        p_reported_user: reportedUserId,
+        p_reported_user: reportedUserIdStr,
         p_reason: selectedReason,
         p_custom_message: selectedReason === "other" ? customMessage : null,
       });

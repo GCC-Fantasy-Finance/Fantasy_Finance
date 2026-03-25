@@ -246,6 +246,8 @@ export default function LeagueDetailPage() {
                 (entry) => entry.portfolio_id === portfolioId
               );
               if (selectedEntry) {
+                console.log("DEBUG LeagueDetailPage: selectedEntry =", selectedEntry);
+                console.log("DEBUG LeagueDetailPage: user_id =", selectedEntry.user_id);
                 setSelectedPortfolio(selectedEntry);
               }
             }}
