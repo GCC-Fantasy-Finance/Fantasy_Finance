@@ -8,6 +8,7 @@ import {
   useCallback,
   useMemo,
 } from "react";
+import { Link } from "react-router-dom";
 import {
   X,
   Send,
@@ -64,11 +65,14 @@ interface Message {
   sender: "user" | "ai";
   timestamp: Date;
   contextPortfolioNames?: string[];
+  contextPortfolioIds?: number[];
 }
 
 interface PortfolioContextOption {
   id: number;
   name: string;
+  isSolo: boolean;
+  leagueId: number | null;
   group: "personal" | "current" | "ended";
 }
 
@@ -274,14 +278,42 @@ export default function Chatbot({
     }, 0);
   }, [activeHighlightQuery, messages, escapeRegExp, getVisibleTextForCounting]);
 
-  const selectedPortfolioContextNames = useMemo(() => {
-    if (selectedPortfolioContextIds.length === 0) return [];
+  const portfolioContextById = useMemo(
+    () =>
+      new Map(
+        portfolioContextOptions.map((portfolio) => [portfolio.id, portfolio]),
+      ),
+    [portfolioContextOptions],
+  );
 
-    const selectedIds = new Set(selectedPortfolioContextIds);
-    return portfolioContextOptions
-      .filter((portfolio) => selectedIds.has(portfolio.id))
-      .map((portfolio) => portfolio.name);
-  }, [portfolioContextOptions, selectedPortfolioContextIds]);
+  const portfolioContextByName = useMemo(() => {
+    const map = new Map<string, PortfolioContextOption>();
+    for (const portfolio of portfolioContextOptions) {
+      if (!map.has(portfolio.name)) {
+        map.set(portfolio.name, portfolio);
+      }
+    }
+    return map;
+  }, [portfolioContextOptions]);
+
+  const getPortfolioContextHref = useCallback(
+    (portfolioId?: number, portfolioName?: string) => {
+      const portfolio =
+        (typeof portfolioId === "number"
+          ? portfolioContextById.get(portfolioId)
+          : undefined) ??
+        (portfolioName ? portfolioContextByName.get(portfolioName) : undefined);
+
+      if (!portfolio) return null;
+      if (portfolio.isSolo) return "/solo";
+      if (typeof portfolio.leagueId === "number") {
+        return `/league/${portfolio.leagueId}/portfolio`;
+      }
+
+      return null;
+    },
+    [portfolioContextById, portfolioContextByName],
+  );
 
   const groupedPortfolioContextOptions = useMemo(() => {
     const grouped = {
@@ -624,6 +656,8 @@ export default function Chatbot({
             return {
               id: portfolio.portfolio_id,
               name: "Solo Portfolio",
+              isSolo: true,
+              leagueId: null,
               group: "personal",
             };
           }
@@ -643,6 +677,8 @@ export default function Chatbot({
           return {
             id: portfolio.portfolio_id,
             name: leagueName,
+            isSolo: false,
+            leagueId: portfolio.league_id,
             group: isEnded ? "ended" : "current",
           };
         },
@@ -986,7 +1022,16 @@ export default function Chatbot({
         setMessages((prev) => [...prev, inputLimitMessage]);
         return;
       }
-      const selectedContextNamesForMessage = [...selectedPortfolioContextNames];
+      const selectedContextPortfoliosForMessage = selectedPortfolioContextIds
+        .map((portfolioId) => portfolioContextById.get(portfolioId))
+        .filter((portfolio): portfolio is PortfolioContextOption =>
+          Boolean(portfolio),
+        );
+
+      const selectedContextNamesForMessage =
+        selectedContextPortfoliosForMessage.map((portfolio) => portfolio.name);
+      const selectedContextIdsForMessage =
+        selectedContextPortfoliosForMessage.map((portfolio) => portfolio.id);
 
       // Add user message to UI immediately
       const userMessage: Message = {
@@ -995,6 +1040,7 @@ export default function Chatbot({
         sender: "user",
         timestamp: new Date(),
         contextPortfolioNames: selectedContextNamesForMessage,
+        contextPortfolioIds: selectedContextIdsForMessage,
       };
 
       setMessages((prev) => [...prev, userMessage]);
@@ -1057,10 +1103,59 @@ export default function Chatbot({
             }))
           : [];
 
+        const selectedPortfolioAnalysisUnits = selectedPortfolioContext
+          ? selectedPortfolioContext.portfolios.map((portfolio) => {
+              const topHolding = [...portfolio.holdings].sort(
+                (a, b) => b.positionValue - a.positionValue,
+              )[0];
+              const top3AllocationPct = [...portfolio.holdings]
+                .sort((a, b) => b.allocationPct - a.allocationPct)
+                .slice(0, 3)
+                .reduce((sum, holding) => sum + holding.allocationPct, 0);
+              const cashPct =
+                portfolio.estimatedCurrentTotalValue > 0
+                  ? (portfolio.reserveValue /
+                      portfolio.estimatedCurrentTotalValue) *
+                    100
+                  : 0;
+              const dayChangeDollar =
+                portfolio.estimatedCurrentTotalValue -
+                portfolio.previousCloseValue;
+              const dayChangePct =
+                portfolio.previousCloseValue > 0
+                  ? (dayChangeDollar / portfolio.previousCloseValue) * 100
+                  : 0;
+
+              return {
+                portfolioId: portfolio.portfolioId,
+                portfolioName: portfolio.name,
+                isSolo: portfolio.isSolo,
+                totalValue: portfolio.estimatedCurrentTotalValue,
+                reserveValue: portfolio.reserveValue,
+                investedValue: portfolio.currentInvestedValue,
+                cashPct,
+                holdingsCount: portfolio.holdings.length,
+                topHoldingSymbol: topHolding?.symbol ?? null,
+                topHoldingAllocationPct: topHolding?.allocationPct ?? 0,
+                top3AllocationPct,
+                dayChangeDollar,
+                dayChangePct,
+                historyPoints: portfolio.history.length,
+              };
+            })
+          : [];
+
         const portfolioContextPayload = selectedPortfolioContext
           ? {
-              format: "fantasy-finance-portfolio-context-v1",
+              format: "fantasy-finance-portfolio-context-v2",
               generatedAt: new Date().toISOString(),
+              selectedPortfolioIds: selectedPortfolioContext.portfolios.map(
+                (portfolio) => portfolio.portfolioId,
+              ),
+              selectedPortfolioNames: selectedPortfolioContext.portfolios.map(
+                (portfolio) => portfolio.name,
+              ),
+              analysisUnits: selectedPortfolioAnalysisUnits,
               portfolios: selectedPortfolioContext.portfolios,
             }
           : null;
@@ -1081,17 +1176,18 @@ export default function Chatbot({
             - Treat this as a game assistant. Give actionable recommendations.
             - Do not give generic textbook-only answers when portfolio context is provided.
             - If portfolio context is provided, use that exact data in your analysis.
-            - Only use portfolios contained in PORTFOLIO_CONTEXT_JSON. Those are the only portfolios currently shared.
+            - Only use portfolios contained in PORTFOLIO_CONTEXT_ENVELOPE. Those are the only portfolios currently shared.
             - If no detailed portfolio context is shared, say you cannot see portfolio details yet and ask the user to share portfolios with the Add Context button.
             - If user asks about a specific portfolio that is not currently shared, explicitly say it is not currently visible and ask them to share that one.
             - Never claim to see data that is not in the provided context.
+            - Treat each item in analysisUnits as one portfolio-level analysis object. Start portfolio comparisons from analysisUnits first, then use holdings/history for supporting detail.
 
             How to respond to common intents:
             - "Analyze my portfolios":
               - If shared context exists: compare the shared portfolios directly (cash level, top positions, concentration, diversification, recent trend from history), then give concrete next actions.
               - If no shared context: say you need the user to share one or more portfolios via Add Context for analysis.
             - "List my portfolios":
-              - List only currently shared portfolio names from PORTFOLIO_CONTEXT_JSON.
+              - List only currently shared portfolio names from PORTFOLIO_CONTEXT_ENVELOPE.
               - If none are shared, say none are visible yet.
             - Buy/sell questions:
               - Give a direct action first, then a short rationale tied to the user’s portfolio exposures and cash.
@@ -1133,13 +1229,13 @@ export default function Chatbot({
                 : "No portfolios currently shared"
             }
 
-            PORTFOLIO_CONTEXT_JSON_START
+            PORTFOLIO_CONTEXT_ENVELOPE_START
             ${
               portfolioContextPayload
                 ? JSON.stringify(portfolioContextPayload, null, 2)
                 : "null"
             }
-            PORTFOLIO_CONTEXT_JSON_END
+            PORTFOLIO_CONTEXT_ENVELOPE_END
             `.trim(),
         };
 
@@ -1251,7 +1347,8 @@ export default function Chatbot({
       initialMessage,
       setInitialMessage,
       buildSelectedPortfolioContext,
-      selectedPortfolioContextNames,
+      selectedPortfolioContextIds,
+      portfolioContextById,
     ],
   );
 
@@ -1533,140 +1630,55 @@ export default function Chatbot({
   );
 
   // Render input area (shared between pinned and floating modes)
-  const renderInput = (className = "") => (
-    <div className={className}>
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        <DropdownMenu
-          onOpenChange={(open) => {
-            if (open) {
-              setShowEndedLeagues(hasSelectedEndedPortfolio);
-            }
-          }}
-        >
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-7 px-2 text-xs">
-              <Paperclip className="h-4 w-4" />
-              Add Context ({selectedPortfolioContextIds.length}/
-              {MAX_SELECTED_PORTFOLIOS})
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-64 z-100">
-            {selectedPortfolioContextIds.length > 0 && (
-              <>
-                <DropdownMenuItem
-                  className="cursor-pointer"
-                  onSelect={(event) => {
-                    event.preventDefault();
-                    setSelectedPortfolioContextIds([]);
-                    setContextLimitNotice(null);
-                  }}
-                >
-                  <span className="inline-flex size-4 items-center justify-center rounded border border-primary bg-primary text-primary-foreground">
-                    <Minus
-                      className="size-3 text-white"
-                      strokeWidth={"2.5px"}
-                    />
-                  </span>
-                  <span>Deselect All</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-              </>
-            )}
+  const renderInput = (className = "") => {
+    const isAwaitingAIResponse = loadingAI || isStreaming;
 
-            {groupedPortfolioContextOptions.personal.length > 0 && (
-              <>
-                <div className="px-2 py-1.5 text-[11px] font-medium uppercase tracking-wide text-green-700">
-                  Personal
-                </div>
-                {groupedPortfolioContextOptions.personal.map((portfolio) => (
+    return (
+      <div className={className}>
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <DropdownMenu
+            onOpenChange={(open) => {
+              if (open) {
+                setShowEndedLeagues(hasSelectedEndedPortfolio);
+              }
+            }}
+          >
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-7 px-2 text-xs">
+                <Paperclip className="h-4 w-4" />
+                Add Context ({selectedPortfolioContextIds.length}/
+                {MAX_SELECTED_PORTFOLIOS})
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-64 z-100">
+              {selectedPortfolioContextIds.length > 0 && (
+                <>
                   <DropdownMenuItem
-                    key={portfolio.id}
-                    disabled={
-                      !selectedPortfolioContextIds.includes(portfolio.id) &&
-                      selectedPortfolioContextIds.length >=
-                        MAX_SELECTED_PORTFOLIOS
-                    }
-                    className="cursor-pointer data-disabled:opacity-50"
+                    className="cursor-pointer"
                     onSelect={(event) => {
                       event.preventDefault();
-                      togglePortfolioContextItem(portfolio.id);
+                      setSelectedPortfolioContextIds([]);
+                      setContextLimitNotice(null);
                     }}
                   >
-                    <Checkbox
-                      checked={selectedPortfolioContextIds.includes(
-                        portfolio.id,
-                      )}
-                      className="pointer-events-none"
-                    />
-                    <span
-                      className="min-w-0 flex-1 truncate"
-                      title={portfolio.name}
-                    >
-                      {portfolio.name}
+                    <span className="inline-flex size-4 items-center justify-center rounded border border-primary bg-primary text-primary-foreground">
+                      <Minus
+                        className="size-3 text-white"
+                        strokeWidth={"2.5px"}
+                      />
                     </span>
+                    <span>Deselect All</span>
                   </DropdownMenuItem>
-                ))}
-              </>
-            )}
+                  <DropdownMenuSeparator />
+                </>
+              )}
 
-            {groupedPortfolioContextOptions.current.length > 0 && (
-              <>
-                <div className="px-2 py-1.5 text-[11px] font-medium uppercase tracking-wide text-green-700">
-                  Ongoing Leagues
-                </div>
-                {groupedPortfolioContextOptions.current.map((portfolio) => (
-                  <DropdownMenuItem
-                    key={portfolio.id}
-                    disabled={
-                      !selectedPortfolioContextIds.includes(portfolio.id) &&
-                      selectedPortfolioContextIds.length >=
-                        MAX_SELECTED_PORTFOLIOS
-                    }
-                    className="cursor-pointer data-disabled:opacity-50"
-                    onSelect={(event) => {
-                      event.preventDefault();
-                      togglePortfolioContextItem(portfolio.id);
-                    }}
-                  >
-                    <Checkbox
-                      checked={selectedPortfolioContextIds.includes(
-                        portfolio.id,
-                      )}
-                      className="pointer-events-none"
-                    />
-                    <span
-                      className="min-w-0 flex-1 truncate"
-                      title={portfolio.name}
-                    >
-                      {portfolio.name}
-                    </span>
-                  </DropdownMenuItem>
-                ))}
-              </>
-            )}
-
-            {groupedPortfolioContextOptions.ended.length > 0 && (
-              <>
-                <DropdownMenuItem
-                  className="cursor-pointer"
-                  onSelect={(event) => {
-                    event.preventDefault();
-                    setShowEndedLeagues((prev) => !prev);
-                  }}
-                >
-                  {showEndedLeagues ? (
-                    <ChevronDown className="h-3.5 w-3.5 text-green-700" />
-                  ) : (
-                    <ChevronRight className="h-3.5 w-3.5 text-green-700" />
-                  )}
-                  <span className="text-[11px] font-medium uppercase tracking-wide text-green-700">
-                    Ended Leagues ({groupedPortfolioContextOptions.ended.length}
-                    )
-                  </span>
-                </DropdownMenuItem>
-
-                {showEndedLeagues &&
-                  groupedPortfolioContextOptions.ended.map((portfolio) => (
+              {groupedPortfolioContextOptions.personal.length > 0 && (
+                <>
+                  <div className="px-2 py-1.5 text-[11px] font-medium uppercase tracking-wide text-green-700">
+                    Personal
+                  </div>
+                  {groupedPortfolioContextOptions.personal.map((portfolio) => (
                     <DropdownMenuItem
                       key={portfolio.id}
                       disabled={
@@ -1694,90 +1706,196 @@ export default function Chatbot({
                       </span>
                     </DropdownMenuItem>
                   ))}
-              </>
-            )}
+                </>
+              )}
 
-            {portfolioContextOptions.length === 0 && (
-              <div className="px-2 py-1.5 text-sm text-gray-500">
-                {loadingPortfolioContext
-                  ? "Loading portfolios..."
-                  : "No portfolios found."}
-              </div>
-            )}
-            <DropdownMenuSeparator className="mt-3" />
-            {portfolioContextOptions.length > MAX_SELECTED_PORTFOLIOS && (
-              <div className="px-2 py-1.5 text-xs text-gray-500">
-                Max {MAX_SELECTED_PORTFOLIOS} portfolios can be shared at once.
-              </div>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              {groupedPortfolioContextOptions.current.length > 0 && (
+                <>
+                  <div className="px-2 py-1.5 text-[11px] font-medium uppercase tracking-wide text-green-700">
+                    Ongoing Leagues
+                  </div>
+                  {groupedPortfolioContextOptions.current.map((portfolio) => (
+                    <DropdownMenuItem
+                      key={portfolio.id}
+                      disabled={
+                        !selectedPortfolioContextIds.includes(portfolio.id) &&
+                        selectedPortfolioContextIds.length >=
+                          MAX_SELECTED_PORTFOLIOS
+                      }
+                      className="cursor-pointer data-disabled:opacity-50"
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        togglePortfolioContextItem(portfolio.id);
+                      }}
+                    >
+                      <Checkbox
+                        checked={selectedPortfolioContextIds.includes(
+                          portfolio.id,
+                        )}
+                        className="pointer-events-none"
+                      />
+                      <span
+                        className="min-w-0 flex-1 truncate"
+                        title={portfolio.name}
+                      >
+                        {portfolio.name}
+                      </span>
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              )}
 
-        {selectedPortfolioContextIds.map((portfolioId) => {
-          const portfolio = portfolioContextOptions.find(
-            (option) => option.id === portfolioId,
-          );
+              {groupedPortfolioContextOptions.ended.length > 0 && (
+                <>
+                  <DropdownMenuItem
+                    className="cursor-pointer"
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      setShowEndedLeagues((prev) => !prev);
+                    }}
+                  >
+                    {showEndedLeagues ? (
+                      <ChevronDown className="h-3.5 w-3.5 text-green-700" />
+                    ) : (
+                      <ChevronRight className="h-3.5 w-3.5 text-green-700" />
+                    )}
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-green-700">
+                      Ended Leagues (
+                      {groupedPortfolioContextOptions.ended.length})
+                    </span>
+                  </DropdownMenuItem>
 
-          if (!portfolio) return null;
+                  {showEndedLeagues &&
+                    groupedPortfolioContextOptions.ended.map((portfolio) => (
+                      <DropdownMenuItem
+                        key={portfolio.id}
+                        disabled={
+                          !selectedPortfolioContextIds.includes(portfolio.id) &&
+                          selectedPortfolioContextIds.length >=
+                            MAX_SELECTED_PORTFOLIOS
+                        }
+                        className="cursor-pointer data-disabled:opacity-50"
+                        onSelect={(event) => {
+                          event.preventDefault();
+                          togglePortfolioContextItem(portfolio.id);
+                        }}
+                      >
+                        <Checkbox
+                          checked={selectedPortfolioContextIds.includes(
+                            portfolio.id,
+                          )}
+                          className="pointer-events-none"
+                        />
+                        <span
+                          className="min-w-0 flex-1 truncate"
+                          title={portfolio.name}
+                        >
+                          {portfolio.name}
+                        </span>
+                      </DropdownMenuItem>
+                    ))}
+                </>
+              )}
 
-          return (
-            <div
-              key={portfolio.id}
-              className="h-7 inline-flex items-center gap-1 rounded-sm bg-gray-100 pl-2 pr-1 text-xs text-gray-700"
-            >
-              <span className="max-w-28 truncate" title={portfolio.name}>
-                {portfolio.name}
-              </span>
-              <button
-                type="button"
-                onClick={() => removePortfolioContextItem(portfolio.id)}
-                className="inline-flex h-5 w-5 items-center justify-center cursor-pointer text-gray-500 hover:text-gray-700"
-                aria-label={`Remove ${portfolio.name} context`}
-                title={`Remove ${portfolio.name}`}
+              {portfolioContextOptions.length === 0 && (
+                <div className="px-2 py-1.5 text-sm text-gray-500">
+                  {loadingPortfolioContext
+                    ? "Loading portfolios..."
+                    : "No portfolios found."}
+                </div>
+              )}
+              <DropdownMenuSeparator className="mt-3" />
+              {portfolioContextOptions.length > MAX_SELECTED_PORTFOLIOS && (
+                <div className="px-2 py-1.5 text-xs text-gray-500">
+                  Max {MAX_SELECTED_PORTFOLIOS} portfolios can be shared at
+                  once.
+                </div>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {selectedPortfolioContextIds.map((portfolioId) => {
+            const portfolio = portfolioContextOptions.find(
+              (option) => option.id === portfolioId,
+            );
+
+            if (!portfolio) return null;
+
+            const portfolioHref = getPortfolioContextHref(
+              portfolio.id,
+              portfolio.name,
+            );
+
+            return (
+              <div
+                key={portfolio.id}
+                className="h-7 inline-flex items-center gap-1 rounded-sm bg-gray-100 pl-2 pr-1 text-xs text-gray-700"
               >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          );
-        })}
-        {(contextLimitNotice ||
-          selectedPortfolioContextIds.length >= MAX_SELECTED_PORTFOLIOS) && (
-          <p className="w-full text-xs text-amber-700">
-            {contextLimitNotice ??
-              `Max context reached (${MAX_SELECTED_PORTFOLIOS} portfolios). Remove one to add another.`}
-          </p>
-        )}
+                {portfolioHref ? (
+                  <Link
+                    to={portfolioHref}
+                    className="max-w-28 truncate hover:text-green-700"
+                    title={portfolio.name}
+                  >
+                    {portfolio.name}
+                  </Link>
+                ) : (
+                  <span className="max-w-28 truncate" title={portfolio.name}>
+                    {portfolio.name}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => removePortfolioContextItem(portfolio.id)}
+                  className="inline-flex h-5 w-5 items-center justify-center cursor-pointer text-gray-500 hover:text-gray-700"
+                  aria-label={`Remove ${portfolio.name} context`}
+                  title={`Remove ${portfolio.name}`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            );
+          })}
+          {(contextLimitNotice ||
+            selectedPortfolioContextIds.length >= MAX_SELECTED_PORTFOLIOS) && (
+            <p className="w-full text-xs text-amber-700">
+              {contextLimitNotice ??
+                `Max context reached (${MAX_SELECTED_PORTFOLIOS} portfolios).`}
+            </p>
+          )}
+        </div>
+        <div className="flex gap-2 items-center h-9">
+          <Input
+            ref={inputRef}
+            type="text"
+            placeholder={`Type your message...`}
+            maxLength={MAX_USER_MESSAGE_CHARS}
+            value={message}
+            disabled={isAwaitingAIResponse}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            className="flex-1 h-9"
+          />
+          <Button
+            onClick={handleSend}
+            disabled={!message.trim() || isAwaitingAIResponse}
+            className="w-9 h-9"
+          >
+            <Send className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="mt-1 text-right text-[11px] text-gray-500">
+          {message.length.toLocaleString()}/
+          {MAX_USER_MESSAGE_CHARS.toLocaleString()}
+        </div>
       </div>
-      <div className="flex gap-2 items-center h-9">
-        <Input
-          ref={inputRef}
-          type="text"
-          placeholder={`Type your message...`}
-          maxLength={MAX_USER_MESSAGE_CHARS}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
-          className="flex-1 h-9"
-        />
-        <Button
-          onClick={handleSend}
-          disabled={!message.trim() || loadingAI}
-          className="w-9 h-9"
-        >
-          <Send className="h-4 w-4" />
-        </Button>
-      </div>
-      <div className="mt-1 text-right text-[11px] text-gray-500">
-        {message.length.toLocaleString()}/
-        {MAX_USER_MESSAGE_CHARS.toLocaleString()}
-      </div>
-    </div>
-  );
+    );
+  };
 
   // Render history list
   const renderHistory = () => {
@@ -1996,14 +2114,40 @@ export default function Chatbot({
                   {msg.contextPortfolioNames &&
                     msg.contextPortfolioNames.length > 0 && (
                       <div className="flex flex-wrap justify-end gap-1.5">
-                        {msg.contextPortfolioNames.map((portfolioName) => (
-                          <span
-                            key={`${msg.id}-${portfolioName}`}
-                            className="inline-flex items-center rounded-md border border-gray-300 bg-white px-2 py-1 text-[11px] leading-none text-gray-700"
-                          >
-                            {portfolioName}
-                          </span>
-                        ))}
+                        {msg.contextPortfolioNames.map(
+                          (portfolioName, index) => {
+                            const portfolioId =
+                              msg.contextPortfolioIds?.[index];
+                            const portfolioHref = getPortfolioContextHref(
+                              portfolioId,
+                              portfolioName,
+                            );
+
+                            const sharedClasses =
+                              "inline-flex items-center rounded border border-gray-300 bg-white px-2 py-1 text-[11px] leading-none text-gray-700";
+
+                            if (!portfolioHref) {
+                              return (
+                                <span
+                                  key={`${msg.id}-${portfolioName}-${index}`}
+                                  className={sharedClasses}
+                                >
+                                  {portfolioName}
+                                </span>
+                              );
+                            }
+
+                            return (
+                              <Link
+                                key={`${msg.id}-${portfolioName}-${index}`}
+                                to={portfolioHref}
+                                className={`${sharedClasses} hover:bg-gray-50 hover:text-green-700`}
+                              >
+                                {portfolioName}
+                              </Link>
+                            );
+                          },
+                        )}
                       </div>
                     )}
                 </div>
