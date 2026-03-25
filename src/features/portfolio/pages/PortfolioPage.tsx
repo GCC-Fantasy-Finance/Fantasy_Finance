@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { Compass } from "lucide-react";
 import StockDetailsModal from "@/components/ui/stockDetailsModal";
 import PortfolioChart from "@/components/ui/portfolioChart";
 import { useAuth } from "@/context/AuthContext";
@@ -61,6 +63,7 @@ export default function PortfolioPage({
   wrapWithPageContent = false,
 }: PortfolioPageProps) {
   const auth = useAuth();
+  const navigate = useNavigate();
   const { openSell, openBuy } = useTradeModal();
 
   const [loading, setLoading] = useState(true);
@@ -310,7 +313,9 @@ export default function PortfolioPage({
   const reserveValue = Number(totals?.reserve_value ?? 0);
   const investedValue = calculateInvestedValue(holdings);
   const netValue = calculatePortfolioValue({ holdings, reserveValue });
-  const previousCloseValue = Number(totals?.previous_close_value ?? netValue);
+  const rawPreviousCloseValue = Number(totals?.previous_close_value ?? 0);
+  const previousCloseValue =
+    rawPreviousCloseValue > 0 ? rawPreviousCloseValue : netValue;
   const allTimeBaselineValue = portfolio ? INITIAL_PORTFOLIO_VALUE : netValue;
 
   const hasAllocationData = investedValue + reserveValue > 0;
@@ -446,27 +451,51 @@ export default function PortfolioPage({
         </div>
       )}
 
-      <h2 className="mb-3 text-lg font-semibold">My Stocks</h2>
+      <h2 className="mb-2 text-lg font-semibold">My Stocks</h2>
+
+      
 
       <div className="">
         {holdings.length === 0 ? (
-          <EmptyPortfolioState message="No holdings yet." />
+          <div className="mb-4 flex justify-start">
+            <button
+              type="button"
+              onClick={() => navigate("/discover")}
+              className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-green-700/30 px-4 py-2 text-green-700 hover:bg-green-700/10"
+            >
+              <Compass className="size-5 text-green-700" />
+              <span className="text-base leading-none">No stocks yet – Discover?</span>
+            </button>
+          </div>
         ) : (
-          holdings.map((holding, index) => {
-            return (
-              <PortfolioHoldingCard
-                key={holding.portfolio_holding_id}
-                holding={holding}
-                onOpenStockDetails={handleOpenStockDetails}
-                onSell={handleSell}
-                onBuy={handleBuy}
-                onBookmark={() => toast.info("Bookmark not implemented yet")}
-                showBottomBorder={index === holdings.length - 1}
-                showTopRounded={index === 0}
-                showBottomRounded={index === holdings.length - 1}
-              />
-            );
-          })
+          <>
+            {holdings.map((holding, index) => {
+              return (
+                <PortfolioHoldingCard
+                  key={holding.portfolio_holding_id}
+                  holding={holding}
+                  onOpenStockDetails={handleOpenStockDetails}
+                  onSell={handleSell}
+                  onBuy={handleBuy}
+                  onBookmark={() => toast.info("Bookmark not implemented yet")}
+                  showBottomBorder={index === holdings.length - 1}
+                  showTopRounded={index === 0}
+                  showBottomRounded={index === holdings.length - 1}
+                />
+              );
+            })}
+
+            <div className="mt-4 mb-4 flex justify-center">
+              <button
+                type="button"
+                onClick={() => navigate("/discover")}
+                className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-green-700/30 px-4 py-2 text-green-700 hover:bg-green-700/10"
+              >
+                <Compass className="size-5 text-green-700" />
+                <span className="text-base leading-none">Discover More Stocks</span>
+              </button>
+            </div>
+          </>
         )}
 
         <StockDetailsModal
@@ -475,6 +504,7 @@ export default function PortfolioPage({
           onClose={() => setStockDetailsModalOpen(false)}
         />
       </div>
+
     </div>
   );
 

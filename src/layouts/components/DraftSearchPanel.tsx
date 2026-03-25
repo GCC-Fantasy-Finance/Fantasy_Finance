@@ -10,6 +10,7 @@ import Ticker from "@/components/ui/ticker";
 import SearchIcon from "@/components/ui/search-icon";
 import { Input } from "@/components/ui/input";
 import { X } from "lucide-react";
+import { getSearchScore } from "@/lib/searchUtils";
 
 import {
   Select,
@@ -142,7 +143,7 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
   );
 
   const filteredStocks = useMemo(() => {
-    return stocks
+    let filtered = stocks
       .filter((stock) => {
         const term = searchTerm.toLowerCase();
         return (
@@ -157,9 +158,24 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
       .filter((stock) =>
         sectorFilter === "All" ? true : stock.sector === sectorFilter,
       );
+
+    // Sort by search relevance when there's a search term
+    if (searchTerm.length > 0) {
+      filtered = filtered.sort(
+        (a, b) => getSearchScore(b, searchTerm) - getSearchScore(a, searchTerm),
+      );
+    }
+
+    return filtered;
   }, [stocks, searchTerm, draftedStockIds, exchangeFilter, sectorFilter]);
 
   const sortedStocks = useMemo(() => {
+    // If there's a search term, keep the search relevance sorting from filteredStocks
+    if (searchTerm.length > 0) {
+      return filteredStocks;
+    }
+
+    // Otherwise, sort by the selected column
     const sorted = [...filteredStocks].sort((a, b) => {
       let aValue: string | number = "";
       let bValue: string | number = "";
@@ -199,7 +215,7 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
     });
 
     return sorted;
-  }, [filteredStocks, sortColumn, sortDirection, stockPrices]);
+  }, [filteredStocks, sortColumn, sortDirection, stockPrices, searchTerm]);
 
   const virtualizer = useVirtualizer({
     count: sortedStocks.length,

@@ -18,6 +18,8 @@ export default function HomePageCard(portfolio: PortfolioCard) {
   const netValue = Number(
     portfolio.net_value ?? portfolio.previous_close_value ?? 0
   );
+  const previousCloseValue = Number(portfolio.previous_close_value ?? 0);
+  const baselineValue = previousCloseValue > 0 ? previousCloseValue : netValue;
   const reserveValue = Number(portfolio.reserve_value ?? 0);
   const amountInvested = netValue - reserveValue;
     
@@ -50,7 +52,7 @@ export default function HomePageCard(portfolio: PortfolioCard) {
             <span>${netValue.toFixed(2)}</span>
             <Ticker
               currentValue={netValue}
-              previousValue={portfolio.previous_close_value}
+              previousValue={baselineValue}
               displayAs="percent"
               size="normal"
             />
