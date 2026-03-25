@@ -105,7 +105,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
     return null;
   };
 
-  console.log("USER:", user);
+  // console.log("USER:", user);
 
   // ESC handling
   useEffect(() => {
@@ -220,7 +220,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
 
       if (error) throw error;
 
-      const { data: portfolioData,error: portfolioError } = await supabase
+      const { data: portfolioData, error: portfolioError } = await supabase
         .from("Portfolios")
         .insert([
           {
@@ -252,12 +252,14 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
       ]);
       if (draftError) throw draftError;
 
-      const {error: historyError} = await supabase.from("Portfolio Histories").insert([
-        {
-          portfolio_id: portfolioData?.portfolio_id,
-          value: 10000, // portfolio_id and league_id are the same for solo portfolios
-        },
-      ]);
+      const { error: historyError } = await supabase
+        .from("Portfolio Histories")
+        .insert([
+          {
+            portfolio_id: portfolioData?.portfolio_id,
+            value: 10000, // portfolio_id and league_id are the same for solo portfolios
+          },
+        ]);
       if (historyError) throw historyError;
 
       toast.success("League created");
@@ -508,9 +510,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
             )}
           </div>
 
-          <p className="text-xs text-gray-500">
-            Max {maxMembers} members
-          </p>
+          <p className="text-xs text-gray-500">Max {maxMembers} members</p>
 
           <div className="flex justify-center gap-2 pt-2">
             <Button

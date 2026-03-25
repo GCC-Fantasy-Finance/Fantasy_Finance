@@ -14,6 +14,7 @@
 - is_ai_message: bool
 - message_text: text
 - conversation_id: int8
+- context_portfolio_names: text[] (nullable)
 
 ### Draft Picks
 

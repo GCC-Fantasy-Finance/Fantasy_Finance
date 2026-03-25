@@ -13,6 +13,7 @@ export interface ChatMessage {
   is_ai_message: boolean;
   message_text: string;
   conversation_id: number;
+  context_portfolio_names: string[] | null;
 }
 
 /**
@@ -48,6 +49,7 @@ export async function addMessage(
   conversationId: number,
   messageText: string,
   isAiMessage: boolean,
+  contextPortfolioNames?: string[],
 ): Promise<{ data: ChatMessage | null; error: Error | null }> {
   try {
     const { data, error } = await supabase
@@ -56,6 +58,9 @@ export async function addMessage(
         conversation_id: conversationId,
         message_text: messageText,
         is_ai_message: isAiMessage,
+        context_portfolio_names: isAiMessage
+          ? null
+          : (contextPortfolioNames ?? null),
       })
       .select()
       .single();
@@ -212,6 +217,40 @@ export async function callOpenAIStream(
     const decoder = new TextDecoder();
     let buffer = "";
 
+    const processSseEvent = (rawEvent: string) => {
+      const eventLines = rawEvent.split(/\r?\n/);
+      const dataLines: string[] = [];
+
+      for (const line of eventLines) {
+        if (!line || line.startsWith(":")) {
+          continue;
+        }
+
+        if (line.startsWith("data:")) {
+          dataLines.push(line.slice(5).trimStart());
+        }
+      }
+
+      if (dataLines.length === 0) {
+        return;
+      }
+
+      const payload = dataLines.join("\n").trim();
+      if (!payload || payload === "[DONE]") {
+        return;
+      }
+
+      try {
+        const json = JSON.parse(payload);
+        const content = json.choices?.[0]?.delta?.content;
+        if (typeof content === "string" && content.length > 0) {
+          onChunk(content);
+        }
+      } catch (e) {
+        console.error("Error parsing SSE event payload:", e, payload);
+      }
+    };
+
     while (true) {
       const { done, value } = await reader.read();
 
@@ -220,42 +259,23 @@ export async function callOpenAIStream(
       const chunk = decoder.decode(value, { stream: true });
       buffer += chunk;
 
-      // Process complete lines (SSE format)
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || ""; // Keep incomplete line in buffer
+      // Process complete SSE events delimited by a blank line.
+      const events = buffer.split("\n\n");
+      buffer = events.pop() || "";
 
-      for (const line of lines) {
-        if (line.startsWith("data: ")) {
-          try {
-            const jsonStr = line.slice(6);
-            if (jsonStr === "[DONE]") {
-              continue;
-            }
-            const json = JSON.parse(jsonStr);
-            const content = json.choices?.[0]?.delta?.content;
-            if (content) {
-              onChunk(content);
-            }
-          } catch (e) {
-            console.error("Error parsing SSE line:", e);
-          }
-        }
+      for (const event of events) {
+        processSseEvent(event);
       }
     }
 
-    // Process any remaining buffer
-    if (buffer.trim().startsWith("data: ")) {
-      try {
-        const jsonStr = buffer.slice(6);
-        if (jsonStr !== "[DONE]") {
-          const json = JSON.parse(jsonStr);
-          const content = json.choices?.[0]?.delta?.content;
-          if (content) {
-            onChunk(content);
-          }
+    // Flush any pending bytes from the decoder and process remaining events.
+    buffer += decoder.decode();
+    if (buffer.trim()) {
+      const events = buffer.split("\n\n");
+      for (const event of events) {
+        if (event.trim()) {
+          processSseEvent(event);
         }
-      } catch (e) {
-        console.error("Error parsing final SSE line:", e);
       }
     }
 
