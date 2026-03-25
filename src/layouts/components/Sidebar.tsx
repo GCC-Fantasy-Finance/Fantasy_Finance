@@ -12,7 +12,9 @@ import {
 import { Button } from "@/components/ui/button";
 import CreateLeagueModal from "@/components/ui/CreateLeagueModal";
 import JoinLeagueModal from "@/components/ui/JoinLeagueModal";
+import Ticker from "@/components/ui/ticker";
 import { supabase } from "@/lib/supabase";
+import { calculatePortfolioValue } from "@/lib/portfolioValue";
 import { prefetchLeagueView } from "@/hooks/fetchLeagueView";
 import { useLayout } from "@/context/LayoutContext";
 
@@ -22,6 +24,25 @@ type NavItem = {
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
 };
 
+type PortfolioLeagueRow = {
+  portfolio_id: number;
+  league_id: number | null;
+  created_at: string | null;
+  previous_close_value: number | null;
+  reserve_value: number | null;
+};
+
+type LeagueRow = {
+  league_id: number;
+  name: string;
+  finish_time?: string | null;
+};
+
+type LeagueSidebarEntry = LeagueRow & {
+  current_value: number;
+  previous_close_value: number;
+};
+
 export default function Sidebar() {
   const location = useLocation();
   const { profile } = useAuth();
@@ -29,7 +50,7 @@ export default function Sidebar() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   // const [error, setError] = useState<string | null>(null);
   const [isJoinOpen, setIsJoinOpen] = useState(false);
-  const [leagues, setLeagues] = useState<any[]>([]);
+  const [leagues, setLeagues] = useState<LeagueSidebarEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   const navItems: NavItem[] = [
@@ -38,41 +59,130 @@ export default function Sidebar() {
     { name: "Solo", path: "/solo", icon: UserRound },
   ];
 
-  async function fetchLeagues() {
-    // console.log("PROFILE:", profile);
-
+  async function fetchLeagues(): Promise<LeagueSidebarEntry[]> {
     if (!profile) {
       console.log("No profile yet");
       return [];
     }
 
-    // STEP 1 — Get user’s portfolios (excluding solo)
     const { data: portfolios, error: portfoliosError } = await supabase
       .from("Portfolios")
-      .select("league_id")
+      .select(
+        "portfolio_id, league_id, created_at, previous_close_value, reserve_value",
+      )
       .eq("user_id", profile.id)
-      .eq("is_solo", false);
-
-    // console.log("PORTFOLIOS:", portfolios);
-    // console.log("PORTFOLIOS ERROR:", portfoliosError);
+      .eq("is_solo", false)
+      .not("league_id", "is", null)
+      .order("created_at", { ascending: false });
 
     if (portfoliosError || !portfolios) return [];
 
-    const uniqueLeagueIds = [
-      ...new Set(portfolios.map((p) => p.league_id).filter((id) => id != null)),
-    ];
+    const typedPortfolios = portfolios as PortfolioLeagueRow[];
+    if (typedPortfolios.length === 0) return [];
+
+    const uniqueLeagueIds: number[] = [];
+    const seenLeagueIds = new Set<number>();
+    for (const portfolio of typedPortfolios) {
+      const leagueId = Number(portfolio.league_id);
+      if (!Number.isFinite(leagueId) || seenLeagueIds.has(leagueId)) continue;
+      seenLeagueIds.add(leagueId);
+      uniqueLeagueIds.push(leagueId);
+    }
+
     if (uniqueLeagueIds.length === 0) return [];
 
     const { data: leagues, error: leaguesError } = await supabase
       .from("Leagues")
-      .select("*")
-      .in("league_id", uniqueLeagueIds as number[]);
-
-    // console.log("LEAGUES RESULT:", leagues);
-    // console.log("LEAGUES ERROR:", leaguesError);
+      .select("league_id, name, finish_time")
+      .in("league_id", uniqueLeagueIds);
 
     if (leaguesError || !leagues) return [];
-    return leagues;
+
+    const leagueById = new Map<number, LeagueRow>();
+    for (const league of leagues as LeagueRow[]) {
+      leagueById.set(Number(league.league_id), league);
+    }
+
+    const portfolioIds = typedPortfolios
+      .map((portfolio) => Number(portfolio.portfolio_id))
+      .filter((portfolioId) => Number.isFinite(portfolioId));
+
+    const { data: holdingsRows } = await supabase
+      .from("Portfolio Holdings")
+      .select("portfolio_id, stock_id, quantity")
+      .in("portfolio_id", portfolioIds);
+
+    const stockIds = Array.from(
+      new Set(
+        (holdingsRows ?? [])
+          .map((holding: any) => Number(holding.stock_id))
+          .filter((stockId) => Number.isFinite(stockId)),
+      ),
+    );
+
+    const stockPricesById = new Map<number, number>();
+    if (stockIds.length > 0) {
+      const { data: stockRows } = await supabase
+        .from("Stocks")
+        .select("stock_id, current_price")
+        .in("stock_id", stockIds);
+
+      for (const stock of stockRows ?? []) {
+        stockPricesById.set(
+          Number((stock as any).stock_id),
+          Number((stock as any).current_price ?? 0),
+        );
+      }
+    }
+
+    const holdingsByPortfolio = (holdingsRows ?? []).reduce(
+      (map, holding: any) => {
+        const portfolioId = Number(holding.portfolio_id);
+        const existing = map.get(portfolioId) ?? [];
+        existing.push({
+          quantity: Number(holding.quantity ?? 0),
+          stock: {
+            current_price: stockPricesById.get(Number(holding.stock_id)) ?? 0,
+          },
+        });
+        map.set(portfolioId, existing);
+        return map;
+      },
+      new Map<
+        number,
+        Array<{
+          quantity?: number | null;
+          stock?: { current_price?: number | null };
+        }>
+      >(),
+    );
+
+    const sidebarEntries: LeagueSidebarEntry[] = [];
+    const seenSidebarLeagueIds = new Set<number>();
+
+    for (const portfolio of typedPortfolios) {
+      const leagueId = Number(portfolio.league_id);
+      if (!Number.isFinite(leagueId) || seenSidebarLeagueIds.has(leagueId)) {
+        continue;
+      }
+
+      const league = leagueById.get(leagueId);
+      if (!league) continue;
+
+      const currentValue = calculatePortfolioValue({
+        holdings: holdingsByPortfolio.get(Number(portfolio.portfolio_id)) ?? [],
+        reserveValue: portfolio.reserve_value,
+      });
+
+      sidebarEntries.push({
+        ...league,
+        current_value: currentValue,
+        previous_close_value: Number(portfolio.previous_close_value ?? 0),
+      });
+      seenSidebarLeagueIds.add(leagueId);
+    }
+
+    return sidebarEntries;
   }
 
   const reloadLeagues = useCallback(async () => {
@@ -140,12 +250,12 @@ export default function Sidebar() {
           type="button"
           aria-label="Close sidebar menu"
           onClick={() => setIsSidebarOpen(false)}
-          className="fixed inset-0 bg-black/30 z-30 md:hidden"
+          className="fixed inset-0 bg-black/30 z-50 md:hidden"
         />
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-50 h-screen bg-gray-100 border-r border-gray-300 flex flex-col transform transition-transform duration-200 md:static md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-60 h-screen bg-gray-100 border-r border-gray-300 flex flex-col transform transition-transform duration-200 md:static md:translate-x-0 ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -233,6 +343,12 @@ export default function Sidebar() {
                       ? `/league/${league.league_id}/results`
                       : `/league/${league.league_id}`;
                   const active = isActive(path);
+                  const baselineValue =
+                    league.previous_close_value > 0
+                      ? league.previous_close_value
+                      : league.current_value;
+                  const shouldShowTicker =
+                    Math.abs(league.current_value - baselineValue) > 0;
                   return (
                     <li key={league.league_id}>
                       <Link
@@ -245,13 +361,24 @@ export default function Sidebar() {
                         onTouchStart={() =>
                           handlePrefetchLeague(league.league_id)
                         }
-                        className={`block px-4 py-2 rounded text-sm transition-colors ${
+                        className={`flex items-center justify-between gap-2 px-4 py-2 rounded text-sm transition-colors ${
                           active
                             ? "bg-green-700/10 font-semibold text-green-700"
                             : "hover:bg-gray-200"
                         }`}
                       >
-                        <span className="block truncate">{league.name}</span>
+                        <span className="block truncate min-w-0">
+                          {league.name}
+                        </span>
+                        {shouldShowTicker ? (
+                          <Ticker
+                            currentValue={league.current_value}
+                            previousValue={baselineValue}
+                            displayAs="percent"
+                            size="small"
+                            className="shrink-0"
+                          />
+                        ) : null}
                       </Link>
                     </li>
                   );
