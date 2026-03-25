@@ -10,6 +10,29 @@ type Props = {
   onClose: () => void;
 };
 
+function getFriendlyJoinError(err: any): string {
+  const raw = String(err?.message ?? "").toLowerCase();
+  const code = String(err?.code ?? "");
+
+  if (
+    code === "42501" ||
+    raw.includes("row-level security") ||
+    raw.includes("violates row-level security")
+  ) {
+    return "This league is full.";
+  }
+
+  if (raw.includes("kicked")) {
+    return "You have been kicked from this league.";
+  }
+
+  if (raw.includes("duplicate") || raw.includes("already")) {
+    return "You are already in this league.";
+  }
+
+  return "Unable to join league. Please try again.";
+}
+
 export default function JoinLeagueModal({ open, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,12 +84,21 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
     try {
       const { data: leagueData, error: leagueError } = await supabase
         .from("Leagues")
-        .select("league_id")
+        .select("league_id,kicked_users")
         .eq("join_code", joinCode)
         .single();
 
       if (leagueError) {
         setError("Invalid or expired join code.");
+        setLoading(false);
+        return;
+      }
+
+      const kickedUsers = (leagueData?.kicked_users ?? []) as string[];
+      if (kickedUsers.includes(user.id)) {
+        const kickedMsg = "You have been kicked from this league.";
+        setError(kickedMsg);
+        toast.error(kickedMsg);
         setLoading(false);
         return;
       }
@@ -102,7 +134,12 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
         .select()
         .single();
 
-      if (supaError) throw supaError;
+      if (supaError) {
+        const friendly = getFriendlyJoinError(supaError);
+        setError(friendly);
+        toast.error(friendly);
+        return;
+      };
 
       const { error: historyError } = await supabase
         .from("Portfolio Histories")
@@ -146,13 +183,22 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
 
         <form onSubmit={handleSubmit}>
           <div className="mb-3">
-            <label className="block text-sm font-medium mb-1">Join Code</label>
+          
             <input
               ref={nameRef}
               name="joinCode"
               value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-              className="w-full rounded border px-3 py-2 text-sm mb-3 uppercase"
+              placeholder="Join Code"
+              onFocus={() => {
+                if (error) setError(null);
+              }}
+              onChange={(e) => {
+                setJoinCode(e.target.value.toUpperCase());
+                if (error) setError(null);
+              }}
+              className={`w-full rounded border px-3 py-2 text-sm mb-3 uppercase ${
+                error ? "border-2 border-red-500" : ""
+              }`}
             />
           </div>
 
