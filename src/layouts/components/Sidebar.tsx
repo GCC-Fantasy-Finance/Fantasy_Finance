@@ -39,7 +39,7 @@ export default function Sidebar() {
   ];
 
   async function fetchLeagues() {
-    console.log("PROFILE:", profile);
+    // console.log("PROFILE:", profile);
 
     if (!profile) {
       console.log("No profile yet");
@@ -53,8 +53,8 @@ export default function Sidebar() {
       .eq("user_id", profile.id)
       .eq("is_solo", false);
 
-    console.log("PORTFOLIOS:", portfolios);
-    console.log("PORTFOLIOS ERROR:", portfoliosError);
+    // console.log("PORTFOLIOS:", portfolios);
+    // console.log("PORTFOLIOS ERROR:", portfoliosError);
 
     if (portfoliosError || !portfolios) return [];
 
@@ -68,8 +68,8 @@ export default function Sidebar() {
       .select("*")
       .in("league_id", uniqueLeagueIds as number[]);
 
-    console.log("LEAGUES RESULT:", leagues);
-    console.log("LEAGUES ERROR:", leaguesError);
+    // console.log("LEAGUES RESULT:", leagues);
+    // console.log("LEAGUES ERROR:", leaguesError);
 
     if (leaguesError || !leagues) return [];
     return leagues;
@@ -164,7 +164,10 @@ export default function Sidebar() {
         </div>
 
         {/* Navigation Links */}
-        <nav className="flex-1 flex flex-col min-h-0" aria-label="Sidebar navigation">
+        <nav
+          className="flex-1 flex flex-col min-h-0"
+          aria-label="Sidebar navigation"
+        >
           <ul className="">
             {navItems.map((item) => {
               const Icon = item.icon;
