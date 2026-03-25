@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom";
-import { X } from "lucide-react";
+import { X, MoreVertical } from "lucide-react";
 
 import {
   fetchPortfolioHoldingsWithStocks,
@@ -12,12 +12,14 @@ import {
 } from "@/lib/portfolioValue";
 import { calculateStockPercentChange } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
+import ReportUserModal from "./ReportUserModal";
 
 type Props = {
   open: boolean;
   portfolioId: number | null;
   memberName?: string;
   memberAvatarUrl?: string;
+  memberUserId?: string;
   fallbackNetValue?: number;
   onClose: () => void;
 };
@@ -31,6 +33,7 @@ export default function LeagueMemberPortfolioModal({
   portfolioId,
   memberName,
   memberAvatarUrl,
+  memberUserId,
   fallbackNetValue,
   onClose,
 }: Props) {
@@ -38,19 +41,33 @@ export default function LeagueMemberPortfolioModal({
   const [error, setError] = useState<string | null>(null);
   const [holdings, setHoldings] = useState<HoldingView[]>([]);
   const [reserveValue, setReserveValue] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        onClose();
+        if (menuOpen) {
+          setMenuOpen(false);
+        } else {
+          onClose();
+        }
       }
     };
 
+    const handleClickOutside = () => {
+      setMenuOpen(false);
+    };
+
     document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
+    document.addEventListener("click", handleClickOutside);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [open, onClose, menuOpen]);
 
   useEffect(() => {
     if (!open || portfolioId == null) {
@@ -120,6 +137,11 @@ export default function LeagueMemberPortfolioModal({
   const netValue =
     computedNetValue > 0 ? computedNetValue : Number(fallbackNetValue ?? 0);
 
+  const handleReportUser = () => {
+    setReportModalOpen(true);
+    setMenuOpen(false);
+  };
+
   if (!open || portfolioId == null) return null;
   if (typeof document === "undefined") return null;
 
@@ -133,16 +155,45 @@ export default function LeagueMemberPortfolioModal({
         className="relative z-10 w-[95vw] max-w-3xl rounded bg-white p-6 shadow-lg"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button
-          type="button"
-          aria-label="Close"
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        <div className="absolute top-4 right-4 flex items-center gap-2">
+          <div className="relative">
+            <button
+              type="button"
+              aria-label="More options"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen(!menuOpen);
+              }}
+              className="p-1 text-gray-500 hover:text-gray-700"
+            >
+              <MoreVertical className="w-5 h-5" />
+            </button>
+            {menuOpen && (
+              <div 
+                className="absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded shadow-lg z-10"
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={handleReportUser}
+                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded"
+                >
+                  Report User
+                </button>
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={onClose}
+            className="p-1 text-gray-500 hover:text-gray-700"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-        <div className="mb-5 flex items-center gap-3 pr-8">
+        <div className="mb-5 flex items-center gap-3 pr-12">
           {memberAvatarUrl ? (
             <img
               src={memberAvatarUrl}
@@ -250,6 +301,13 @@ export default function LeagueMemberPortfolioModal({
           </>
         )}
       </div>
+
+      <ReportUserModal
+        open={reportModalOpen}
+        userName={memberName}
+        reportedUserId={memberUserId}
+        onClose={() => setReportModalOpen(false)}
+      />
     </div>,
     document.body,
   );
