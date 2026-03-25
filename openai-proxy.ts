@@ -1,3 +1,4 @@
+// @ts-nocheck
 // THIS IS THE CODE USED IN A SUPABASE EDGE FUNCTION.
 // This code is not used here, this is soley for context.
 
@@ -9,10 +10,91 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// Minimal server-side limiter (fixed window, per function instance).
+const RATE_LIMIT_MAX_REQUESTS = 5;
+const RATE_LIMIT_WINDOW_MS = 10_000; // 10 seconds
+const requestTimestampsByKey = new Map<string, number[]>();
+
+const decodeJwtPayload = (token: string): Record<string, unknown> | null => {
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+    const json = atob(padded);
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+};
+
+const getRateLimitKey = (req: Request): string => {
+  const authHeader = req.headers.get("authorization") || "";
+  const token = authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7).trim()
+    : "";
+
+  if (token) {
+    const payload = decodeJwtPayload(token);
+    const userId = typeof payload?.sub === "string" ? payload.sub : null;
+    if (userId) return `user:${userId}`;
+  }
+
+  const forwardedFor = req.headers.get("x-forwarded-for") || "";
+  const ip = forwardedFor.split(",")[0].trim() || "anonymous";
+  return `ip:${ip}`;
+};
+
+const checkRateLimit = (
+  key: string,
+): { limited: boolean; retryAfterSeconds: number } => {
+  const now = Date.now();
+  const windowStart = now - RATE_LIMIT_WINDOW_MS;
+
+  const existing = requestTimestampsByKey.get(key) || [];
+  const recent = existing.filter((ts) => ts > windowStart);
+
+  if (recent.length >= RATE_LIMIT_MAX_REQUESTS) {
+    const oldestInWindow = recent[0];
+    const retryAfterMs = Math.max(
+      0,
+      oldestInWindow + RATE_LIMIT_WINDOW_MS - now,
+    );
+    const retryAfterSeconds = Math.max(1, Math.ceil(retryAfterMs / 1000));
+    requestTimestampsByKey.set(key, recent);
+    return { limited: true, retryAfterSeconds };
+  }
+
+  recent.push(now);
+  requestTimestampsByKey.set(key, recent);
+  return { limited: false, retryAfterSeconds: 0 };
+};
+
 serve(async (req) => {
   // 1. Handle CORS (Browser security check)
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
+  }
+
+  const limiterKey = getRateLimitKey(req);
+  const rateLimitResult = checkRateLimit(limiterKey);
+  if (rateLimitResult.limited) {
+    return new Response(
+      JSON.stringify({
+        error:
+          "Rate limit exceeded. Please wait before sending another request.",
+      }),
+      {
+        status: 429,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+          "Retry-After": String(rateLimitResult.retryAfterSeconds),
+        },
+      },
+    );
   }
 
   try {

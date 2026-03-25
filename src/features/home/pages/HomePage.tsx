@@ -426,7 +426,7 @@ function Home() {
               {currentLeaguePortfolios.length > 0 ? (
                 <div className="w-full space-y-3">
                   <p className="text-sm tracking-wide uppercase text-gray-600">
-                    Current Leagues
+                    Ongoing Leagues
                   </p>
                   {viewMode === "cards" ? (
                     <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
