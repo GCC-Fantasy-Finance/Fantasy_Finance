@@ -11,9 +11,9 @@ import DiscoverPage from "../features/discover/pages/DiscoverPage";
 import SectorPage from "../features/discover/pages/SectorPage";
 import ProfileLayout from "../features/profile/ProfileLayout";
 import ProfilePage from "../features/profile/pages/ProfilePage";
-import FriendsPage from "../features/profile/pages/FriendsPage";
 import BadgesPage from "../features/profile/pages/BadgesPage";
 import LoginPage from "../features/auth/pages/LoginPage";
+import ResetPasswordPage from "../features/auth/pages/ResetPasswordPage";
 import SignupPage from "../features/auth/pages/SignupPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import LeagueDetailPage from "@/features/leagues/pages/LeagueDetailPage";
@@ -62,7 +62,10 @@ export default function AppRouter() {
               element: <SoloLayout />,
               children: [
                 { index: true, element: <SoloPortfolioPage /> },
-                { path: "global-leaderboard", element: <SoloLeaderboardPage /> },
+                {
+                  path: "global-leaderboard",
+                  element: <SoloLeaderboardPage />,
+                },
               ],
             },
             {
@@ -90,8 +93,7 @@ export default function AppRouter() {
               element: <ProfileLayout />,
               children: [
                 { index: true, element: <ProfilePage /> },
-                { path: "friends", element: <FriendsPage /> },
-                { path: "badges", element: <BadgesPage />},
+                { path: "badges", element: <BadgesPage /> },
               ],
             },
           ],
@@ -108,11 +110,11 @@ export default function AppRouter() {
       ],
     },
 
-    
     {
       element: <AuthLayout />,
       children: [
         { path: "/login", element: <LoginPage /> },
+        { path: "/reset-password", element: <ResetPasswordPage /> },
         { path: "/signup", element: <SignupPage /> },
       ],
     },
@@ -122,7 +124,6 @@ export default function AppRouter() {
 
   return (
     <>
-      
       <AuthProvider>
         <RouterProvider router={router} />
       </AuthProvider>

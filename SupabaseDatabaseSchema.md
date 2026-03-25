@@ -46,13 +46,6 @@
 - user_receive: uuid
 - status: varchar
 
-### Friendships
-
-- friendship_id: int8
-- created_at: timestamptz
-- user_1_id: uuid
-- user_2_id: uuid
-
 ### Leagues
 
 - league_id: int8
