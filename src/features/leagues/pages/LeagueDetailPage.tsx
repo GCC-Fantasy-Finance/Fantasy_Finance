@@ -11,7 +11,6 @@ import Leaderboard from "@/layouts/components/Leaderboard";
 import LeagueMemberPortfolioModal from "@/components/ui/LeagueMemberPortfolioModal";
 import InviteMembersModal from "@/components/ui/InviteMembersModal";
 import KickMember from "@/components/ui/kickMember";
-import ShieldLoadingIcon from "@/components/ui/ShieldLoadingIcon";
 import { calculatePortfolioValue } from "@/lib/portfolioValue";
 import {
   fetchLeagueView,
