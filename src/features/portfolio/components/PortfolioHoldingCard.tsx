@@ -41,17 +41,8 @@ export default function PortfolioHoldingCard({
         }
       }}
     >
-      <button
-        type="button"
-        aria-label={`Open details for ${stockLabel}`}
-        className="absolute inset-0 z-0 cursor-pointer"
-        onClick={() => onOpenStockDetails(holding.stock?.stock_id)}
-      >
-        <span className="sr-only">Open details for {stockLabel}</span>
-      </button>
-
       {/* Symbol */}
-      <div className="relative z-10 cursor-pointer text-left flex min-w-0 flex-col font-medium max-[540px]:col-span-2">
+      <div className="relative z-10 text-left flex min-w-0 flex-col font-medium max-[540px]:col-span-2">
         {holding.stock?.stock_symbol}
         <span className="text-sm font-normal text-gray-500">
           {holding.stock?.name}
@@ -59,7 +50,7 @@ export default function PortfolioHoldingCard({
       </div>
 
       {/* Current Price and Percent Change */}
-      <div className="relative z-10 cursor-pointer flex min-w-0 flex-col text-left">
+      <div className="relative z-10 flex min-w-0 flex-col text-left">
         <span className="text-xs text-gray-500">CURRENT:</span>
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
           <span>${price.toFixed(2)}</span>
@@ -74,7 +65,7 @@ export default function PortfolioHoldingCard({
       </div>
 
       {/* Holding Value */}
-      <div className="relative z-10 cursor-pointer min-w-0 text-left flex flex-col">
+      <div className="relative z-10 min-w-0 text-left flex flex-col">
         <span className="text-xs text-gray-500">YOU OWN:</span>
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
           <span className="font-medium">${total.toFixed(2)}</span>
