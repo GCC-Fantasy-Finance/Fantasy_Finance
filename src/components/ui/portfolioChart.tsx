@@ -405,7 +405,7 @@ export default function PortfolioChart({
         </div>
 
         {/* Show loading state or top 3 movers from that day - only if stocks are owned */}
-        {isLoadingHoldings && dayHoldings && dayHoldings.length > 0 ? (
+        {isLoadingHoldings ? (
           <div>
             <p className="text-xs font-semibold text-gray-700 mb-2">Your Gains/Losses</p>
             <div className="space-y-2">
@@ -439,7 +439,9 @@ export default function PortfolioChart({
             </div>
             <p className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200">Click to see more</p>
           </div>
-        ) : null}
+        ) : (
+          <p className="text-xs text-gray-500">No holdings</p>
+        )}
       </div>
     );
   };

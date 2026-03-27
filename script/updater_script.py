@@ -239,10 +239,44 @@ def insert_portfolio_history():
 
 
     # -----------------------------
-    # 1. Get current stock prices
+    # 1. Get stock prices from Stock Histories (consistent with day details)
+    # Use the most recent historical price for each stock
+    # This ensures portfolio values match individual stock P&L calculations
     # -----------------------------
-    stocks_resp = supabase.table("Stocks").select("stock_id, current_price").execute()
-    stocks = {s["stock_id"]: float(s["current_price"]) for s in (stocks_resp.data or [])}
+    stock_ids_resp = supabase.table("Stocks").select("stock_id").execute()
+    all_stock_ids = [s["stock_id"] for s in (stock_ids_resp.data or [])]
+
+    if not all_stock_ids:
+        print("No stocks found.")
+        return
+
+    # Get the most recent price from Stock Histories for each stock
+    prices_resp = supabase.table("Stock Histories") \
+        .select("stock_id, price") \
+        .in_("stock_id", all_stock_ids) \
+        .order("timestamp_of", desc=True) \
+        .execute()
+
+    # Map stock_id to its most recent price (taking first result per stock due to descending order)
+    stocks = {}
+    seen_stocks = set()
+    for p in (prices_resp.data or []):
+        stock_id = p["stock_id"]
+        if stock_id not in seen_stocks:
+            stocks[stock_id] = float(p["price"])
+            seen_stocks.add(stock_id)
+
+    # Fallback: for any stocks missing from Stock Histories, use current_price
+    # This handles edge cases where Stock Histories might not be fully populated
+    if len(stocks) < len(all_stock_ids):
+        current_prices_resp = supabase.table("Stocks") \
+            .select("stock_id, current_price") \
+            .execute()
+        
+        for stock in (current_prices_resp.data or []):
+            stock_id = stock["stock_id"]
+            if stock_id not in stocks and stock.get("current_price"):
+                stocks[stock_id] = float(stock["current_price"])
 
     if not stocks:
         print("No stock prices found.")

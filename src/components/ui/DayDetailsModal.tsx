@@ -596,7 +596,11 @@ export default function DayDetailsModal({
                     );
                   })}
                 </div>
-              ) : null}
+              ) : (
+                <div className="flex items-center justify-center py-8 text-gray-500">
+                  <p className="text-sm">No stocks owned</p>
+                </div>
+              )}
             </div>
           )}
         </div>
