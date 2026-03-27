@@ -463,22 +463,28 @@ export default function DayDetailsModal({
         className="relative z-10 w-full max-w-2xl rounded bg-white shadow-lg max-h-[70vh] overflow-hidden flex flex-col"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-transparent">
+        <div className="flex items-start justify-between px-6 py-5 border-b border-gray-300 bg-white">
           <div className="flex flex-col">
-            <div className="text-xs text-gray-500 mb-1">{selectedPoint.date}</div>
-            {selectedPoint.index > 0 ? (
-              <div>
+            <p className="text-sm text-gray-500">PORTFOLIO VALUE</p>
+            
+            <div className="mt-2 flex flex-wrap items-start gap-x-4 gap-y-3">
+              <span className="text-3xl font-medium leading-none text-gray-800">
+                ${selectedPoint.close.toFixed(2)}
+              </span>
+              {selectedPoint.index > 0 && (
                 <Ticker
                   currentValue={selectedPoint.close}
                   previousValue={data[selectedPoint.index - 1]?.close}
                   displayAs="percent"
                   dollarAmount
                   size="large"
+                  background
+                  timeFrame="1D"
                 />
-              </div>
-            ) : (
-              <div className="text-lg font-bold">${selectedPoint.close.toFixed(2)}</div>
-            )}
+              )}
+            </div>
+            
+            <p className="text-xs text-gray-500 mt-3">{selectedPoint.date}</p>
           </div>
           <button
             onClick={onClose}
