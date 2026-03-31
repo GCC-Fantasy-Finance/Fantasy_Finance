@@ -295,7 +295,7 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
       >
         <div className="min-w-[900px]">
           <div className="grid grid-cols-[90px_44px_90px_1fr_110px_90px_110px_100px_110px] gap-2 px-3 py-2 font-semibold bg-gray-50 border-b sticky top-0 z-10">
-            <div></div>
+            {!draftEnded && <div></div>}
             <div></div>
 
             {HeaderCell("Symbol", "stock_symbol")}
@@ -341,41 +341,45 @@ const DraftSearchPanel = ({ onStockClick }: DraftSearchPanelProps) => {
                       }}
                       className="grid grid-cols-[90px_44px_90px_1fr_110px_90px_110px_100px_110px] gap-2 px-3 py-1 items-center border-b hover:bg-green-100/60 cursor-pointer"
                     >
-                      {canDraft ? (
-                        <Button
-                          size="sm"
-                          disabled={isMakingPick}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            makePick(stock.stock_id);
-                          }}
-                        >
-                          Draft
-                        </Button>
-                      ) : queued ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-red-700 text-red-700 bg-white hover:bg-gray-100"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeFromQueue(stock.stock_id);
-                          }}
-                        >
-                          Dequeue
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-green-700 text-green-700 bg-white hover:bg-gray-100"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            queueStock(stock.stock_id);
-                          }}
-                        >
-                          Queue
-                        </Button>
+                      {!draftEnded && (
+                        <>
+                          {canDraft ? (
+                            <Button
+                              size="sm"
+                              disabled={isMakingPick}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                makePick(stock.stock_id);
+                              }}
+                            >
+                              Draft
+                            </Button>
+                          ) : queued ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-red-700 text-red-700 bg-white hover:bg-gray-100"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeFromQueue(stock.stock_id);
+                              }}
+                            >
+                              Dequeue
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-green-700 text-green-700 bg-white hover:bg-gray-100"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                queueStock(stock.stock_id);
+                              }}
+                            >
+                              Queue
+                            </Button>
+                          )}
+                        </>
                       )}
 
                       {stock.logo_url ? (
