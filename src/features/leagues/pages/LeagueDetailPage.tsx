@@ -207,6 +207,11 @@ export default function LeagueDetailPage() {
 
   return (
     <PageContent>
+      {loading && (
+        <div className="flex items-center justify-center py-12 mb-8">
+          <p className="text-gray-600">Loading league…</p>
+        </div>
+      )}
       <div className="max-w-3xl">
         {(!draft || !draft.is_started) && profile?.id === league?.owner_id && (
           <Button onClick={() => setShowInviteModal(true)} className="mb-6 flex items-center gap-2">

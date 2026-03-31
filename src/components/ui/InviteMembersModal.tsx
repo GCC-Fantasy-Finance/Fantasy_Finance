@@ -36,6 +36,9 @@ export default function InviteMembersModal({
   const [pendingInvites, setPendingInvites] = useState<
     Array<{ notification_id: number; username?: string; email?: string; user_id?: string }>
   >([]);
+  const [declinedInvites, setDeclinedInvites] = useState<
+    Array<{ notification_id: number; username?: string; email?: string; user_id?: string }>
+  >([]);
   const [declinedUserIds, setDeclinedUserIds] = useState<Set<string>>(new Set());
   const [pendingUserIds, setPendingUserIds] = useState<Set<string>>(new Set());
   const [leagueMembers, setLeagueMembers] = useState<Set<string>>(new Set());
@@ -104,7 +107,8 @@ export default function InviteMembersModal({
 
       // Separate pending and declined invites
       const pending: typeof pendingInvites = [];
-      const declined = new Set<string>();
+      const declined: typeof declinedInvites = [];
+      const declinedSet = new Set<string>();
       const pendingSet = new Set<string>();
 
       for (const notif of data as any) {
@@ -117,7 +121,13 @@ export default function InviteMembersModal({
         
         if (notif.is_hidden) {
           // Hidden = declined (prevents re-invite)
-          declined.add(notif.user_id);
+          declined.push({
+            notification_id: notif.notification_id,
+            username: profile?.username,
+            email: profile?.email,
+            user_id: notif.user_id,
+          });
+          declinedSet.add(notif.user_id);
         } else {
           // Pending invite (not yet responded)
           pending.push({
@@ -130,9 +140,10 @@ export default function InviteMembersModal({
         }
       }
 
-      console.log("Updated invites - pending:", pending.length, "declined:", declined.size);
+      console.log("Updated invites - pending:", pending.length, "declined:", declined.length);
       setPendingInvites(pending);
-      setDeclinedUserIds(declined);
+      setDeclinedInvites(declined);
+      setDeclinedUserIds(declinedSet);
       setPendingUserIds(pendingSet);
     } catch (err) {
       console.error("Error fetching invites:", err);
@@ -168,6 +179,7 @@ export default function InviteMembersModal({
       setSearchResults([]);
       setInviteLoading(null);
       setPendingInvites([]);
+      setDeclinedInvites([]);
       setDeclinedUserIds(new Set());
       setPendingUserIds(new Set());
       setLeagueMembers(new Set());
@@ -299,12 +311,10 @@ export default function InviteMembersModal({
           .or(`username.ilike.%${query}%,email.ilike.%${query}%`);
 
         if (!error && data) {
-          // Filter out declined invites and the owner
+          // Filter out the owner but include declined users
           const filtered = (
             data as Array<{ id: string; username?: string; email?: string }>
-          ).filter((user) => 
-            !declinedUserIds.has(user.id) && user.id !== ownerId
-          );
+          ).filter((user) => user.id !== ownerId);
           setSearchResults(filtered);
         }
       } catch (err) {
@@ -410,7 +420,7 @@ export default function InviteMembersModal({
                   activeTab === "pending" ? "font-medium text-green-700" : "text-gray-600 hover:text-gray-900"
                 }`}
               >
-                <span className="pointer-events-none">Pending ({pendingInvites.length})</span>
+                <span className="pointer-events-none">Invites ({pendingInvites.length + declinedInvites.length})</span>
                 <span
                   className={`absolute -left-0.5 -right-0.5 h-[2.5px] ${
                     activeTab === "pending"
@@ -470,16 +480,21 @@ export default function InviteMembersModal({
                 </div>
               )}
               {searchResults.map((user) => {
+                const isDeclined = declinedUserIds.has(user.id);
                 const isInLeague = leagueMembers.has(user.id);
                 const hasPendingInvite = pendingUserIds.has(user.id);
 
-                console.log(`User ${user.username}: pending=${hasPendingInvite}, inLeague=${isInLeague}, leagueMembers size=${leagueMembers.size}`);
+                console.log(`User ${user.username}: pending=${hasPendingInvite}, inLeague=${isInLeague}, declined=${isDeclined}, leagueMembers size=${leagueMembers.size}`);
 
                 let buttonLabel = "Invite";
                 let isDisabled = false;
                 let buttonVariant: "default" | "outline" = "default";
 
-                if (isInLeague) {
+                if (isDeclined) {
+                  buttonLabel = "Declined";
+                  isDisabled = true;
+                  buttonVariant = "outline";
+                } else if (isInLeague) {
                   buttonLabel = "In League";
                   isDisabled = true;
                   buttonVariant = "outline";
@@ -498,8 +513,15 @@ export default function InviteMembersModal({
                     className="p-3 border-b border-gray-100 last:border-b-0 flex items-center justify-between hover:bg-gray-50"
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium text-sm truncate">
-                        {user.username || "Unknown"}
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="font-medium text-sm truncate">
+                          {user.username || "Unknown"}
+                        </div>
+                        {isDeclined && (
+                          <span className="text-xs px-2 py-0.5 rounded-full whitespace-nowrap bg-red-100 text-red-800">
+                            Declined
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-gray-600 truncate">{user.email}</div>
                     </div>
@@ -521,32 +543,57 @@ export default function InviteMembersModal({
           {/* Pending Tab */}
           {activeTab === "pending" && (
             <>
-              {pendingInvites.length === 0 ? (
+              {pendingInvites.length === 0 && declinedInvites.length === 0 ? (
                 <div className="p-4 text-sm text-gray-500 text-center">
-                  No pending invites
+                  No invites
                 </div>
               ) : (
-                pendingInvites.map((invite) => (
-                  <div
-                    key={invite.notification_id}
-                    className="p-3 border-b border-gray-100 last:border-b-0 flex items-center justify-between hover:bg-gray-50"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium text-sm truncate">
-                        {invite.username || "Unknown"}
-                      </div>
-                      <div className="text-xs text-gray-600 truncate">{invite.email}</div>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleCancelInvite(invite.notification_id)}
-                      className="ml-2 shrink-0"
+                <>
+                  {pendingInvites.map((invite) => (
+                    <div
+                      key={invite.notification_id}
+                      className="p-3 border-b border-gray-100 last:border-b-0 flex items-center justify-between hover:bg-gray-50"
                     >
-                      Cancel
-                    </Button>
-                  </div>
-                ))
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="font-medium text-sm truncate">
+                            {invite.username || "Unknown"}
+                          </div>
+                          <span className="text-xs px-2 py-0.5 rounded-full whitespace-nowrap bg-gray-100 text-gray-600">
+                            Pending
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-600 truncate">{invite.email}</div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleCancelInvite(invite.notification_id)}
+                        className="ml-2 shrink-0"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ))}
+                  {declinedInvites.map((invite) => (
+                    <div
+                      key={invite.notification_id}
+                      className="p-3 border-b border-gray-100 last:border-b-0 flex items-center justify-between hover:bg-gray-50"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="font-medium text-sm truncate">
+                            {invite.username || "Unknown"}
+                          </div>
+                          <span className="text-xs px-2 py-0.5 rounded-full whitespace-nowrap bg-red-100 text-red-800">
+                            Declined
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-600 truncate">{invite.email}</div>
+                      </div>
+                    </div>
+                  ))}
+                </>
               )}
             </>
           )}

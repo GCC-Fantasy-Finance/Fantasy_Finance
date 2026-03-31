@@ -18,6 +18,7 @@ const DraftPageContent = () => {
     setShowPostDraftModal,
     draftedStockIds,
     myPortfolio,
+    draftEnded,
   } = useDraft();
 
   // Modal state (store full stock object)
@@ -186,7 +187,7 @@ const DraftPageContent = () => {
           }`}
           aria-label="Stock search and queue"
         >
-          {isCompactBottomPanels && (
+          {isCompactBottomPanels && !draftEnded && (
             <nav className="h-12 bg-white border-b border-gray-300 flex items-center px-6">
               <ul className="flex w-full">
                 <li className="flex-1">
@@ -260,7 +261,7 @@ const DraftPageContent = () => {
             </div>
 
             {/* HORIZONTAL RESIZER */}
-            {!isCompactBottomPanels && (
+            {!isCompactBottomPanels && !draftEnded && (
               <div
                 onMouseDown={onHorzMouseDown}
                 className="relative w-px cursor-col-resize group"
@@ -270,23 +271,25 @@ const DraftPageContent = () => {
             )}
 
             {/* RIGHT PANEL */}
-            <div
-              style={
-                !isCompactBottomPanels
-                  ? { width: `${queueWidth}px` }
-                  : undefined
-              }
-              className={
-                isCompactBottomPanels
-                  ? `absolute inset-0 overflow-auto ${
-                      activeBottomTab === "queue" ? "block" : "hidden"
-                    }`
-                  : "shrink-0 min-w-[300px] max-w-[350px] overflow-auto"
-              }
-              tabIndex={0}
-            >
-              <DraftQueuePanel onStockClick={handleStockClick} />
-            </div>
+            {!draftEnded && (
+              <div
+                style={
+                  !isCompactBottomPanels
+                    ? { width: `${queueWidth}px` }
+                    : undefined
+                }
+                className={
+                  isCompactBottomPanels
+                    ? `absolute inset-0 overflow-auto ${
+                        activeBottomTab === "queue" ? "block" : "hidden"
+                      }`
+                    : "shrink-0 min-w-[300px] max-w-[350px] overflow-auto"
+                }
+                tabIndex={0}
+              >
+                <DraftQueuePanel onStockClick={handleStockClick} />
+              </div>
+            )}
           </div>
         </section>
       </main>

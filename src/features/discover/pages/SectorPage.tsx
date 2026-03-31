@@ -143,8 +143,8 @@ function SectorPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {loading ? (
-              <div className="md:col-span-3 border border-gray-300 rounded-md px-4 py-6 text-center text-gray-600 bg-white">
-                Loading trending stocks...
+              <div className="md:col-span-3 flex items-center justify-center py-12">
+                <p className="text-gray-600">Loading trending stocks...</p>
               </div>
             ) : trendingStocks.length === 0 ? (
               <div className="md:col-span-3 border border-gray-300 rounded-md px-4 py-6 text-center text-gray-600 bg-white">
@@ -200,8 +200,8 @@ function SectorPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-gray-600 py-6">
-                      Loading stocks...
+                    <TableCell colSpan={4} className="text-center py-12">
+                      <p className="text-gray-600">Loading stocks...</p>
                     </TableCell>
                   </TableRow>
                 ) : visibleStocks.length === 0 ? (
