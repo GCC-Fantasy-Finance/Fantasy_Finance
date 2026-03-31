@@ -16,6 +16,7 @@ import {
   fetchLeagueView,
   getCachedLeagueView,
 } from "@/hooks/fetchLeagueView";
+import type { UserBadgeView } from "@/lib/userBadges";
 
 type League = {
   id: string;
@@ -41,7 +42,9 @@ export type PortfolioWithUser = {
   Profiles: {
     username?: string;
     avatar_url?: string;
+    created_at?: string;
   } | null;
+  badges?: UserBadgeView[];
 };
 
 export default function LeagueDetailPage() {
@@ -260,6 +263,8 @@ export default function LeagueDetailPage() {
           memberName={selectedPortfolio?.Profiles?.username ?? "Unknown User"}
           memberAvatarUrl={selectedPortfolio?.Profiles?.avatar_url}
           memberUserId={selectedPortfolio?.user_id}
+          badges={selectedPortfolio?.badges}
+          joinedDate={selectedPortfolio?.Profiles?.created_at}
           fallbackNetValue={
             selectedPortfolio
               ? calculatePortfolioValue({

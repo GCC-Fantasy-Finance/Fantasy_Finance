@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import type { UserBadgeView } from "./userBadges";
 
 export type DraftRow = {
   id: number;
@@ -19,7 +20,10 @@ export type Portfolio = {
   reserve_value: number;
   Profiles?: {
     username: string;
+    avatar_url?: string;
+    created_at?: string;
   };
+  badges?: UserBadgeView[];
 };
 
 /* ================================
