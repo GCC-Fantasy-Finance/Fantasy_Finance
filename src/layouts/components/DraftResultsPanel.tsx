@@ -87,9 +87,7 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
   // Helper to determine presence state
   const getPresenceState = (userId: string) => {
     const presenceArr = activeUsers[userId];
-    const state = !presenceArr || presenceArr.length === 0 ? "offline" : presenceArr.some((p: any) => p.tab_visible) ? "active" : "away";
-    console.log(`🔍 DraftResultsPanel lookup - User ${userId}: presenceArr=${JSON.stringify(presenceArr)}, result=${state}`);
-    return state;
+    return !presenceArr || presenceArr.length === 0 ? "offline" : presenceArr.some((p: any) => p.tab_visible) ? "active" : "away";
   };
 
   return (
@@ -100,11 +98,6 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
             const isMe = user.portfolio_id === myPortfolio?.portfolio_id;
             const presence = getPresenceState(user.user_id);
             const username = user?.Profiles?.username ?? "Name not found";
-            
-            // Log the full state on first user render
-            if (userIdx === 0) {
-              console.log(`📊 DraftResultsPanel render - Full activeUsers:`, JSON.stringify(activeUsers, null, 2));
-            }
 
             // Choose color, icon, and tooltip based on presence state
             let bgColor = "bg-gray-500";
