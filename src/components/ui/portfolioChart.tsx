@@ -228,6 +228,7 @@ export default function PortfolioChart({
         if (stockIds.length === 0) {
           if (currentRequestId === requestIdRef.current) {
             setDayHoldings([]);
+            setIsLoadingHoldings(false);
           }
           return;
         }
@@ -405,19 +406,7 @@ export default function PortfolioChart({
         </div>
 
         {/* Show loading state or top 3 movers from that day - only if stocks are owned */}
-        {isLoadingHoldings ? (
-          <div>
-            <p className="text-xs font-semibold text-gray-700 mb-2">Your Gains/Losses</p>
-            <div className="space-y-2">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex justify-between items-center gap-2">
-                  <div className="h-3 bg-gray-200 rounded flex-1"></div>
-                  <div className="h-3 bg-gray-200 rounded w-12"></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : dayHoldings && dayHoldings.length > 0 ? (
+        {dayHoldings && dayHoldings.length > 0 ? (
           <div>
             <p className="text-xs font-semibold text-gray-700 mb-2">Your Gains/Losses</p>
             <div className="space-y-2">
@@ -439,8 +428,23 @@ export default function PortfolioChart({
             </div>
             <p className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200">Click to see more</p>
           </div>
+        ) : isLoadingHoldings ? (
+          <div>
+            <p className="text-xs font-semibold text-gray-700 mb-2">Your Gains/Losses</p>
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex justify-between items-center gap-2">
+                  <div className="h-3 bg-gray-200 rounded flex-1"></div>
+                  <div className="h-3 bg-gray-200 rounded w-12"></div>
+                </div>
+              ))}
+            </div>
+          </div>
         ) : (
-          <p className="text-xs text-gray-500">No holdings</p>
+          <div>
+            <p className="text-xs font-semibold text-gray-700 mb-2">Your Gains/Losses</p>
+            <p className="text-xs text-gray-500">No stocks owned</p>
+          </div>
         )}
       </div>
     );
