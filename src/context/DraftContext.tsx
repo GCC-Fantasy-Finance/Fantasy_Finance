@@ -198,12 +198,20 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     };
   }, [leagueId]);
 
-  // Helper function to determine presence state
-  const getPresenceState = (userId: string): PresenceState => {
-    const presenceArr = activeUsers[userId];
-    if (!presenceArr || presenceArr.length === 0) return "offline";
-    if (presenceArr.some((p: any) => p.tab_visible)) return "active";
-    return "away";
+  // Helper function to remap presence data by user_id from payload
+  const remapPresenceByUserId = (state: Record<string, any[]>): Record<string, any[]> => {
+    const remapped: Record<string, any[]> = {};
+    Object.values(state).forEach(presenceArray => {
+      presenceArray.forEach((presence: any) => {
+        if (presence.user_id) {
+          if (!remapped[presence.user_id]) {
+            remapped[presence.user_id] = [];
+          }
+          remapped[presence.user_id].push(presence);
+        }
+      });
+    });
+    return remapped;
   };
 
   // Presence with tab visibility rerun
@@ -229,45 +237,89 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
 
         channel.on("presence", { event: "sync" }, () => {
           const state = channel.presenceState() as Record<string, any[]>;
-          setActiveUsers({ ...state });
+          console.log("🔄 SYNC event - Raw presenceState:", JSON.stringify(state, null, 2));
+          
+          const remapped = remapPresenceByUserId(state);
+          console.log("📍 SYNC event - Remapped by user_id:", JSON.stringify(remapped, null, 2));
+          
+          setActiveUsers(remapped);
 
           // Update presence states for all users
           const states: Record<string, PresenceState> = {};
-          Object.keys(state).forEach(userId => {
-            states[userId] = getPresenceState(userId);
+          Object.keys(remapped).forEach(userId => {
+            const presenceArr = remapped[userId];
+            states[userId] = !presenceArr || presenceArr.length === 0 ? "offline" : presenceArr.some((p: any) => p.tab_visible) ? "active" : "away";
+            console.log(`  User ${userId}: ${states[userId]}`);
           });
+          console.log("✅ SYNC event - Final userPresenceStates:", states);
           setUserPresenceStates(states);
         });
 
         channel.on("presence", { event: "join" }, ({ key, newPresences }: { key: string; newPresences: any[] }) => {
-          setActiveUsers(prev => ({ ...prev, [key]: newPresences }));
-          setUserPresenceStates(prev => ({
-            ...prev,
-            [key]: getPresenceState(key),
-          }));
+          console.log(`👋 JOIN event - Socket key: ${key}, newPresences:`, JSON.stringify(newPresences, null, 2));
+          
+          const remapped = remapPresenceByUserId({ [key]: newPresences });
+          console.log(`👋 JOIN event - Remapped:`, JSON.stringify(remapped, null, 2));
+          
+          Object.entries(remapped).forEach(([userId, presences]) => {
+            setActiveUsers(prev => ({ ...prev, [userId]: presences }));
+            const isActive = presences.some((p: any) => p.tab_visible);
+            console.log(`  User ${userId}: ${isActive ? "active" : "away"}`);
+            setUserPresenceStates(prev => ({
+              ...prev,
+              [userId]: isActive ? "active" : "away",
+            }));
+          });
         });
 
         channel.on("presence", { event: "leave" }, ({ key, leftPresences }: { key: string; leftPresences: any[] }) => {
-          setActiveUsers(prev => {
-            const updated = { ...prev };
-            if (leftPresences.length === 0) delete updated[key];
-            else updated[key] = leftPresences;
-            return updated;
+          console.log(`👋 LEAVE event - Socket key: ${key}, leftPresences:`, JSON.stringify(leftPresences, null, 2));
+          
+          const remapped = remapPresenceByUserId({ [key]: leftPresences });
+          console.log(`👋 LEAVE event - Remapped:`, JSON.stringify(remapped, null, 2));
+          
+          Object.entries(remapped).forEach(([userId, presences]) => {
+            setActiveUsers(prev => {
+              const updated = { ...prev };
+              if (presences.length === 0) delete updated[userId];
+              else updated[userId] = presences;
+              console.log(`  User ${userId}: ${presences.length === 0 ? "removed" : "updated"}`);
+              return updated;
+            });
+            setUserPresenceStates(prev => {
+              const updated = { ...prev };
+              if (presences.length === 0) delete updated[userId];
+              else updated[userId] = presences.some((p: any) => p.tab_visible) ? "active" : "away";
+              return updated;
+            });
           });
-          setUserPresenceStates(prev => ({
-            ...prev,
-            [key]: getPresenceState(key),
-          }));
         });
 
         await channel.subscribe();
+        console.log("✅ Successfully subscribed to presence channel");
 
         // Track presence with tab visibility
-        await channel.track({
+        const trackPayload = {
           user_id: user.id,
           online_at: new Date().toISOString(),
           tab_visible: tabVisible,
-        });
+        };
+        console.log("📤 Tracking presence:", JSON.stringify(trackPayload, null, 2));
+        const key = await channel.track(trackPayload);
+        console.log("✅ Successfully tracked presence with key:", key);
+        
+        // Manually add current user to activeUsers state immediately
+        if (isMounted) {
+          console.log("➕ Adding current user to activeUsers immediately");
+          setActiveUsers(prev => ({
+            ...prev,
+            [user.id]: [trackPayload],
+          }));
+          setUserPresenceStates(prev => ({
+            ...prev,
+            [user.id]: tabVisible ? "active" : "away",
+          }));
+        }
       } catch (err) {
         console.error("Presence setup failed:", err);
       }
