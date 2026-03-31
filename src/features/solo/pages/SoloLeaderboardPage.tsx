@@ -5,6 +5,7 @@ import Leaderboard, {
 } from "@/layouts/components/Leaderboard";
 import { useAuth } from "@/context/AuthContext";
 import { buildSortedLeaderboardEntries } from "@/lib/leagues";
+import { getBadgesbyUserBadges } from "@/lib/userBadges";
 
 const SOLO_LEADERBOARD_CACHE_TTL_MS = 15_000;
 
@@ -54,7 +55,8 @@ async function fetchSoloLeaderboardData(): Promise<SoloLeaderboardCacheValue> {
       user_id,
       Profiles (
         username,
-        avatar_url
+        avatar_url,
+        created_at
       )
     `,
     )
@@ -70,7 +72,15 @@ async function fetchSoloLeaderboardData(): Promise<SoloLeaderboardCacheValue> {
 
   const sorted = await buildSortedLeaderboardEntries(portfolios);
 
-  return { entries: sorted as LeaderboardEntry[] };
+  // Fetch badges for all users in the leaderboard
+  const entriesWithBadges = await Promise.all(
+    sorted.map(async (entry) => ({
+      ...entry,
+      badges: await getBadgesbyUserBadges(entry.user_id),
+    }))
+  );
+
+  return { entries: entriesWithBadges as LeaderboardEntry[] };
 }
 
 async function getSoloLeaderboard(

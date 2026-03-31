@@ -87,9 +87,7 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
   // Helper to determine presence state
   const getPresenceState = (userId: string) => {
     const presenceArr = activeUsers[userId];
-    if (!presenceArr || presenceArr.length === 0) return "offline";
-    if (presenceArr.some((p: any) => p.tab_visible)) return "active";
-    return "away";
+    return !presenceArr || presenceArr.length === 0 ? "offline" : presenceArr.some((p: any) => p.tab_visible) ? "active" : "away";
   };
 
   return (

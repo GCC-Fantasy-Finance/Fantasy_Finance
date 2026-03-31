@@ -14,6 +14,8 @@ import { calculateStockPercentChange } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import ReportUserModal from "./ReportUserModal";
+import UserBadgeHover from "./UserBadgeHover";
+import type { UserBadgeView } from "@/lib/userBadges";
 
 type Props = {
   open: boolean;
@@ -21,6 +23,8 @@ type Props = {
   memberName?: string;
   memberAvatarUrl?: string;
   memberUserId?: string;
+  badges?: UserBadgeView[];
+  joinedDate?: string;
   fallbackNetValue?: number;
   onClose: () => void;
 };
@@ -35,6 +39,8 @@ export default function LeagueMemberPortfolioModal({
   memberName,
   memberAvatarUrl,
   memberUserId,
+  badges,
+  joinedDate,
   fallbackNetValue,
   onClose,
 }: Props) {
@@ -198,22 +204,12 @@ export default function LeagueMemberPortfolioModal({
         </div>
 
         <div className="mb-5 flex items-center gap-3 pr-12">
-          {memberAvatarUrl ? (
-            <img
-              src={memberAvatarUrl}
-              alt={memberName ?? "League member"}
-              className="w-10 h-10 rounded-full object-cover"
-            />
-          ) : (
-            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-base select-none">
-              {(memberName?.[0] ?? "U").toUpperCase()}
-            </div>
-          )}
-          <div>
-            <h2 className="text-xl font-semibold">
-              {memberName ?? "League Member"}
-            </h2>
-          </div>
+          <UserBadgeHover
+            username={memberName ?? "League Member"}
+            avatarUrl={memberAvatarUrl}
+            badges={badges}
+            joinedDate={joinedDate}
+          />
         </div>
 
         {loading ? (

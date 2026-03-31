@@ -10,6 +10,7 @@ import {
   type WishlistItem
 } from "../lib/wishlists";
 import { getLeagueById, type LeagueRow } from "../lib/leagues";
+import { getBadgesbyUserBadges } from "../lib/userBadges";
 
 const SERVER_URL = "https://nonalgebraical-arduously-kylie.ngrok-free.dev";
 
@@ -143,8 +144,16 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
         supabase.from("Draft Picks").select("*").eq("draft_id", leagueId).order("pick_number"),
       ]);
 
-      setUsers(userData ?? []);
-      usersRef.current = userData ?? [];
+      // Fetch badges for all users
+      const userDataWithBadges = await Promise.all(
+        (userData ?? []).map(async (user) => ({
+          ...user,
+          badges: await getBadgesbyUserBadges(user.user_id),
+        }))
+      );
+
+      setUsers(userDataWithBadges);
+      usersRef.current = userDataWithBadges;
 
       if (draftData) hydrateFromDraftRow(draftData);
       if (leagueData) {
