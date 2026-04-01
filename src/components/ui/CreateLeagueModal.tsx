@@ -49,11 +49,11 @@ function defaultStart() {
 }
 
 function defaultEnd() {
-  const d = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const d = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
     d.getDate(),
-  )}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  )}`;
 }
 
 export default function CreateLeagueModal({ open, onClose }: Props) {
@@ -201,75 +201,44 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase
-        .from("Leagues")
-        .insert([
-          {
-            name: leagueName.trim(),
-            owner_id: user.id,
-            start_time: new Date(startAt).toISOString(),
-            finish_time: new Date(endAt).toISOString(),
-            has_trading: hasTrading,
-            has_drafting: true,
-            sectors:
-              selectedSectors.size > 0 ? Array.from(selectedSectors) : ["Any"],
-          },
-        ])
-        .select()
-        .single();
+      // Parse end date to 4:30 PM
+      const endDate = new Date(`${endAt}T16:30:00`);
 
-      if (error) throw error;
-
-      const { data: portfolioData, error: portfolioError } = await supabase
-        .from("Portfolios")
-        .insert([
-          {
-            league_id: data.league_id,
-            user_id: user.id,
-            previous_close_value: 10000,
-            reserve_value: 10000,
-            is_solo: false,
-            last_recalculated: new Date().toISOString(),
-          },
-        ])
-        .select()
-        .single();
-      if (portfolioError) throw portfolioError;
-
-      const { error: draftError } = await supabase.from("Drafts").insert([
+      const { data: leagueId, error: rpcError } = await supabase.rpc(
+        "create_league",
         {
-          league_id: data.league_id,
-          current_round: 0,
-          current_pick: 0,
-          current_portfolio_id: null,
-          is_snaking_forward: true,
-          timer_start_time: data.start_time,
-          is_started: false,
-          is_ended: false,
-          total_rounds: draftRounds,
-          seconds_per_pick: draftTime,
-        },
-      ]);
-      if (draftError) throw draftError;
+          p_name: leagueName.trim(),
+          p_start_time: new Date(startAt).toISOString(),
+          p_end_time: endDate.toISOString(),
+          p_has_trading: hasTrading,
+          p_sectors:
+            selectedSectors.size > 0
+              ? Array.from(selectedSectors)
+              : ["Any"],
+          p_draft_rounds: draftRounds,
+          p_seconds_per_pick: draftTime,
+        }
+      );
 
-      const { error: historyError } = await supabase
-        .from("Portfolio Histories")
-        .insert([
-          {
-            portfolio_id: portfolioData?.portfolio_id,
-            value: 10000, // portfolio_id and league_id are the same for solo portfolios
-          },
-        ]);
-      if (historyError) throw historyError;
+      if (rpcError) {
+        const msg = rpcError.message || "Failed to create league";
+        setError(msg);
+        setErrorField(null);
+        toast.error(msg);
+        return;
+      }
 
+      // ✅ Success
       toast.success("League created");
+
       window.dispatchEvent(
         new CustomEvent("ff:leagues-updated", {
-          detail: { leagueId: data.league_id },
-        }),
+          detail: { leagueId },
+        })
       );
+
       onClose();
-      navigate(`/league/${data.league_id}`);
+      navigate(`/league/${leagueId}`);
     } catch (err: any) {
       setError(err.message || "Failed to create league");
       setErrorField(null);
@@ -314,7 +283,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
             setShowDropdown(false);
           }
         }}
-        className="relative z-10 w-full max-w-md rounded bg-white p-6 shadow-lg"
+        className="relative z-10 w-full max-w-md rounded bg-white p-6 shadow-lg max-h-[90vh] overflow-y-auto"
       >
         <h2 className="text-lg font-semibold mb-4">Create League</h2>
 
@@ -347,6 +316,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
             className={`w-full rounded border px-3 py-2 text-sm ${errorField === "name" ? "border-2 border-red-500" : ""}`}
           />
 
+          <label className="text-sm">Draft Start Time</label>
           <input
             ref={startDateRef}
             type="datetime-local"
@@ -376,9 +346,10 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
             className={`w-full rounded border px-3 py-2 text-sm ${errorField === "startDate" || errorField === "dates" ? "border-2 border-red-500" : ""}`}
           />
 
+          <label className="text-sm">League End Date (4:30 PM)</label>
           <input
             ref={endDateRef}
-            type="datetime-local"
+            type="date"
             value={endAt}
             onFocus={() => {
               setDatePickerOpen(true);

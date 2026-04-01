@@ -82,76 +82,22 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
     setLoading(true);
 
     try {
-      const { data: leagueData, error: leagueError } = await supabase
-        .from("Leagues")
-        .select("league_id,kicked_users")
-        .eq("join_code", joinCode)
-        .single();
+      const { data: portfolioId, error } = await supabase.rpc("join_league", {
+        p_join_code: joinCode,
+      });
 
-      if (leagueError) {
-        setError("Invalid or expired join code.");
-        setLoading(false);
+      if (error) {
+        const msg = error.message || "Failed to join league";
+        setError(msg);
+        toast.error(msg);
         return;
       }
 
-      const kickedUsers = (leagueData?.kicked_users ?? []) as string[];
-      if (kickedUsers.includes(user.id)) {
-        const kickedMsg = "You have been kicked from this league.";
-        setError(kickedMsg);
-        toast.error(kickedMsg);
-        setLoading(false);
-        return;
-      }
+      // ✅ Use returned portfolio ID
+      toast.success("Joined league successfully!");
 
-      console.log("League data found:", leagueData);
-
-      const portfolioPayload = {
-        league_id: leagueData?.league_id,
-        user_id: user.id,
-        previous_close_value: 10000,
-        reserve_value: 10000,
-        last_recalculated: new Date().toISOString(),
-        is_solo: false,
-      };
-
-      const { data: existingPortfolio, error: portfolioError } = await supabase
-        .from("Portfolios")
-        .select("portfolio_id")
-        .eq("league_id", leagueData?.league_id)
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (existingPortfolio) {
-        setError("You are already in this league.");
-        setLoading(false);
-        return;
-      }
-      if (portfolioError) throw portfolioError;
-
-      const { data: portfolioData, error: supaError } = await supabase
-        .from("Portfolios")
-        .insert([portfolioPayload])
-        .select()
-        .single();
-
-      if (supaError) {
-        const friendly = getFriendlyJoinError(supaError);
-        setError(friendly);
-        toast.error(friendly);
-        return;
-      };
-
-      const { error: historyError } = await supabase
-        .from("Portfolio Histories")
-        .insert([
-          {
-            portfolio_id: portfolioData?.portfolio_id,
-            value: 10000,
-          },
-        ]);
-      if (historyError) throw historyError;
-
-      window.location.reload();
+      // Example: redirect instead of reload
+      window.location.href = `/portfolio/${portfolioId}`;
 
       onClose(); // reset will trigger from useEffect
     } catch (err: any) {
