@@ -10,29 +10,6 @@ type Props = {
   onClose: () => void;
 };
 
-function getFriendlyJoinError(err: any): string {
-  const raw = String(err?.message ?? "").toLowerCase();
-  const code = String(err?.code ?? "");
-
-  if (
-    code === "42501" ||
-    raw.includes("row-level security") ||
-    raw.includes("violates row-level security")
-  ) {
-    return "This league is full.";
-  }
-
-  if (raw.includes("kicked")) {
-    return "You have been kicked from this league.";
-  }
-
-  if (raw.includes("duplicate") || raw.includes("already")) {
-    return "You are already in this league.";
-  }
-
-  return "Unable to join league. Please try again.";
-}
-
 export default function JoinLeagueModal({ open, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
