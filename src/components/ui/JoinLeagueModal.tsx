@@ -151,9 +151,11 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
         ]);
       if (historyError) throw historyError;
 
-      window.location.reload();
-
-      onClose(); // reset will trigger from useEffect
+      window.dispatchEvent(
+        new CustomEvent("ff:leagues-updated", { detail: { leagueId: leagueData?.league_id } })
+      );
+      toast.success("Successfully joined league!");
+      onClose();
     } catch (err: any) {
       console.error("Error joining league:", err);
       const msg = err?.message || "Failed to join league";

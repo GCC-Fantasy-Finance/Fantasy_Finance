@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { buyStock } from "@/hooks/buyStock";
+import { invalidateCachedPortfolioView } from "@/hooks/fetchPortfolio";
 
 interface DraftedStock {
   stock_id: number;
@@ -196,7 +197,9 @@ export default function PostDraftBuyModal({
 
       if (successCount > 0) {
         toast.success(`Successfully purchased ${successCount} stock(s)`);
-        setTimeout(() => window.location.reload(), 300);
+        invalidateCachedPortfolioView();
+        window.dispatchEvent(new CustomEvent("ff:trade-completed"));
+        onClose();
       }
 
       if (errorCount > 0) {

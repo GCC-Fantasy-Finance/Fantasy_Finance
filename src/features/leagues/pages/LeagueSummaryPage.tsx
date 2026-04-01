@@ -228,6 +228,8 @@ export default function LeagueSummaryPage() {
         memberUserId={selectedEntry ? (console.log("DEBUG LeagueSummaryPage selectedEntry:", selectedEntry), selectedEntry.user_id) : undefined}
         badges={selectedEntry?.badges}
         joinedDate={selectedEntry?.Profiles?.created_at}
+        leagueFinished
+        leagueId={Number(leagueId)}
         fallbackNetValue={
           selectedEntry
             ? calculatePortfolioValue({
