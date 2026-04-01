@@ -383,7 +383,9 @@ function Home() {
         </div>
       </div>
       {loading ? (
-        <p className="text-gray-600">Loading...</p>
+        <div className="flex items-center justify-center py-12 mb-8">
+          <p className="text-gray-600">Loading...</p>
+        </div>
       ) : portfolios.length === 0 ? (
         <p className="text-gray-600">No portfolios yet.</p>
       ) : (

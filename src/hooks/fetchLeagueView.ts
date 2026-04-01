@@ -2,6 +2,7 @@ import { getDraftByLeague, type DraftRow } from "@/lib/drafts";
 import { getPortfoliosByLeague } from "@/lib/portfolios";
 import { buildSortedLeaderboardEntries } from "@/lib/leagues";
 import { supabase } from "@/lib/supabase";
+import { getBadgesbyUserBadges, type UserBadgeView } from "@/lib/userBadges";
 
 export type LeagueView = {
   league_id: number;
@@ -27,7 +28,9 @@ export type LeaguePortfolioWithUser = {
   Profiles: {
     username?: string;
     avatar_url?: string;
+    created_at?: string;
   } | null;
+  badges?: UserBadgeView[];
 };
 
 export type LeagueViewResult = {
@@ -113,11 +116,19 @@ export async function fetchLeagueView(
     const portfolios = (portfoliosData ?? []) as LeaguePortfolioWithUser[];
     const leaderboard = await buildSortedLeaderboardEntries(portfolios);
 
+    // Fetch badges for all users in the leaderboard
+    const leaderboardWithBadges = await Promise.all(
+      leaderboard.map(async (entry) => ({
+        ...entry,
+        badges: await getBadgesbyUserBadges(entry.user_id),
+      }))
+    );
+
     const result: LeagueViewResult = {
       league: leagueData as LeagueView,
       owner: (ownerResult.data as LeagueOwner | null) ?? null,
       draft: draftData,
-      leaderboard,
+      leaderboard: leaderboardWithBadges,
     };
 
     leagueViewCache.set(leagueId, {

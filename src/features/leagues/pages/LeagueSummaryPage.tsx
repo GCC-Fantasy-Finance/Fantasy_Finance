@@ -14,6 +14,7 @@ import { calculatePortfolioValue } from "@/lib/portfolioValue";
 import { getLeagueById } from "@/lib/leagues";
 import { getPortfoliosByLeague } from "@/lib/portfolios";
 import { getLatestPortfolioHistoryValues } from "@/lib/portfolioHistory";
+import { getBadgesbyUserBadges } from "@/lib/userBadges";
 
 
 const LEAGUE_SUMMARY_CACHE_TTL_MS = 15_000;
@@ -73,17 +74,24 @@ async function fetchLeagueSummaryData(
   );
 
   if (latestValueByPortfolio.size === 0) {
-    const fallbackStandings = portfolios
+    const sortedPortfolios = portfolios
       .map((entry) => ({
         ...entry,
         live_value: entry.previous_close_value,
       }))
       .sort((a, b) => Number(b.live_value ?? 0) - Number(a.live_value ?? 0));
 
+    const fallbackStandings = await Promise.all(
+      sortedPortfolios.map(async (entry) => ({
+        ...entry,
+        badges: await getBadgesbyUserBadges(entry.user_id),
+      }))
+    );
+
     return { league: leagueData, standings: fallbackStandings };
   }
 
-  const standings = portfolios
+  const sortedPortfolios = portfolios
     .map((entry) => ({
       ...entry,
       live_value:
@@ -91,6 +99,13 @@ async function fetchLeagueSummaryData(
         entry.previous_close_value,
     }))
     .sort((a, b) => Number(b.live_value ?? 0) - Number(a.live_value ?? 0));
+
+  const standings = await Promise.all(
+    sortedPortfolios.map(async (entry) => ({
+      ...entry,
+      badges: await getBadgesbyUserBadges(entry.user_id),
+    }))
+  );
 
   return { league: leagueData, standings };
 }
@@ -214,6 +229,8 @@ export default function LeagueSummaryPage() {
         leagueId={leagueId}
         leagueOwnerId={league?.owner_id}
         isLeagueOwner={profile?.id === league?.owner_id}
+        badges={selectedEntry?.badges}
+        joinedDate={selectedEntry?.Profiles?.created_at}
         fallbackNetValue={
           selectedEntry
             ? calculatePortfolioValue({

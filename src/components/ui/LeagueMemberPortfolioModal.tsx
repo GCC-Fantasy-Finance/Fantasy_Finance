@@ -12,8 +12,11 @@ import {
 } from "@/lib/portfolioValue";
 import { calculateStockPercentChange } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/context/AuthContext";
 import ReportUserModal from "./ReportUserModal";
 import { kickMember } from "./kickMember";
+import UserBadgeHover from "./UserBadgeHover";
+import type { UserBadgeView } from "@/lib/userBadges";
 
 type Props = {
   open: boolean;
@@ -24,6 +27,8 @@ type Props = {
   leagueId?: string | number;
   leagueOwnerId?: string;
   isLeagueOwner?: boolean;
+  badges?: UserBadgeView[];
+  joinedDate?: string;
   fallbackNetValue?: number;
   onClose: () => void;
 };
@@ -41,9 +46,12 @@ export default function LeagueMemberPortfolioModal({
   leagueId,
   leagueOwnerId,
   isLeagueOwner,
+  badges,
+  joinedDate,
   fallbackNetValue,
   onClose,
 }: Props) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [holdings, setHoldings] = useState<HoldingView[]>([]);
@@ -183,69 +191,61 @@ export default function LeagueMemberPortfolioModal({
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="absolute top-4 right-4 flex items-center gap-2">
-          <div className="relative">
-            <button
-              type="button"
-              aria-label="More options"
-              onClick={(e) => {
-                e.stopPropagation();
-                setMenuOpen(!menuOpen);
-              }}
-              className="p-1 text-gray-500 hover:text-gray-700"
-            >
-              <MoreVertical className="w-5 h-5" />
-            </button>
-            {menuOpen && (
-              <div 
-                className="absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded shadow-lg z-10"
-                onMouseDown={(e) => e.stopPropagation()}
+          {memberUserId && memberUserId !== user?.id && (
+            <div className="relative">
+              <button
+                type="button"
+                aria-label="More options"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen(!menuOpen);
+                }}
+                className="p-1 text-gray-500 hover:text-gray-700 cursor-pointer"
               >
-                <button
-                  type="button"
-                  onClick={handleReportUser}
-                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded"
+                <MoreVertical className="w-5 h-5" />
+              </button>
+              {menuOpen && (
+                <div 
+                  className="absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded shadow-lg z-10"
+                  onMouseDown={(e) => e.stopPropagation()}
                 >
-                  Report User
-                </button>
-                {canKickMember && (
                   <button
                     type="button"
-                    onClick={handleKickMember}
-                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded"
+                    onClick={handleReportUser}
+                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded cursor-pointer"
                   >
-                    Kick User
+                    Report User
                   </button>
-                )}
-              </div>
-            )}
-          </div>
+                  {canKickMember && (
+                    <button
+                      type="button"
+                      onClick={handleKickMember}
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded"
+                    >
+                      Kick User
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           <button
             type="button"
             aria-label="Close"
             onClick={onClose}
-            className="p-1 text-gray-500 hover:text-gray-700"
+            className="p-1 text-gray-500 hover:text-gray-700 cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="mb-5 flex items-center gap-3 pr-12">
-          {memberAvatarUrl ? (
-            <img
-              src={memberAvatarUrl}
-              alt={memberName ?? "League member"}
-              className="w-10 h-10 rounded-full object-cover"
-            />
-          ) : (
-            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-base select-none">
-              {(memberName?.[0] ?? "U").toUpperCase()}
-            </div>
-          )}
-          <div>
-            <h2 className="text-xl font-semibold">
-              {memberName ?? "League Member"}
-            </h2>
-          </div>
+          <UserBadgeHover
+            username={memberName ?? "League Member"}
+            avatarUrl={memberAvatarUrl}
+            badges={badges}
+            joinedDate={joinedDate}
+          />
         </div>
 
         {loading ? (

@@ -8,6 +8,8 @@ import {
 } from "@/components/ui/table";
 import Ticker from "@/components/ui/ticker";
 import { calculatePortfolioValue } from "@/lib/portfolioValue";
+import UserBadgeHover from "@/components/ui/UserBadgeHover";
+import type { UserBadgeView } from "@/lib/userBadges";
 
 export type SummaryLeaderboardEntry = {
 	portfolio_id: number;
@@ -17,7 +19,9 @@ export type SummaryLeaderboardEntry = {
 	Profiles: {
 		username?: string;
 		avatar_url?: string;
+		created_at?: string;
 	} | null;
+	badges?: UserBadgeView[];
 };
 
 type Props = {
@@ -94,23 +98,12 @@ export default function SummaryPageLeaderboard({
                                         
 
 										<TableCell className="px-4 py-3">
-											<div className="flex items-center gap-3 w-full text-left">
-												
-												{entry.Profiles?.avatar_url ? (
-													<img
-														src={entry.Profiles.avatar_url}
-														alt={entry.Profiles.username ?? "User"}
-														className="w-8 h-8 rounded-full object-cover"
-													/>
-												) : (
-													<div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-sm select-none">
-														{(entry.Profiles?.username?.[0] ?? "U").toUpperCase()}
-													</div>
-												)}
-												<span className="underline-offset-2 ">
-													{entry.Profiles?.username ?? "Unknown User"}
-												</span>
-											</div>
+											<UserBadgeHover
+												username={entry.Profiles?.username ?? "Unknown User"}
+												avatarUrl={entry.Profiles?.avatar_url}
+												badges={entry.badges}
+												joinedDate={entry.Profiles?.created_at}
+											/>
 										</TableCell>
 
 										<TableCell

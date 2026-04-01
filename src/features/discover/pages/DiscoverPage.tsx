@@ -105,8 +105,8 @@ function Discover() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {loading ? (
-              <div className="md:col-span-3 border border-gray-300 rounded-md px-4 py-6 text-center text-gray-600 bg-white">
-                Loading trending stocks...
+              <div className="md:col-span-3 flex items-center justify-center py-12">
+                <p className="text-gray-600">Loading trending stocks...</p>
               </div>
             ) : trendingStocks.length === 0 ? (
               <div className="md:col-span-3 border border-gray-300 rounded-md px-4 py-6 text-center text-gray-600 bg-white">
@@ -158,8 +158,8 @@ function Discover() {
           <h2 className="text-2xl font-bold mb-4 text-gray-900">Explore Sectors</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             {loading ? (
-              <div className="sm:col-span-2 lg:col-span-5 border border-gray-300 rounded-lg px-4 py-4 text-sm text-gray-600 bg-white">
-                Loading sectors...
+              <div className="sm:col-span-2 lg:col-span-5 flex items-center justify-center py-12">
+                <p className="text-gray-600">Loading sectors...</p>
               </div>
             ) : sectors.length === 0 ? (
               <div className="sm:col-span-2 lg:col-span-5 border border-gray-300 rounded-lg px-4 py-4 text-sm text-gray-600 bg-white">

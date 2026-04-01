@@ -16,6 +16,7 @@ import {
   fetchLeagueView,
   getCachedLeagueView,
 } from "@/hooks/fetchLeagueView";
+import type { UserBadgeView } from "@/lib/userBadges";
 
 type League = {
   id: string;
@@ -41,7 +42,9 @@ export type PortfolioWithUser = {
   Profiles: {
     username?: string;
     avatar_url?: string;
+    created_at?: string;
   } | null;
+  badges?: UserBadgeView[];
 };
 
 export default function LeagueDetailPage() {
@@ -207,6 +210,11 @@ export default function LeagueDetailPage() {
 
   return (
     <PageContent>
+      {loading && (
+        <div className="flex items-center justify-center py-12 mb-8">
+          <p className="text-gray-600">Loading league…</p>
+        </div>
+      )}
       <div className="max-w-3xl">
         {(!draft || !draft.is_started) && profile?.id === league?.owner_id && (
           <Button onClick={() => setShowInviteModal(true)} className="mb-6 flex items-center gap-2">
@@ -258,6 +266,8 @@ export default function LeagueDetailPage() {
           leagueId={leagueId}
           leagueOwnerId={league?.owner_id}
           isLeagueOwner={profile?.id === league?.owner_id}
+          badges={selectedPortfolio?.badges}
+          joinedDate={selectedPortfolio?.Profiles?.created_at}
           fallbackNetValue={
             selectedPortfolio
               ? calculatePortfolioValue({
