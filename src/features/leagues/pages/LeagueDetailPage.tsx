@@ -10,7 +10,7 @@ import { type DraftRow } from "@/lib/drafts";
 import Leaderboard from "@/layouts/components/Leaderboard";
 import LeagueMemberPortfolioModal from "@/components/ui/LeagueMemberPortfolioModal";
 import InviteMembersModal from "@/components/ui/InviteMembersModal";
-import KickMember from "@/components/ui/kickMember";
+
 import { calculatePortfolioValue } from "@/lib/portfolioValue";
 import {
   fetchLeagueView,
@@ -62,7 +62,7 @@ export default function LeagueDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [showKickModal, setShowKickModal] = useState(false);
+  
   const [joinCodeCopied, setJoinCodeCopied] = useState(false);
 
   usePageTitle(league ? `${league.name}` : "League");
@@ -233,12 +233,7 @@ export default function LeagueDetailPage() {
           onClose={() => setShowInviteModal(false)}
         />
 
-        <KickMember
-          open={showKickModal}
-          leagueId={leagueId}
-          ownerId={league?.owner_id}
-          onClose={() => setShowKickModal(false)}
-        />
+        
 
         {draft && (
           <Button onClick={() => navigate(`/draft/${leagueId}`)}>
@@ -268,6 +263,9 @@ export default function LeagueDetailPage() {
           memberName={selectedPortfolio?.Profiles?.username ?? "Unknown User"}
           memberAvatarUrl={selectedPortfolio?.Profiles?.avatar_url}
           memberUserId={selectedPortfolio?.user_id}
+          leagueId={leagueId}
+          leagueOwnerId={league?.owner_id}
+          isLeagueOwner={profile?.id === league?.owner_id}
           badges={selectedPortfolio?.badges}
           joinedDate={selectedPortfolio?.Profiles?.created_at}
           fallbackNetValue={
@@ -344,16 +342,6 @@ export default function LeagueDetailPage() {
           Leave League
         </Button>
 
-        {/* Kick Member (only for owner) */}
-        {profile?.id === league?.owner_id && (
-        <Button
-          variant="outline"
-          className="mt-1 mx-2 text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700"
-          onClick={() => setShowKickModal(true)}
-            >
-              Kick Member
-            </Button>
-          )}
       </div>
     </PageContent>
   );

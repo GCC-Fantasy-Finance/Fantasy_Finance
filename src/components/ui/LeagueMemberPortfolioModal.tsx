@@ -14,6 +14,7 @@ import { calculateStockPercentChange } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import ReportUserModal from "./ReportUserModal";
+import { kickMember } from "./kickMember";
 import UserBadgeHover from "./UserBadgeHover";
 import type { UserBadgeView } from "@/lib/userBadges";
 
@@ -23,6 +24,9 @@ type Props = {
   memberName?: string;
   memberAvatarUrl?: string;
   memberUserId?: string;
+  leagueId?: string | number;
+  leagueOwnerId?: string;
+  isLeagueOwner?: boolean;
   badges?: UserBadgeView[];
   joinedDate?: string;
   fallbackNetValue?: number;
@@ -39,6 +43,9 @@ export default function LeagueMemberPortfolioModal({
   memberName,
   memberAvatarUrl,
   memberUserId,
+  leagueId,
+  leagueOwnerId,
+  isLeagueOwner,
   badges,
   joinedDate,
   fallbackNetValue,
@@ -144,10 +151,30 @@ export default function LeagueMemberPortfolioModal({
   );
   const netValue =
     computedNetValue > 0 ? computedNetValue : Number(fallbackNetValue ?? 0);
+  const canKickMember =
+    Boolean(isLeagueOwner) &&
+    Boolean(memberUserId) &&
+    memberUserId !== leagueOwnerId;
 
   const handleReportUser = () => {
     setReportModalOpen(true);
     setMenuOpen(false);
+  };
+
+  const handleKickMember = async () => {
+    if (!canKickMember) return;
+    if (!memberUserId) return;
+    
+    const success = await kickMember(
+      memberUserId,
+      leagueId || "",
+      Boolean(isLeagueOwner),
+      leagueOwnerId,
+    );
+    if (success) {
+      setMenuOpen(false);
+      onClose();
+    }
   };
 
   if (!open || portfolioId == null) return null;
@@ -189,6 +216,15 @@ export default function LeagueMemberPortfolioModal({
                   >
                     Report User
                   </button>
+                  {canKickMember && (
+                    <button
+                      type="button"
+                      onClick={handleKickMember}
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded"
+                    >
+                      Kick User
+                    </button>
+                  )}
                 </div>
               )}
             </div>
