@@ -20,6 +20,34 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// =============================
+// AUTH MIDDLEWARE
+// =============================
+const verifyAuth = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Missing authorization token' });
+    }
+
+    const token = authHeader.slice(7); // Remove "Bearer "
+
+    // Verify token with Supabase
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+
+    if (error || !user) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+
+    // Attach user to request
+    req.user = user;
+    next();
+  } catch (err) {
+    console.error('Auth middleware error:', err);
+    res.status(401).json({ error: 'Authentication failed' });
+  }
+};
+
 const server = http.createServer(app);
 
 const draftTimers = {}; // { [leagueId]: Timeout }
@@ -76,12 +104,13 @@ async function startOrResetDraftTimer(leagueId) {
 }
 
 // Make a draft pick
-app.post('/draft/:leagueId/pick', async (req, res) => {
+app.post('/draft/:leagueId/pick', verifyAuth, async (req, res) => {
   const { leagueId } = req.params;
   const { portfolioId, stockId, round, pickNumber } = req.body;
+  const userId = req.user.id;
 
   try {
-    const result = await makePick({ leagueId, portfolioId, stockId, round, pickNumber });
+    const result = await makePick({ leagueId, portfolioId, stockId, round, pickNumber, userId });
 
     // Stop timers if draft ended
     if (result?.ended || result?.newState?.is_ended) {
@@ -98,8 +127,9 @@ app.post('/draft/:leagueId/pick', async (req, res) => {
 });
 
 // Start draft
-app.post('/draft/:leagueId/start', async (req, res) => {
+app.post('/draft/:leagueId/start', verifyAuth, async (req, res) => {
   const { leagueId } = req.params;
+  const userId = req.user.id;
 
   try {
     const { data: portfolios } = await supabase
@@ -110,6 +140,36 @@ app.post('/draft/:leagueId/start', async (req, res) => {
 
     if (!portfolios || portfolios.length === 0) {
       throw new Error('No portfolios for this league');
+    }
+
+    // Verify user is league owner
+    const { data: league, error: leagueError } = await supabase
+      .from('Leagues')
+      .select('owner_id')
+      .eq('league_id', leagueId)
+      .single();
+
+    if (leagueError || !league) {
+      throw new Error('League not found');
+    }
+
+    if (league.owner_id !== userId) {
+      return res.status(403).json({ error: 'Only league owner can start draft' });
+    }
+
+    // Check draft not already started
+    const { data: draft, error: draftError } = await supabase
+      .from('Drafts')
+      .select('is_started')
+      .eq('league_id', leagueId)
+      .single();
+
+    if (draftError || !draft) {
+      throw new Error('Draft not found');
+    }
+
+    if (draft.is_started) {
+      return res.status(400).json({ error: 'Draft already started' });
     }
 
     await supabase.from('Drafts')
