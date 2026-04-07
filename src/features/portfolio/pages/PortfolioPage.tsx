@@ -44,13 +44,10 @@ type PortfolioSummary = {
 
 const INITIAL_PORTFOLIO_VALUE = 10000;
 
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
+import { truncateCurrency } from "@/lib/utils";
 
 function formatCurrency(value: number) {
-  return currencyFormatter.format(value);
+  return truncateCurrency(value);
 }
 
 function EmptyPortfolioState({ message }: { message: string }) {
@@ -243,6 +240,30 @@ export default function PortfolioPage({
   useEffect(() => {
     loadHoldings();
   }, [loadHoldings]);
+
+  // Background refresh after a trade — no loading spinner
+  useEffect(() => {
+    const handleTradeCompleted = async () => {
+      if (!auth.user) return;
+      const leagueIdAsNumber = Number(leagueId);
+      const params = isLeagueMode
+        ? { userId: auth.user.id, isSolo: false, leagueId: leagueIdAsNumber }
+        : { userId: auth.user.id, isSolo: true };
+      try {
+        const result = await fetchPortfolioView(params, {
+          useCache: false,
+          forceRefresh: true,
+        });
+        applyPortfolioState(result);
+      } catch (err) {
+        console.error("Background refresh failed:", err);
+      }
+    };
+    window.addEventListener("ff:trade-completed", handleTradeCompleted);
+    return () => {
+      window.removeEventListener("ff:trade-completed", handleTradeCompleted);
+    };
+  }, [auth.user, leagueId, isLeagueMode, applyPortfolioState]);
 
   function handleBuy(holding: HoldingView) {
     if (
