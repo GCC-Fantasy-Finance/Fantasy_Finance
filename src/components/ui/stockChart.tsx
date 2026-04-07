@@ -87,12 +87,37 @@ export default function StockChart({ id, timeFrame }: { id: number, timeFrame: s
           let finalData: PricePoint[] = [];
 
           if (groupedByDay[todayKey]?.length > 0) {
-            finalData = groupedByDay[todayKey]; 
+            finalData = groupedByDay[todayKey];
           } else {
-            
-            const sortedDays = Object.keys(groupedByDay).sort();
-            const latestDay = sortedDays[sortedDays.length - 1];
+            const latestDay = Object.keys(groupedByDay).sort((a, b) => {
+              const aPoints = groupedByDay[a] ?? [];
+              const bPoints = groupedByDay[b] ?? [];
+              const aLastTs = aPoints[aPoints.length - 1]?.date ?? 0;
+              const bLastTs = bPoints[bPoints.length - 1]?.date ?? 0;
+              return aLastTs - bLastTs;
+            })[Object.keys(groupedByDay).length - 1];
             finalData = groupedByDay[latestDay] ?? [];
+          }
+
+          // Before market open, intraday rows can be empty. Fall back to latest daily close
+          // and synthesize two points so Recharts can render a visible 1D line.
+          if (finalData.length === 0) {
+            const { data: lastDaily, error: dailyError } = await supabase
+              .from("Stock Histories")
+              .select("price, timestamp_of")
+              .eq("stock_id", id)
+              .order("timestamp_of", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (!dailyError && lastDaily?.price != null) {
+              const close = Number(Number(lastDaily.price).toFixed(2));
+              const nowTs = Date.now();
+              finalData = [
+                { date: nowTs - 60_000, close },
+                { date: nowTs, close },
+              ];
+            }
           }
 
           if (mounted.current) {

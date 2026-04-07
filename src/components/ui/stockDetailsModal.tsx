@@ -345,7 +345,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
             leagueIds.length > 0
               ? supabase
                   .from("Leagues")
-                  .select("league_id,name,sectors")
+                  .select("league_id,name,sectors,is_ended")
                   .in("league_id", leagueIds)
               : Promise.resolve({ data: [], error: null }),
             leagueIds.length > 0
@@ -377,12 +377,13 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
 
         const leagueById = new Map<
           number,
-          { name?: string; sectors?: string[] }
+          { name?: string; sectors?: string[]; is_ended?: boolean }
         >();
         for (const league of (leaguesResult.data ?? []) as any[]) {
           leagueById.set(Number(league.league_id), {
             name: league.name,
             sectors: Array.isArray(league.sectors) ? league.sectors : [],
+            is_ended: Boolean(league.is_ended),
           });
         }
 
@@ -438,7 +439,14 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
           return aTime - bTime;
         });
 
-        setPortfolios(enriched);
+        // Filter out portfolios from ended leagues (non-solo portfolios only)
+        const activePortfolios = enriched.filter((portfolio) => {
+          if (portfolio.is_solo) return true;
+          const league = leagueById.get(portfolio.league_id ?? -1);
+          return !league?.is_ended;
+        });
+
+        setPortfolios(activePortfolios);
         // setHoldings(holdingsMap);
 
         if (stock?.stock_id) {
