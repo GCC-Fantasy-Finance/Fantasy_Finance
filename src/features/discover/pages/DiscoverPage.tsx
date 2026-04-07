@@ -7,7 +7,6 @@ import { calculateStockPercentChange } from "@/lib/utils";
 import StockDetailsModal from "@/components/ui/stockDetailsModal";
 import {
   Building2,
-  CircleDollarSign,
   Cpu,
   Factory,
   Film,
