@@ -414,7 +414,7 @@ export default function Sidebar() {
             ) : leagues.length === 0 ? (
               <p className="text-xs text-gray-400 px-2 py-1">No leagues yet</p>
             ) : (
-              <ul className="">
+              <ul className="space-y-1">
                 {ongoingLeagues.map((league) => {
                   const path = getLeaguePath(league);
                   const active = isActive(path);
@@ -436,7 +436,7 @@ export default function Sidebar() {
                         onTouchStart={() =>
                           handlePrefetchLeague(league.league_id)
                         }
-                        className={`flex items-center justify-between gap-2 px-3 py-2 rounded text-sm transition-colors ${
+                        className={`flex items-center justify-between gap-2 px-3 py-1.5 rounded text-sm transition-colors ${
                           active
                             ? "bg-green-700/10 font-semibold text-green-700"
                             : "hover:bg-gray-200"
@@ -468,7 +468,7 @@ export default function Sidebar() {
                         <button
                           type="button"
                           aria-label="View ended leagues"
-                          className="cursor-pointer text-gray-700 font-medium w-full flex items-center justify-between gap-2 px-3 py-2 rounded text-sm transition-colors hover:bg-gray-200"
+                          className="cursor-pointer text-gray-700 font-medium w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded text-sm transition-colors hover:bg-gray-200"
                         >
                           <span className="block truncate min-w-0 ">
                             Ended Leagues

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Compass } from "lucide-react";
@@ -28,7 +28,13 @@ import Ticker from "@/components/ui/ticker";
 
 type DraftedStockItem = {
   stockId: number;
-  label: string;
+  stock: HoldingView["stock"];
+};
+
+type HoldingListItem = {
+  key: string;
+  holding: HoldingView;
+  buyButtonLabel: "Buy" | "Buy More";
 };
 
 type PortfolioPageProps = {
@@ -50,10 +56,6 @@ function formatCurrency(value: number) {
   return truncateCurrency(value);
 }
 
-function EmptyPortfolioState({ message }: { message: string }) {
-  return <p className="text-sm text-gray-600">{message}</p>;
-}
-
 export default function PortfolioPage({
   mode,
   leagueId,
@@ -69,7 +71,6 @@ export default function PortfolioPage({
   const [portfolio, setPortfolio] = useState<{ portfolio_id: number } | null>(
     null,
   );
-  const [hasDrafting, setHasDrafting] = useState(false);
   const [draftedStocks, setDraftedStocks] = useState<DraftedStockItem[]>([]);
   const [stockDetailsModalOpen, setStockDetailsModalOpen] = useState(false);
   const [selectedStock, setSelectedStock] = useState<StockRow | null>(null);
@@ -80,7 +81,6 @@ export default function PortfolioPage({
     setHoldings([]);
     setTotals(null);
     setPortfolio(null);
-    setHasDrafting(false);
     setDraftedStocks([]);
   }, []);
 
@@ -101,7 +101,6 @@ export default function PortfolioPage({
     async (leagueIdAsNumber: number, portfolioId: number) => {
       const league = await getLeagueById(leagueIdAsNumber);
       const draftingEnabled = Boolean(league?.has_drafting);
-      setHasDrafting(draftingEnabled);
 
       if (!draftingEnabled) {
         setDraftedStocks([]);
@@ -130,29 +129,36 @@ export default function PortfolioPage({
 
       const { data: stockRows, error } = await supabase
         .from("Stocks")
-        .select("stock_id,name,stock_symbol")
+        .select("stock_id,stock_symbol,name,current_price,previous_close")
         .in("stock_id", uniqueStockIds);
 
       if (error) {
-        console.error("Failed to load drafted stock names:", error);
+        console.error("Failed to load drafted stocks:", error);
         setDraftedStocks([]);
         return;
       }
 
-      const stockNameById = new Map<number, string>();
+      const stockById = new Map<number, HoldingView["stock"]>();
       for (const stockRow of stockRows ?? []) {
         const stockId = Number((stockRow as { stock_id: number }).stock_id);
-        const stockName =
-          (stockRow as { name?: string | null }).name?.trim() ||
-          `Stock #${stockId}`;
-        const stockSymbol =
-          (stockRow as { stock_symbol?: string | null }).stock_symbol?.trim() ||
-          "";
-
-        stockNameById.set(
-          stockId,
-          stockSymbol ? `${stockSymbol} - ${stockName}` : stockName,
-        );
+        const currentPrice = (stockRow as { current_price?: number | null })
+          .current_price;
+        const previousClose = (stockRow as { previous_close?: number | null })
+          .previous_close;
+        stockById.set(stockId, {
+          stock_id: stockId,
+          stock_symbol:
+            (stockRow as { stock_symbol?: string | null }).stock_symbol ?? null,
+          name: (stockRow as { name?: string | null }).name ?? null,
+          current_price:
+            currentPrice === null || currentPrice === undefined
+              ? null
+              : Number(currentPrice),
+          previous_close:
+            previousClose === null || previousClose === undefined
+              ? null
+              : Number(previousClose),
+        });
       }
 
       const seenStockIds = new Set<number>();
@@ -162,7 +168,13 @@ export default function PortfolioPage({
         seenStockIds.add(stockId);
         orderedDraftedStocks.push({
           stockId,
-          label: stockNameById.get(stockId) ?? `Stock #${stockId}`,
+          stock: stockById.get(stockId) ?? {
+            stock_id: stockId,
+            stock_symbol: null,
+            name: `Stock #${stockId}`,
+            current_price: null,
+            previous_close: null,
+          },
         });
       }
 
@@ -219,7 +231,6 @@ export default function PortfolioPage({
           result.portfolio.portfolio_id,
         );
       } else {
-        setHasDrafting(false);
         setDraftedStocks([]);
       }
     } catch (err) {
@@ -358,6 +369,73 @@ export default function PortfolioPage({
   const reservePercent =
     allocationTotal > 0 ? (reserveValue / allocationTotal) * 100 : 0;
 
+  const holdingListItems = useMemo<HoldingListItem[]>(() => {
+    if (!isLeagueMode || draftedStocks.length === 0) {
+      return holdings.map((holding) => {
+        const qty = Number(holding.quantity ?? 0);
+        return {
+          key: `holding-${holding.portfolio_holding_id}`,
+          holding,
+          buyButtonLabel: qty > 0 ? "Buy More" : "Buy",
+        };
+      });
+    }
+
+    const holdingByStockId = new Map<number, HoldingView>();
+    for (const holding of holdings) {
+      const stockId = Number(holding.stock_id);
+      if (Number.isFinite(stockId) && !holdingByStockId.has(stockId)) {
+        holdingByStockId.set(stockId, holding);
+      }
+    }
+
+    const mergedItems: HoldingListItem[] = [];
+    const seenStockIds = new Set<number>();
+
+    for (const draftedStock of draftedStocks) {
+      const stockId = draftedStock.stockId;
+      if (seenStockIds.has(stockId)) continue;
+      seenStockIds.add(stockId);
+
+      const existingHolding = holdingByStockId.get(stockId);
+      if (existingHolding) {
+        const qty = Number(existingHolding.quantity ?? 0);
+        mergedItems.push({
+          key: `holding-${existingHolding.portfolio_holding_id}`,
+          holding: existingHolding,
+          buyButtonLabel: qty > 0 ? "Buy More" : "Buy",
+        });
+        continue;
+      }
+
+      mergedItems.push({
+        key: `drafted-${stockId}`,
+        holding: {
+          portfolio_holding_id: -stockId,
+          portfolio_id: portfolio?.portfolio_id ?? 0,
+          stock_id: stockId,
+          quantity: 0,
+          average_buy_price: null,
+          stock: draftedStock.stock,
+        },
+        buyButtonLabel: "Buy",
+      });
+    }
+
+    for (const holding of holdings) {
+      const stockId = Number(holding.stock_id);
+      if (Number.isFinite(stockId) && seenStockIds.has(stockId)) continue;
+      const qty = Number(holding.quantity ?? 0);
+      mergedItems.push({
+        key: `holding-${holding.portfolio_holding_id}`,
+        holding,
+        buyButtonLabel: qty > 0 ? "Buy More" : "Buy",
+      });
+    }
+
+    return mergedItems;
+  }, [draftedStocks, holdings, isLeagueMode, portfolio?.portfolio_id]);
+
   const content = loading ? (
     <div className="flex items-center justify-center py-12 mb-8">
       <p className="text-gray-600">Loading portfolio...</p>
@@ -450,36 +528,10 @@ export default function PortfolioPage({
         )}
       </div>
 
-      {isLeagueMode && hasDrafting && (
-        <div className="mb-6 rounded-lg border border-gray-300 bg-white px-4 py-3">
-          <h2 className="mb-2 text-sm font-semibold text-gray-900">
-            Your Drafted Stocks
-          </h2>
-          {draftedStocks.length === 0 ? (
-            <EmptyPortfolioState message="No drafted stocks yet." />
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {draftedStocks.map((stock) => (
-                <button
-                  key={stock.stockId}
-                  type="button"
-                  onClick={() => handleOpenStockDetails(stock.stockId)}
-                  className="inline-flex cursor-pointer items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-100"
-                >
-                  {stock.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
       <h2 className="mb-2 text-lg font-semibold">My Stocks</h2>
 
-      
-
       <div className="">
-        {holdings.length === 0 ? (
+        {holdingListItems.length === 0 ? (
           <div className="mb-4 flex justify-start">
             <button
               type="button"
@@ -487,23 +539,26 @@ export default function PortfolioPage({
               className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-green-700/30 px-4 py-2 text-green-700 hover:bg-green-700/10"
             >
               <Compass className="size-5 text-green-700" />
-              <span className="text-base leading-none">No stocks yet – Discover?</span>
+              <span className="text-base leading-none">
+                No stocks yet – Discover?
+              </span>
             </button>
           </div>
         ) : (
           <>
-            {holdings.map((holding, index) => {
+            {holdingListItems.map((item, index) => {
               return (
                 <PortfolioHoldingCard
-                  key={holding.portfolio_holding_id}
-                  holding={holding}
+                  key={item.key}
+                  holding={item.holding}
                   onOpenStockDetails={handleOpenStockDetails}
                   onSell={handleSell}
                   onBuy={handleBuy}
                   onBookmark={() => toast.info("Bookmark not implemented yet")}
-                  showBottomBorder={index === holdings.length - 1}
+                  buyButtonLabel={item.buyButtonLabel}
+                  showBottomBorder={index === holdingListItems.length - 1}
                   showTopRounded={index === 0}
-                  showBottomRounded={index === holdings.length - 1}
+                  showBottomRounded={index === holdingListItems.length - 1}
                 />
               );
             })}
@@ -515,7 +570,9 @@ export default function PortfolioPage({
                 className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-green-700/30 px-4 py-2 text-green-700 hover:bg-green-700/10"
               >
                 <Compass className="size-5 text-green-700" />
-                <span className="text-base leading-none">Discover More Stocks</span>
+                <span className="text-base leading-none">
+                  Discover More Stocks
+                </span>
               </button>
             </div>
           </>
@@ -527,7 +584,6 @@ export default function PortfolioPage({
           onClose={() => setStockDetailsModalOpen(false)}
         />
       </div>
-
     </div>
   );
 
