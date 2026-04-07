@@ -2,9 +2,9 @@ import * as React from "react"
 import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { ButtonHTMLAttributes } from "react"
+import type { ButtonHTMLAttributes } from "react"
 
-const Pagination = ({ className, ...props }: React.HTMLAttributes<HTMLNav>) => (
+const Pagination = ({ className, ...props }: React.HTMLAttributes<HTMLElement>) => (
   <nav
     role="navigation"
     aria-label="pagination"
@@ -62,7 +62,6 @@ const PaginationPrevious = React.forwardRef<
   <PaginationLink
     ref={ref}
     aria-label="Go to previous page"
-    size="default"
     className={cn("px-2", className)}
     {...props}
   >
@@ -78,7 +77,6 @@ const PaginationNext = React.forwardRef<
   <PaginationLink
     ref={ref}
     aria-label="Go to next page"
-    size="default"
     className={cn("px-2", className)}
     {...props}
   >

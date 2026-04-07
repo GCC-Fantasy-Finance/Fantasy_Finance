@@ -116,7 +116,7 @@ export default function LeagueInviteModal({
   const handleAccept = async () => {
     setAcceptLoading(true);
     try {
-      const { data: portfolioId, error } = await supabase.rpc("join_league", {
+      const {error } = await supabase.rpc("join_league", {
         p_join_code: joinCode,
       });
 
