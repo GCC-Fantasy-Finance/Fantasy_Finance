@@ -226,7 +226,6 @@ export default function LeagueSummaryPage() {
         memberName={selectedEntry?.Profiles?.username ?? "Unknown User"}
         memberAvatarUrl={selectedEntry?.Profiles?.avatar_url}
         memberUserId={selectedEntry ? (console.log("DEBUG LeagueSummaryPage selectedEntry:", selectedEntry), selectedEntry.user_id) : undefined}
-        leagueId={leagueId}
         leagueOwnerId={league?.owner_id}
         isLeagueOwner={profile?.id === league?.owner_id}
         badges={selectedEntry?.badges}
