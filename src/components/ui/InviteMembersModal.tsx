@@ -337,11 +337,24 @@ export default function InviteMembersModal({
 
     setInviteLoading(userId);
     try {
+      // Fetch join code from league
+      const { data: leagueData, error: leagueError } = await supabase
+        .from('Leagues')
+        .select('join_code')
+        .eq('league_id', Number(leagueId))
+        .single();
+
+      if (leagueError || !leagueData?.join_code) {
+        alert('Failed to fetch league join code');
+        return;
+      }
+
       const { data, error } = await supabase.rpc('invite_user_to_league', {
         p_user_id: userId,
         p_league_id: Number(leagueId),
         p_league_name: leagueName,
         p_owner_name: ownerName,
+        p_join_code: leagueData.join_code,
       }) as { data: { success: boolean; error?: string; message?: string } | null; error: any };
 
       if (error) {

@@ -10,6 +10,7 @@ type Props = {
   notificationId: number;
   leagueId: number;
   message: string;
+  joinCode?: string;
   onClose: () => void;
   onResponse: () => void;
   onResponseComplete?: () => void;
@@ -20,6 +21,7 @@ export default function LeagueInviteModal({
   notificationId,
   leagueId,
   message,
+  joinCode,
   onClose,
   onResponse,
   onResponseComplete,
@@ -114,66 +116,15 @@ export default function LeagueInviteModal({
   const handleAccept = async () => {
     setAcceptLoading(true);
     try {
-      // Get user ID from auth
-      const { data: authData } = await supabase.auth.getUser();
-      if (!authData.user) {
-        toast.error("Not authenticated");
+      const { data: portfolioId, error } = await supabase.rpc("join_league", {
+        p_join_code: joinCode,
+      });
+
+      if (error) {
+        const msg = error.message || "Failed to join league";
+        toast.error(msg);
         return;
       }
-
-      const portfolioPayload = {
-        league_id: leagueId,
-        user_id: authData.user.id,
-        previous_close_value: 10000,
-        reserve_value: 10000,
-        last_recalculated: new Date().toISOString(),
-        is_solo: false,
-      };
-
-      // Check if user already exists in league
-      const { data: existingPortfolio, error: portfolioError } = await supabase
-        .from("Portfolios")
-        .select("portfolio_id")
-        .eq("league_id", leagueId)
-        .eq("user_id", authData.user.id)
-        .maybeSingle();
-
-      if (existingPortfolio) {
-        toast.error("You are already in this league");
-        return;
-      }
-      if (portfolioError) throw portfolioError;
-
-      // Create portfolio
-      const { data: portfolioData, error: supaError } = await supabase
-        .from("Portfolios")
-        .insert([portfolioPayload])
-        .select()
-        .single();
-
-      if (supaError) {
-        console.error("Error creating portfolio:", supaError);
-        throw supaError;
-      }
-
-      console.log("Portfolio created:", portfolioData);
-
-      // Create portfolio history entry
-      const { error: historyError } = await supabase
-        .from("Portfolio Histories")
-        .insert([
-          {
-            portfolio_id: portfolioData?.portfolio_id,
-            value: 10000,
-          },
-        ]);
-      
-      if (historyError) {
-        console.error("Error creating portfolio history:", historyError);
-        throw historyError;
-      }
-
-      console.log("Portfolio history created");
 
       // Delete notification
       const { error: notificationError } = await supabase
@@ -192,10 +143,10 @@ export default function LeagueInviteModal({
       onClose();
       onResponseComplete?.();
       
-      // Reload page to reflect new portfolio and league
+      // Redirect to league page
       setTimeout(() => {
-        console.log("Reloading page to reflect league membership");
-        window.location.reload();
+        console.log("Redirecting to league:", leagueId);
+        window.location.href = `/league/${leagueId}`;
       }, 500);
     } catch (err) {
       console.error("Error accepting invite:", err);
