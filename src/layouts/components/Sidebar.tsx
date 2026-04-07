@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
 import {
+  ChevronRight,
   Compass,
   Home,
   PlusCircle,
@@ -13,6 +14,12 @@ import { Button } from "@/components/ui/button";
 import CreateLeagueModal from "@/components/ui/CreateLeagueModal";
 import JoinLeagueModal from "@/components/ui/JoinLeagueModal";
 import Ticker from "@/components/ui/ticker";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { supabase } from "@/lib/supabase";
 import { calculatePortfolioValue } from "@/lib/portfolioValue";
 import { prefetchLeagueView } from "@/hooks/fetchLeagueView";
@@ -36,6 +43,7 @@ type LeagueRow = {
   league_id: number;
   name: string;
   finish_time?: string | null;
+  is_ended?: boolean | null;
 };
 
 type LeagueSidebarEntry = LeagueRow & {
@@ -98,7 +106,7 @@ export default function Sidebar() {
 
     const { data: leagues, error: leaguesError } = await supabase
       .from("Leagues")
-      .select("league_id, name, finish_time")
+      .select("league_id, name, finish_time, is_ended")
       .in("league_id", uniqueLeagueIds);
 
     if (leaguesError || !leagues) return [];
@@ -297,6 +305,21 @@ export default function Sidebar() {
     );
   };
 
+  const isLeagueEnded = (league: LeagueSidebarEntry) => {
+    if (league.is_ended) return true;
+    return Boolean(
+      league.finish_time && new Date(league.finish_time) < new Date(),
+    );
+  };
+
+  const ongoingLeagues = leagues.filter((league) => !isLeagueEnded(league));
+  const endedLeagues = leagues.filter((league) => isLeagueEnded(league));
+
+  const getLeaguePath = (league: LeagueSidebarEntry) =>
+    isLeagueEnded(league)
+      ? `/league/${league.league_id}/results`
+      : `/league/${league.league_id}`;
+
   return (
     <>
       {isSidebarOpen && (
@@ -359,11 +382,11 @@ export default function Sidebar() {
             })}
           </ul>
 
-          <div className="my-4 px-4">
-            <div className="border-t-2 border-gray-300" />
+          <div className="my-3">
+            <div className="border-t-[1.5px] border-gray-300" />
           </div>
 
-          <h2 className="px-4 text-xs font-semibold text-gray-500">LEAGUES</h2>
+          <h2 className="px-4 text-xs font-medium text-gray-500">LEAGUES</h2>
 
           <div className="flex gap-2 px-4 mt-2">
             <Button
@@ -391,13 +414,9 @@ export default function Sidebar() {
             ) : leagues.length === 0 ? (
               <p className="text-xs text-gray-400 px-2 py-1">No leagues yet</p>
             ) : (
-              <ul className="space-y-1">
-                {leagues.map((league) => {
-                  const path =
-                    league.finish_time &&
-                    new Date(league.finish_time) < new Date()
-                      ? `/league/${league.league_id}/results`
-                      : `/league/${league.league_id}`;
+              <ul className="">
+                {ongoingLeagues.map((league) => {
+                  const path = getLeaguePath(league);
                   const active = isActive(path);
                   const baselineValue =
                     league.previous_close_value > 0
@@ -417,7 +436,7 @@ export default function Sidebar() {
                         onTouchStart={() =>
                           handlePrefetchLeague(league.league_id)
                         }
-                        className={`flex items-center justify-between gap-2 px-4 py-2 rounded text-sm transition-colors ${
+                        className={`flex items-center justify-between gap-2 px-3 py-2 rounded text-sm transition-colors ${
                           active
                             ? "bg-green-700/10 font-semibold text-green-700"
                             : "hover:bg-gray-200"
@@ -439,7 +458,66 @@ export default function Sidebar() {
                     </li>
                   );
                 })}
-                <li aria-hidden="true" className="h-9" />
+                {endedLeagues.length > 0 ? (
+                  <li>
+                    <div className="my-2 px-3">
+                      <div className="border-t-[1.5px] border-gray-300" />
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label="View ended leagues"
+                          className="cursor-pointer text-gray-700 font-medium w-full flex items-center justify-between gap-2 px-3 py-2 rounded text-sm transition-colors hover:bg-gray-200"
+                        >
+                          <span className="block truncate min-w-0 ">
+                            Ended Leagues
+                          </span>
+                          <ChevronRight className="w-4 h-4 shrink-0" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        side="right"
+                        align="start"
+                        className="w-56"
+                      >
+                        {endedLeagues.map((league) => {
+                          const path = getLeaguePath(league);
+                          const active = isActive(path);
+                          return (
+                            <DropdownMenuItem
+                              key={league.league_id}
+                              asChild
+                              className={
+                                active
+                                  ? "bg-green-700/10 text-green-700 font-medium"
+                                  : ""
+                              }
+                            >
+                              <Link
+                                to={path}
+                                title={league.name}
+                                onMouseEnter={() =>
+                                  handlePrefetchLeague(league.league_id)
+                                }
+                                onFocus={() =>
+                                  handlePrefetchLeague(league.league_id)
+                                }
+                                onTouchStart={() =>
+                                  handlePrefetchLeague(league.league_id)
+                                }
+                                className="block w-full truncate"
+                              >
+                                {league.name}
+                              </Link>
+                            </DropdownMenuItem>
+                          );
+                        })}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </li>
+                ) : null}
+                <li aria-hidden="true" className="h-6" />
               </ul>
             )}
           </div>

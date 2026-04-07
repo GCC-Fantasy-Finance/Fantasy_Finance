@@ -71,7 +71,7 @@ export default function Leaderboard({
           </TableHeader>
 
           <TableBody>
-            {rankedEntries.length === 0 ? (
+            {entries.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={showDateStarted ? 4 : 3}
@@ -81,7 +81,7 @@ export default function Leaderboard({
                 </TableCell>
               </TableRow>
             ) : (
-              rankedEntries.map(({ entry, portfolioValue, rank }) => {
+              entries.map((entry, index) => {
                 const isFallbackValue = entry.live_value == null;
                 const portfolioValue = calculatePortfolioValue({
                   netValue: entry.live_value ?? entry.previous_close_value,
@@ -101,7 +101,7 @@ export default function Leaderboard({
                     } ${onPortfolioClick ? "cursor-pointer" : ""}`}
                   >
                     <TableCell className="font-bold text-lg px-4 pl-7 text-green-700">
-                      {rank}
+                      {index + 1}
                     </TableCell>
 
                     <TableCell className="px-4 py-3">
