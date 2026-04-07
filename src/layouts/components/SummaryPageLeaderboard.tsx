@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
 	Table,
 	TableBody,
@@ -10,6 +11,15 @@ import Ticker from "@/components/ui/ticker";
 import { calculatePortfolioValue } from "@/lib/portfolioValue";
 import UserBadgeHover from "@/components/ui/UserBadgeHover";
 import type { UserBadgeView } from "@/lib/userBadges";
+import {
+	Pagination,
+	PaginationContent,
+	PaginationEllipsis,
+	PaginationItem,
+	PaginationLink,
+	PaginationPrevious,
+	PaginationNext,
+} from "@/components/ui/pagination";
 
 export type SummaryLeaderboardEntry = {
 	portfolio_id: number;
@@ -30,14 +40,31 @@ type Props = {
 	onPortfolioClick?: (portfolioId: number) => void;
 };
 
+const ITEMS_PER_PAGE = 10;
+
 export default function SummaryPageLeaderboard({
 	entries,
 	currentUserId,
 	onPortfolioClick,
 }: Props) {
+	const [currentPage, setCurrentPage] = useState(1);
+
+	const totalPages = Math.ceil(entries.length / ITEMS_PER_PAGE);
+	const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+	const paginatedEntries = entries.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+	const currentUserRank = currentUserId
+		? entries.findIndex((entry) => entry.user_id === currentUserId) + 1
+		: null;
+
 	return (
 		<section>
 			<h2 className="text-lg font-semibold mb-3">Leaderboard</h2>
+			{currentUserRank && (
+			<div className="mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
+				<p className="text-sm font-medium text-green-900">Your Rank: #{currentUserRank}</p>
+			</div>
+			)}
 
 			<div className="border rounded-lg overflow-hidden">
 				<Table>
@@ -57,13 +84,14 @@ export default function SummaryPageLeaderboard({
 								</TableCell>
 							</TableRow>
 						) : (
-							entries.map((entry, index) => {
+							paginatedEntries.map((entry, index) => {
+								const absoluteIndex = startIndex + index;
 								const isFallbackValue = entry.live_value == null;
 								const portfolioValue = calculatePortfolioValue({
 									netValue: entry.live_value ?? entry.previous_close_value,
 								});
 
-								const isFirstPlace = index === 0;
+								const isFirstPlace = absoluteIndex === 0;
 								const isCurrentUser = currentUserId === entry.user_id;
 
 								const rowClass = isFirstPlace
@@ -83,19 +111,18 @@ export default function SummaryPageLeaderboard({
 												isFirstPlace ? "text-yellow-700" : "text-green-700"
 											}`}
 										>
-											{index + 1}
+											{absoluteIndex + 1}
 
-                                            <span className="inline-flex w-8 items-end justify-center shrink-0 ml-4">
-													{isFirstPlace ? (
-														<img
-															src="/crown.png"
-															alt="Winner crown"
-															className="w-6 h-6 translate-y-1.25 object-contain "
-														/>
-													) : null}
-												</span>
+											<span className="inline-flex w-8 items-end justify-center shrink-0 ml-4">
+												{isFirstPlace ? (
+													<img
+														src="/crown.png"
+														alt="Winner crown"
+														className="w-6 h-6 translate-y-1.25 object-contain "
+													/>
+												) : null}
+											</span>
 										</TableCell>
-                                        
 
 										<TableCell className="px-4 py-3">
 											<UserBadgeHover
@@ -128,9 +155,75 @@ export default function SummaryPageLeaderboard({
 								);
 							})
 						)}
+
 					</TableBody>
 				</Table>
 			</div>
+
+			{/* Pagination controls */}
+			{entries.length > ITEMS_PER_PAGE && (
+				<div className="mt-4">
+					<Pagination>
+						<PaginationContent>
+							<PaginationItem>
+								<PaginationPrevious
+									onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+									disabled={currentPage === 1}
+									className="cursor-pointer"
+								/>
+							</PaginationItem>
+
+							{Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+								const isEllipsis =
+									(page < currentPage - 1 && page !== 1) ||
+									(page > currentPage + 1 && page !== totalPages);
+
+								if (isEllipsis && page === 2) {
+									return (
+										<PaginationItem key="ellipsis-start">
+											<PaginationEllipsis />
+										</PaginationItem>
+									);
+								}
+
+								if (isEllipsis && page === totalPages - 1) {
+									return (
+										<PaginationItem key="ellipsis-end">
+											<PaginationEllipsis />
+										</PaginationItem>
+									);
+								}
+
+								if (
+									page === 1 ||
+									page === totalPages ||
+									Math.abs(page - currentPage) <= 1
+								) {
+									return (
+										<PaginationItem key={page}>
+											<PaginationLink
+												isActive={page === currentPage}
+												onClick={() => setCurrentPage(page)}
+												className="cursor-pointer"
+											>
+												{page}
+											</PaginationLink>
+										</PaginationItem>
+									);
+								}
+							})}
+
+							<PaginationItem>
+								<PaginationNext
+									onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+									disabled={currentPage === totalPages}
+									className="cursor-pointer"
+								/>
+							</PaginationItem>
+						</PaginationContent>
+					</Pagination>
+				</div>
+			)}
 		</section>
 	);
 }

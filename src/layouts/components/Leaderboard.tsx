@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -10,6 +11,15 @@ import Ticker from "@/components/ui/ticker";
 import { calculatePortfolioValue } from "@/lib/portfolioValue";
 import UserBadgeHover from "@/components/ui/UserBadgeHover";
 import type { UserBadgeView } from "@/lib/userBadges";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationPrevious,
+  PaginationNext,
+} from "@/components/ui/pagination";
 
 export type LeaderboardEntry = {
   portfolio_id: number;
@@ -34,6 +44,8 @@ type Props = {
   tickerPreviousValuesByPortfolioId?: Record<number, number>;
 };
 
+const ITEMS_PER_PAGE = 10;
+
 function formatDateStarted(value?: string | null) {
   if (!value) return "-";
   const date = new Date(value);
@@ -53,9 +65,23 @@ export default function Leaderboard({
   valueColumnLabel = "Portfolio Value",
   tickerPreviousValuesByPortfolioId,
 }: Props) {
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const totalPages = Math.ceil(entries.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedEntries = entries.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  const currentUserRank = currentUserId
+    ? entries.findIndex((entry) => entry.user_id === currentUserId) + 1
+    : null;
   return (
     <section>
       <h2 className="text-lg font-semibold mb-3">Leaderboard</h2>
+      {currentUserRank && (
+        <div className="mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
+          <p className="text-sm font-medium text-green-900">Your Rank: {currentUserRank}</p>
+        </div>
+      )}
 
       <div className="border rounded-lg overflow-hidden">
         <Table>
@@ -81,7 +107,8 @@ export default function Leaderboard({
                 </TableCell>
               </TableRow>
             ) : (
-              entries.map((entry, index) => {
+              paginatedEntries.map((entry, index) => {
+                const absoluteIndex = startIndex + index;
                 const isFallbackValue = entry.live_value == null;
                 const portfolioValue = calculatePortfolioValue({
                   netValue: entry.live_value ?? entry.previous_close_value,
@@ -101,7 +128,7 @@ export default function Leaderboard({
                     } ${onPortfolioClick ? "cursor-pointer" : ""}`}
                   >
                     <TableCell className="font-bold text-lg px-4 pl-7 text-green-700">
-                      {index + 1}
+                      {absoluteIndex + 1}
                     </TableCell>
 
                     <TableCell className="px-4 py-3">
@@ -141,9 +168,76 @@ export default function Leaderboard({
                 );
               })
             )}
+
+
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination controls */}
+      {entries.length > ITEMS_PER_PAGE && (
+        <div className="mt-4">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="cursor-pointer"
+                />
+              </PaginationItem>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                const isEllipsis =
+                  (page < currentPage - 1 && page !== 1) ||
+                  (page > currentPage + 1 && page !== totalPages);
+
+                if (isEllipsis && page === 2) {
+                  return (
+                    <PaginationItem key="ellipsis-start">
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  );
+                }
+
+                if (isEllipsis && page === totalPages - 1) {
+                  return (
+                    <PaginationItem key="ellipsis-end">
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  );
+                }
+
+                if (
+                  page === 1 ||
+                  page === totalPages ||
+                  Math.abs(page - currentPage) <= 1
+                ) {
+                  return (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        isActive={page === currentPage}
+                        onClick={() => setCurrentPage(page)}
+                        className="cursor-pointer"
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  );
+                }
+              })}
+
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="cursor-pointer"
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
     </section>
   );
 }

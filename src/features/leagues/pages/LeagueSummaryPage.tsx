@@ -216,7 +216,16 @@ export default function LeagueSummaryPage() {
           />
         </div>
         <div className="flex-1 w-full">
-          <LeaguePortfolioChart portfolios={chartPortfolios} currentUserPortfolioId={Number(currentUserPortfolioId)} />
+          <LeaguePortfolioChart 
+            portfolios={chartPortfolios} 
+            currentUserPortfolioId={Number(currentUserPortfolioId)}
+            leaderboard={standings.map((entry) => ({
+              portfolio_id: Number(entry.portfolio_id),
+              username: entry.Profiles?.username ?? `Portfolio ${entry.portfolio_id}`,
+              live_value: entry.live_value ?? entry.previous_close_value ?? 0,
+            }))}
+            endDate={league?.finish_time ? new Date(league.finish_time).toISOString().split('T')[0] : undefined}
+          />
         </div>
       </div>
 
