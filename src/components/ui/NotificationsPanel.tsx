@@ -28,6 +28,7 @@ export default function NotificationsPanel() {
     notificationId: number;
     leagueId: number;
     message: string;
+    joinCode?: string;
   }>({ open: false, notificationId: 0, leagueId: 0, message: "" });
   const panelRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -146,6 +147,7 @@ export default function NotificationsPanel() {
         notificationId: notification.notification_id,
         leagueId: notification.league_id,
         message: notification.message,
+        joinCode: (notification as any).join_code,
       });
       return;
     }
@@ -317,6 +319,7 @@ export default function NotificationsPanel() {
           notificationId={leagueInviteModal.notificationId}
           leagueId={leagueInviteModal.leagueId}
           message={leagueInviteModal.message}
+          joinCode={leagueInviteModal.joinCode}
           onClose={() => {
             setLeagueInviteModal({ ...leagueInviteModal, open: false });
           }}
@@ -356,6 +359,7 @@ export default function NotificationsPanel() {
         notificationId={leagueInviteModal.notificationId}
         leagueId={leagueInviteModal.leagueId}
         message={leagueInviteModal.message}
+        joinCode={leagueInviteModal.joinCode}
         onClose={() => {
           setLeagueInviteModal({ ...leagueInviteModal, open: false });
         }}

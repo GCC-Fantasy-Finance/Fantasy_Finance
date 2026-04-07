@@ -113,6 +113,9 @@
 }
 
 @layer base {
+  html {
+    overflow: hidden;
+  }
   * {
     @apply border-border outline-ring/50;
   }
@@ -124,7 +127,7 @@
       BlinkMacSystemFont,
       "Segoe UI",
       sans-serif;
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground overflow-hidden;
   }
 }
 
