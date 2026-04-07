@@ -32,7 +32,6 @@ type Props = {
   joinedDate?: string;
   fallbackNetValue?: number;
   leagueFinished?: boolean;
-  leagueId?: number;
   onClose: () => void;
 };
 
@@ -59,7 +58,6 @@ export default function LeagueMemberPortfolioModal({
   joinedDate,
   fallbackNetValue,
   leagueFinished,
-  leagueId,
   onClose,
 }: Props) {
   const { user } = useAuth();
@@ -115,7 +113,13 @@ export default function LeagueMemberPortfolioModal({
       try {
         if (leagueFinished && leagueId) {
           // Finished league: only load drafted stocks
-          const picks = await getDraftPicksByLeague(leagueId);
+          const numericLeagueId =
+            typeof leagueId === "number" ? leagueId : Number(leagueId);
+          if (!Number.isFinite(numericLeagueId)) {
+            throw new Error("Invalid league id.");
+          }
+
+          const picks = await getDraftPicksByLeague(numericLeagueId);
           const myPickStockIds = picks
             .filter((p) => p.portfolio_id === portfolioId)
             .map((p) => p.stock_id);
@@ -202,7 +206,7 @@ export default function LeagueMemberPortfolioModal({
     
     const success = await kickMember(
       memberUserId,
-      leagueId || "",
+      String(leagueId ?? ""),
       Boolean(isLeagueOwner),
       leagueOwnerId,
     );
