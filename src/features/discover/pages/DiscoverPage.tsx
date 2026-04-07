@@ -5,6 +5,24 @@ import { useNavigate } from "react-router-dom";
 import { getAllStocks } from "@/lib/stocks";
 import { calculateStockPercentChange } from "@/lib/utils";
 import StockDetailsModal from "@/components/ui/stockDetailsModal";
+import {
+  Building2,
+  CircleDollarSign,
+  Cpu,
+  Factory,
+  Film,
+  FlaskConical,
+  Globe,
+  HeartPulse,
+  Landmark,
+  Leaf,
+  Plane,
+  Shield,
+  ShoppingCart,
+  Truck,
+  Wifi,
+  type LucideIcon,
+} from "lucide-react";
 
 type StockWithSector = {
   stock_id: number;
@@ -23,12 +41,41 @@ function toSectorSlug(value: string) {
   return value.toLowerCase().trim().replace(/\s+/g, "-");
 }
 
+const sectorIconMap: Array<{ keywords: string[]; icon: LucideIcon }> = [
+  { keywords: ["technology", "software", "semiconductor", "ai"], icon: Cpu },
+  { keywords: ["health", "pharma", "biotech", "medical"], icon: HeartPulse },
+  { keywords: ["financial", "bank", "insurance", "fintech"], icon: Landmark },
+  { keywords: ["energy", "oil", "gas", "utilities"], icon: CircleDollarSign },
+  { keywords: ["industrial", "manufacturing"], icon: Factory },
+  { keywords: ["consumer", "retail", "ecommerce"], icon: ShoppingCart },
+  { keywords: ["materials", "chemical"], icon: FlaskConical },
+  { keywords: ["communication", "telecom", "media"], icon: Wifi },
+  { keywords: ["real estate", "reit", "property"], icon: Building2 },
+  { keywords: ["transport", "aerospace", "airline", "travel"], icon: Plane },
+  { keywords: ["defense", "security"], icon: Shield },
+  { keywords: ["logistics", "shipping"], icon: Truck },
+  { keywords: ["entertainment"], icon: Film },
+  { keywords: ["clean", "renewable", "sustainable", "green"], icon: Leaf },
+  { keywords: ["global", "international"], icon: Globe },
+];
+
+function getSectorIcon(sector: string): LucideIcon {
+  const normalizedSector = sector.toLowerCase();
+  const match = sectorIconMap.find(({ keywords }) =>
+    keywords.some((keyword) => normalizedSector.includes(keyword)),
+  );
+
+  return match?.icon ?? Building2;
+}
+
 function Discover() {
   usePageTitle("Discover");
   const navigate = useNavigate();
   const [stocks, setStocks] = useState<StockWithSector[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedStock, setSelectedStock] = useState<StockWithSector | null>(null);
+  const [selectedStock, setSelectedStock] = useState<StockWithSector | null>(
+    null,
+  );
   const [showStockModal, setShowStockModal] = useState(false);
 
   useEffect(() => {
@@ -98,7 +145,9 @@ function Discover() {
     <PageContent>
       <div className="space-y-8">
         <div>
-          <h2 className="text-2xl font-bold mb-1 text-gray-900">Trending Now</h2>
+          <h2 className="text-2xl font-bold mb-1 text-gray-900">
+            Trending Now
+          </h2>
           <p className="text-gray-700 mb-4">
             Top 3 stocks by daily percentage change.
           </p>
@@ -127,10 +176,14 @@ function Discover() {
                       setSelectedStock(stock);
                       setShowStockModal(true);
                     }}
-                    className="border border-gray-300 rounded-md px-4 py-3 text-left bg-white hover:bg-gray-50 transition-colors"
+                    className="cursor-pointer border border-gray-300 rounded-md px-4 py-3 text-left bg-white hover:bg-gray-50 transition-colors"
                   >
-                    <p className="font-semibold text-gray-900 truncate">{stock.name}</p>
-                    <p className="text-sm text-gray-600">{stock.stock_symbol}</p>
+                    <p className="font-semibold text-gray-900 truncate">
+                      {stock.name}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      {stock.stock_symbol}
+                    </p>
                     <p className="text-sm text-gray-900 mt-2">
                       ${stock.current_price.toFixed(2)}
                     </p>
@@ -155,28 +208,40 @@ function Discover() {
 
         {/* Explore Sectors Section */}
         <div>
-          <h2 className="text-2xl font-bold mb-4 text-gray-900">Explore Sectors</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <h2 className="text-2xl font-bold mb-4 text-gray-900">
+            Explore Sectors
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {loading ? (
-              <div className="sm:col-span-2 lg:col-span-5 flex items-center justify-center py-12">
+              <div className="sm:col-span-2 md:col-span-3 lg:col-span-4 xl:col-span-5 flex items-center justify-center py-12">
                 <p className="text-gray-600">Loading sectors...</p>
               </div>
             ) : sectors.length === 0 ? (
-              <div className="sm:col-span-2 lg:col-span-5 border border-gray-300 rounded-lg px-4 py-4 text-sm text-gray-600 bg-white">
+              <div className="sm:col-span-2 md:col-span-3 lg:col-span-4 xl:col-span-5 border border-gray-300 rounded-lg px-4 py-4 text-sm text-gray-600 bg-white">
                 No sectors found.
               </div>
             ) : (
-              sectors.map((sector) => (
-                <button
-                  key={sector}
-                  onClick={() => handleSectorClick(sector)}
-                  className="h-16 w-full border border-gray-300 rounded-lg px-4 text-left hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent flex items-center"
-                >
-                  <span className="text-sm font-medium text-gray-700 leading-tight">
-                    {sector}
-                  </span>
-                </button>
-              ))
+              sectors.map((sector) => {
+                const SectorIcon = getSectorIcon(sector);
+
+                return (
+                  <button
+                    key={sector}
+                    onClick={() => handleSectorClick(sector)}
+                    className="h-16 cursor-pointer w-full border border-gray-300 rounded-lg px-4 text-left hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent flex items-center"
+                  >
+                    <div className="flex items-center gap-2 text-gray-700">
+                      <SectorIcon
+                        className="h-4 w-4 shrink-0"
+                        aria-hidden="true"
+                      />
+                      <span className="text-sm font-medium leading-tight">
+                        {sector}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })
             )}
           </div>
         </div>

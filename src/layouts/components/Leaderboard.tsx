@@ -89,7 +89,9 @@ export default function Leaderboard({
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-[100px] px-4">Rank</TableHead>
               <TableHead className="px-4">Member</TableHead>
-              {showDateStarted && <TableHead className="px-4">Date Started</TableHead>}
+              {showDateStarted && (
+                <TableHead className="px-4">Date Started</TableHead>
+              )}
               <TableHead className="px-4">{valueColumnLabel}</TableHead>
             </TableRow>
           </TableHeader>
@@ -97,7 +99,10 @@ export default function Leaderboard({
           <TableBody>
             {entries.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={showDateStarted ? 4 : 3} className="h-24 text-center">
+                <TableCell
+                  colSpan={showDateStarted ? 4 : 3}
+                  className="h-24 text-center"
+                >
                   No members yet.
                 </TableCell>
               </TableRow>
@@ -116,13 +121,11 @@ export default function Leaderboard({
                   <TableRow
                     key={entry.portfolio_id}
                     onClick={() => onPortfolioClick?.(entry.portfolio_id)}
-                    className={
-                      `${
-                        currentUserId === entry.user_id
-                          ? "bg-green-50/60 hover:bg-green-100/60 font-semibold"
-                          : ""
-                      } ${onPortfolioClick ? "cursor-pointer" : ""}`
-                    }
+                    className={`${
+                      currentUserId === entry.user_id
+                        ? "bg-green-50/60 hover:bg-green-100/60 font-semibold"
+                        : ""
+                    } ${onPortfolioClick ? "cursor-pointer" : ""}`}
                   >
                     <TableCell className="font-bold text-lg px-4 pl-7 text-green-700">
                       {absoluteIndex + 1}

@@ -10,6 +10,7 @@ type PortfolioHoldingCardProps = {
   onSell: (holding: HoldingView) => void;
   onBuy: (holding: HoldingView) => void;
   onBookmark: () => void;
+  buyButtonLabel?: "Buy" | "Buy More";
   showBottomBorder?: boolean;
   showTopRounded?: boolean;
   showBottomRounded?: boolean;
@@ -21,6 +22,7 @@ export default function PortfolioHoldingCard({
   onSell,
   onBuy,
   onBookmark,
+  buyButtonLabel,
   showBottomBorder = false,
   showTopRounded = false,
   showBottomRounded = false,
@@ -28,7 +30,9 @@ export default function PortfolioHoldingCard({
   const price = Number(holding.stock?.current_price ?? 0);
   const qty = Number(holding.quantity ?? 0);
   const total = price * qty;
-  const stockLabel = holding.stock?.stock_symbol ?? holding.stock?.name ?? "stock";
+  const stockLabel =
+    holding.stock?.stock_symbol ?? holding.stock?.name ?? "stock";
+  const buyLabel = buyButtonLabel ?? (qty > 0 ? "Buy More" : "Buy");
 
   return (
     <div
@@ -91,13 +95,13 @@ export default function PortfolioHoldingCard({
         <Button
           variant="outline"
           size="xs"
-          className="border-green-600 text-green-700 hover:bg-green-50 max-[540px]:flex-1"
+          className="w-20 justify-center border-green-600 text-green-700 hover:bg-green-50 max-[540px]:flex-1"
           onClick={(event) => {
             event.stopPropagation();
             onBuy(holding);
           }}
         >
-          Buy More
+          {buyLabel}
         </Button>
 
         <Button

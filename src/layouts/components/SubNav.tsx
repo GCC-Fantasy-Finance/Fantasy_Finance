@@ -17,7 +17,7 @@ export default function SubNav({ items, rightContent }: SubNavProps) {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <nav className="sticky top-0 z-30 isolate h-12 border-b border-gray-300 bg-white flex items-center justify-between px-6">
+    <nav className="sticky top-0 z-30 isolate h-12 w-screen border-b border-gray-300 bg-white flex items-center justify-between px-6 md:w-[calc(100dvw-15rem)]">
       <ul className="flex gap-8">
         {items.map((item) => (
           <li key={item.path}>
