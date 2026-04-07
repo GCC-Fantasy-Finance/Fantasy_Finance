@@ -30,7 +30,63 @@ type Props = {
   onPortfolioClick?: (portfolioId: number) => void;
 };
 
-export default function Leaderboard({ entries, currentUserId, onPortfolioClick }: Props) {
+type RankedLeaderboardEntry = {
+  entry: LeaderboardEntry;
+  portfolioValue: number;
+  rankValue: number;
+  username: string;
+  rank: number;
+};
+
+export default function Leaderboard({
+  entries,
+  currentUserId,
+  onPortfolioClick,
+}: Props) {
+  const sortedEntries: Array<Omit<RankedLeaderboardEntry, "rank">> = entries
+    .map((entry) => {
+      const portfolioValue = calculatePortfolioValue({
+        netValue: entry.live_value ?? entry.previous_close_value,
+      });
+
+      return {
+        entry,
+        portfolioValue,
+        rankValue: Math.round(portfolioValue * 100),
+        username: entry.Profiles?.username ?? "Unknown User",
+      };
+    })
+    .sort((a, b) => {
+      if (b.rankValue !== a.rankValue) {
+        return b.rankValue - a.rankValue;
+      }
+
+      const nameSort = a.username.localeCompare(b.username, undefined, {
+        sensitivity: "base",
+      });
+
+      if (nameSort !== 0) {
+        return nameSort;
+      }
+
+      return a.entry.portfolio_id - b.entry.portfolio_id;
+    });
+
+  const rankedEntries: RankedLeaderboardEntry[] = [];
+  for (let index = 0; index < sortedEntries.length; index += 1) {
+    const item = sortedEntries[index];
+    const previous = rankedEntries[index - 1];
+    const rank =
+      previous && item.rankValue === previous.rankValue
+        ? previous.rank
+        : index + 1;
+
+    rankedEntries.push({
+      ...item,
+      rank,
+    });
+  }
+
   return (
     <section>
       <h2 className="text-lg font-semibold mb-3">Leaderboard</h2>
@@ -46,33 +102,28 @@ export default function Leaderboard({ entries, currentUserId, onPortfolioClick }
           </TableHeader>
 
           <TableBody>
-            {entries.length === 0 ? (
+            {rankedEntries.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={3} className="h-24 text-center">
                   No members yet.
                 </TableCell>
               </TableRow>
             ) : (
-              entries.map((entry, index) => {
+              rankedEntries.map(({ entry, portfolioValue, rank }) => {
                 const isFallbackValue = entry.live_value == null;
-                const portfolioValue = calculatePortfolioValue({
-                  netValue: entry.live_value ?? entry.previous_close_value,
-                });
 
                 return (
                   <TableRow
                     key={entry.portfolio_id}
                     onClick={() => onPortfolioClick?.(entry.portfolio_id)}
-                    className={
-                      `${
-                        currentUserId === entry.user_id
-                          ? "bg-green-50/60 hover:bg-green-100/60 font-semibold"
-                          : ""
-                      } ${onPortfolioClick ? "cursor-pointer" : ""}`
-                    }
+                    className={`${
+                      currentUserId === entry.user_id
+                        ? "bg-green-50/60 hover:bg-green-100/60 font-semibold"
+                        : ""
+                    } ${onPortfolioClick ? "cursor-pointer" : ""}`}
                   >
                     <TableCell className="font-bold text-lg px-4 pl-7 text-green-700">
-                      {index + 1}
+                      {rank}
                     </TableCell>
 
                     <TableCell className="px-4 py-3">
@@ -98,7 +149,7 @@ export default function Leaderboard({ entries, currentUserId, onPortfolioClick }
                         <Ticker
                           currentValue={portfolioValue}
                           previousValue={entry.previous_close_value}
-                          className="w-[96px] justify-end tabular-nums"
+                          className="w-24 justify-end tabular-nums"
                         />
                       </div>
                     </TableCell>

@@ -314,18 +314,20 @@ export default function Sidebar() {
         }`}
       >
         {/* Logo/Brand */}
-        <div className="flex items-center p-4">
+        <Link
+          to="/"
+          aria-label="Go to home page"
+          className="flex items-center p-4  h-14 w-min"
+        >
           <img
             src="/ff_favicon.png"
             alt="Fantasy Finance Logo"
-            className="w-9 h-9 mr-2"
+            className="w-6 h-6 mr-2"
           />
-          <h1 className="text-sm font-bold leading-none text-green-800">
-            FANTASY
-            <br />
-            FINANCE
+          <h1 className="text-sm font-semibold -leading-1 text-green-700 text-nowrap">
+            FANTASY FINANCE
           </h1>
-        </div>
+        </Link>
 
         {/* Navigation Links */}
         <nav
@@ -456,7 +458,7 @@ export default function Sidebar() {
         <div className="border-t border-gray-300">
           <Link
             to="/profile"
-            className="flex items-center gap-2.5 p-4 hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2.5 px-4 py-3 hover:bg-gray-50 transition-colors"
           >
             {profile?.avatar_url ? (
               <img

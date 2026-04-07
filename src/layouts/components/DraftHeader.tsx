@@ -395,10 +395,10 @@ const DraftHeader = () => {
                 {lastConversationId ? "Resume Chat" : "New AI Chat"}
               </p>
             </div>
-            <p className="hidden lg:block text-gray-700 text-xs truncate">
+            <p className="hidden w-full min-w-0 truncate text-xs text-gray-700 lg:block text-left">
               {lastConversationId
                 ? conversationTitle || "Loading..."
-                : "Consult expert financial AI"}
+                : "Ask AI anything"}
             </p>
           </div>
         )}

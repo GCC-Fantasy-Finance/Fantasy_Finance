@@ -2392,9 +2392,9 @@ export default function Chatbot({
           {/* Floating Window */}
           {state !== "closed" && (
             <div
-              className="absolute bottom-18 right-0 bg-white rounded-lg shadow-2xl border border-gray-300 transition-all duration-300 w-96 flex flex-col"
+              className="absolute bottom-14 right-0 bg-white rounded-lg shadow-2xl border border-gray-300 transition-all duration-300 w-96 flex flex-col"
               style={{
-                height: "calc(100vh - 120px)",
+                height: "calc(100vh - 100px)",
               }}
             >
               {/* Window Header */}

@@ -185,7 +185,7 @@ function PortfolioTable({
                     {!isEndedSection && !isLeagueEnded ? (
                       <Ticker
                         currentValue={netValue}
-                        previousValue={portfolio.previous_close_value}
+                        previousValue={previousValue}
                         className="w-[88px] tabular-nums"
                       />
                     ) : null}
