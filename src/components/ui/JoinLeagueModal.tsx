@@ -76,6 +76,17 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
         throw new Error("join_league did not return a portfolio id");
       }
 
+      // Fetch league_id from the leagues table using join code
+      const { data: leagueData, error: leagueError } = await supabase
+        .from("Leagues")
+        .select("league_id")
+        .eq("join_code", sanitizedJoinCode)
+        .single();
+
+      if (leagueError || !leagueData?.league_id) {
+        throw new Error("Could not fetch league information");
+      }
+
       window.dispatchEvent(
         new CustomEvent("ff:leagues-updated", {
           detail: { portfolioId, joinCode: sanitizedJoinCode },
@@ -84,7 +95,7 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
 
       toast.success("Joined league successfully!");
       onClose();
-      window.location.href = `/portfolio/${portfolioId}`;
+      window.location.href = `/league/${leagueData.league_id}`;
     } catch (err: any) {
       console.error("Error joining league:", err);
       const msg = err?.message || "Failed to join league";
