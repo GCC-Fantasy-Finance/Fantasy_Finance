@@ -3,32 +3,34 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import PageContent from "../../../layouts/components/PageContent";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { getAllStocks } from "@/lib/stocks";
+import { getAllStocks, type StockRow } from "@/lib/stocks";
 import { calculateStockPercentChange } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import StockDetailsModal from "@/components/ui/stockDetailsModal";
 import { getSearchScore } from "@/lib/searchUtils";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import Ticker from "@/components/ui/ticker";
 
-interface SectorStock {
-  stock_id: number;
-  stock_symbol: string;
-  name: string;
-  current_price: number;
-  previous_close: number;
-  sector?: string;
-}
-
-interface RawSectorStock extends Omit<SectorStock, "sector"> {
+interface RawSectorStock extends Omit<StockRow, "sector"> {
   sector?: string | null;
 }
+
+type SortColumn =
+  | "stock_symbol"
+  | "name"
+  | "day_change"
+  | "price"
+  | "market_cap"
+  | "volume";
+
+const formatNumber = (num?: number | null) => {
+  if (!num) return "-";
+  if (num >= 1_000_000_000_000)
+    return (num / 1_000_000_000_000).toFixed(1) + "T";
+  if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(1) + "B";
+  if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + "M";
+  if (num >= 1_000) return (num / 1_000).toFixed(1) + "K";
+  return num.toString();
+};
 
 function toSectorSlug(value: string) {
   return value.toLowerCase().trim().replace(/\s+/g, "-");
@@ -37,11 +39,13 @@ function toSectorSlug(value: string) {
 function SectorPage() {
   const { sector } = useParams<{ sector: string }>();
   const navigate = useNavigate();
-  const [stocks, setStocks] = useState<SectorStock[]>([]);
+  const [stocks, setStocks] = useState<StockRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedStock, setSelectedStock] = useState<SectorStock | null>(null);
+  const [selectedStock, setSelectedStock] = useState<StockRow | null>(null);
   const [showStockModal, setShowStockModal] = useState(false);
+  const [sortColumn, setSortColumn] = useState<SortColumn>("market_cap");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   
   // Convert URL-friendly sector name back to display name
   const displaySector = sector
@@ -65,12 +69,12 @@ function SectorPage() {
           )
           .map((stock) => ({
             ...stock,
-            sector: stock.sector ?? undefined,
+            sector: stock.sector ?? "",
           }))
           .sort((left, right) => left.name.localeCompare(right.name));
 
         if (mounted) {
-          setStocks(filteredBySector);
+          setStocks(filteredBySector as StockRow[]);
         }
       } catch (error) {
         console.error("Failed to load sector stocks:", error);
@@ -91,11 +95,70 @@ function SectorPage() {
     };
   }, [sectorSlug]);
 
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortColumn(column);
+      setSortDirection("desc");
+    }
+  };
+
+  const HeaderCell = (
+    label: string,
+    column: SortColumn,
+    align: "left" | "right" = "left",
+  ) => (
+    <div
+      className={`cursor-pointer flex items-center ${
+        align === "right" ? "justify-end text-right" : ""
+      }`}
+      onClick={() => handleSort(column)}
+    >
+      <span className="flex items-center whitespace-nowrap">
+        {label}
+        <span className="ml-1 w-3 inline-block text-gray-500">
+          {sortColumn === column ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+        </span>
+      </span>
+    </div>
+  );
+
   const visibleStocks = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
 
     if (!query) {
-      return stocks;
+      return [...stocks].sort((left, right) => {
+        let leftValue: string | number;
+        let rightValue: string | number;
+
+        if (sortColumn === "day_change") {
+          leftValue = calculateStockPercentChange(
+            left.current_price,
+            left.previous_close,
+          );
+          rightValue = calculateStockPercentChange(
+            right.current_price,
+            right.previous_close,
+          );
+        } else if (sortColumn === "price") {
+          leftValue = left.current_price;
+          rightValue = right.current_price;
+        } else {
+          leftValue = left[sortColumn];
+          rightValue = right[sortColumn];
+        }
+
+        if (typeof leftValue === "number" && typeof rightValue === "number") {
+          return sortDirection === "asc"
+            ? leftValue - rightValue
+            : rightValue - leftValue;
+        }
+
+        return sortDirection === "asc"
+          ? String(leftValue).localeCompare(String(rightValue))
+          : String(rightValue).localeCompare(String(leftValue));
+      });
     }
 
     return stocks
@@ -105,7 +168,7 @@ function SectorPage() {
           stock.stock_symbol.toLowerCase().includes(query),
       )
       .sort((a, b) => getSearchScore(b, query) - getSearchScore(a, query));
-  }, [searchQuery, stocks]);
+  }, [searchQuery, stocks, sortColumn, sortDirection]);
 
   const trendingStocks = useMemo(() => {
     return stocks
@@ -187,68 +250,72 @@ function SectorPage() {
             />
           </div>
 
-          <div className="border border-gray-300 rounded-md overflow-hidden bg-white">
-            <Table>
-              <TableHeader className="bg-gray-100">
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Symbol</TableHead>
-                  <TableHead className="text-right">Price</TableHead>
-                  <TableHead className="text-right">% Change</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center py-12">
-                      <p className="text-gray-600">Loading stocks...</p>
-                    </TableCell>
-                  </TableRow>
-                ) : visibleStocks.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center text-gray-600 py-6">
-                      No stocks found.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  visibleStocks.map((stock) => {
-                    const percentChange = calculateStockPercentChange(
-                      stock.current_price,
-                      stock.previous_close,
-                    );
+          <div className="border border-gray-300 rounded-md overflow-hidden bg-white text-xs">
+            <div className="overflow-x-auto">
+              <div className="min-w-[700px]">
+                <div className="grid grid-cols-[44px_90px_1fr_110px_90px_110px_100px] gap-2 px-3 py-2 font-semibold bg-gray-50 border-b">
+                  <div></div>
+                  {HeaderCell("Symbol", "stock_symbol")}
+                  {HeaderCell("Name", "name")}
+                  {HeaderCell("Day Change", "day_change", "right")}
+                  {HeaderCell("Price", "price", "right")}
+                  {HeaderCell("Market Cap", "market_cap", "right")}
+                  {HeaderCell("Volume", "volume", "right")}
+                </div>
 
-                    return (
-                      <TableRow
-                        key={stock.stock_id}
-                        className="cursor-pointer"
-                        onClick={() => {
-                          setSelectedStock(stock);
-                          setShowStockModal(true);
-                        }}
-                      >
-                        <TableCell className="font-medium">{stock.name}</TableCell>
-                        <TableCell>{stock.stock_symbol}</TableCell>
-                        <TableCell className="text-right">
-                          ${stock.current_price.toFixed(2)}
-                        </TableCell>
-                        <TableCell
-                          className={`text-right font-medium ${
-                            percentChange < 0
-                              ? "text-red-700"
-                              : percentChange > 0
-                                ? "text-green-700"
-                                : "text-gray-700"
-                          }`}
-                        >
-                          {percentChange > 0 ? "+" : ""}
-                          {percentChange.toFixed(2)}%
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
+                {loading ? (
+                  <div className="px-3 py-12 text-center text-gray-600">Loading stocks...</div>
+                ) : visibleStocks.length === 0 ? (
+                  <div className="px-3 py-6 text-center text-gray-600">No stocks found.</div>
+                ) : (
+                  visibleStocks.map((stock) => (
+                    <div
+                      key={stock.stock_id}
+                      className="grid grid-cols-[44px_90px_1fr_110px_90px_110px_100px] gap-2 px-3 py-1 items-center border-b hover:bg-green-100/60 cursor-pointer"
+                      onClick={() => {
+                        setSelectedStock(stock);
+                        setShowStockModal(true);
+                      }}
+                    >
+                      {stock.logo_url ? (
+                        <img
+                          src={stock.logo_url}
+                          alt={stock.stock_symbol}
+                          className="w-7 h-7 object-contain"
+                        />
+                      ) : (
+                        <div className="w-7 h-7 bg-gray-200 flex items-center justify-center text-gray-500 text-xs">
+                          {stock.stock_symbol[0]}
+                        </div>
+                      )}
+
+                      <div className="font-semibold">{stock.stock_symbol}</div>
+                      <div className="text-gray-700 truncate">{stock.name}</div>
+
+                      <div className="flex justify-end">
+                        <Ticker
+                          currentValue={stock.current_price}
+                          previousValue={stock.previous_close}
+                          size="small"
+                        />
+                      </div>
+
+                      <div className="font-mono text-right">
+                        ${stock.current_price.toFixed(2)}
+                      </div>
+
+                      <div className="text-right text-gray-700">
+                        {formatNumber(stock.market_cap)}
+                      </div>
+
+                      <div className="text-right text-gray-700">
+                        {formatNumber(stock.volume)}
+                      </div>
+                    </div>
+                  ))
                 )}
-              </TableBody>
-            </Table>
+              </div>
+            </div>
           </div>
         </div>
       </div>

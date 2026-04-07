@@ -6,6 +6,8 @@ import { useTradeModal } from "@/context/TradeModalContext";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { sellStock } from "@/hooks/sellStock";
+import { invalidateCachedPortfolioView } from "@/hooks/fetchPortfolio";
+import { truncateCurrency } from "@/lib/utils";
 
 export default function SellStockModal() {
   const { sellOpen, stock, portfolio, holdingQty, closeSell } = useTradeModal();
@@ -100,7 +102,8 @@ export default function SellStockModal() {
       } else {
         toast.success("Sold successfully");
         closeSell();
-        setTimeout(() => window.location.reload(), 300);
+        invalidateCachedPortfolioView();
+        window.dispatchEvent(new CustomEvent("ff:trade-completed"));
       }
     } catch (err: any) {
       toast.error(String(err?.message ?? err));
@@ -121,7 +124,7 @@ export default function SellStockModal() {
       return String(Math.max(0, v - step));
     });
 
-  const sellLabel = valid ? `Sell $${proceeds.toFixed(2)}` : "Sell";
+  const sellLabel = valid ? `Sell $${truncateCurrency(proceeds)}` : "Sell";
 
   const modal = (
     <div className="ff-modal-viewport fixed inset-0 z-50 flex items-center justify-center">
@@ -152,7 +155,7 @@ export default function SellStockModal() {
         {/* Reserve Badge */}
         <div className="flex justify-end px-4">
           <div className="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-800">
-            Reserve: ${reserve.toFixed(2)}
+            Reserve: ${truncateCurrency(reserve)}
           </div>
         </div>
 
@@ -162,7 +165,7 @@ export default function SellStockModal() {
           <div className="mt-3 rounded border bg-white px-4 py-3">
             <div className="font-medium">{stock.name}</div>
             <div className="mt-1 text-green-700 font-semibold">
-              ${price.toFixed(2)}
+              ${truncateCurrency(price)}
             </div>
           </div>
 
@@ -215,7 +218,7 @@ export default function SellStockModal() {
                 onChange={() => setMode("all")}
               />
               <label htmlFor="sell-all" className="text-sm text-gray-700">
-                Sell All (${(availableShares * price).toFixed(2)})
+                Sell All (${truncateCurrency(availableShares * price)})
               </label>
             </div>
           </div>
