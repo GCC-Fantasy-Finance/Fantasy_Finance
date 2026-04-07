@@ -2,6 +2,7 @@ import type { HoldingView } from "@/hooks/fetchPortfolio";
 import { Button } from "@/components/ui/button";
 import Ticker from "@/components/ui/ticker";
 import { Bookmark } from "lucide-react";
+import { truncateCurrency } from "@/lib/utils";
 
 type PortfolioHoldingCardProps = {
   holding: HoldingView;
@@ -53,7 +54,7 @@ export default function PortfolioHoldingCard({
       <div className="relative z-10 flex min-w-0 flex-col text-left">
         <span className="text-xs text-gray-500">CURRENT:</span>
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span>${price.toFixed(2)}</span>
+          <span>${truncateCurrency(price)}</span>
           <Ticker
             currentValue={holding.stock?.current_price}
             previousValue={holding.stock?.previous_close}
@@ -68,7 +69,7 @@ export default function PortfolioHoldingCard({
       <div className="relative z-10 min-w-0 text-left flex flex-col">
         <span className="text-xs text-gray-500">YOU OWN:</span>
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span className="font-medium">${total.toFixed(2)}</span>
+          <span className="font-medium">${truncateCurrency(total)}</span>
           <span className="text-xs text-gray-500">{qty.toFixed(3)} shares</span>
         </div>
       </div>

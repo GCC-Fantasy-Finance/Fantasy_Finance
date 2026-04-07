@@ -6,6 +6,8 @@ import { useTradeModal } from "@/context/TradeModalContext";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { buyStock } from "@/hooks/buyStock";
+import { invalidateCachedPortfolioView } from "@/hooks/fetchPortfolio";
+import { truncateCurrency } from "@/lib/utils";
 
 export default function BuyStockModal() {
   const { buyOpen, stock, portfolio, closeBuy } = useTradeModal();
@@ -71,8 +73,8 @@ export default function BuyStockModal() {
       } else {
         toast.success("Purchased successfully");
         closeBuy();
-        // Trigger a lightweight refresh; consumers can react to changes
-        setTimeout(() => window.location.reload(), 300);
+        invalidateCachedPortfolioView();
+        window.dispatchEvent(new CustomEvent("ff:trade-completed"));
       }
     } catch (err: any) {
       toast.error(String(err?.message ?? err));
@@ -93,7 +95,7 @@ export default function BuyStockModal() {
       return String(Math.max(0, v - step));
     });
 
-  const buyLabel = canBuy ? `Buy $${parsedAmount.toFixed(2)}` : "Buy";
+  const buyLabel = canBuy ? `Buy $${truncateCurrency(parsedAmount)}` : "Buy";
 
   const modal = (
     <div className="ff-modal-viewport fixed inset-0 z-50 flex items-center justify-center">
@@ -124,7 +126,7 @@ export default function BuyStockModal() {
         {/* Reserve Badge */}
         <div className="flex justify-end px-4">
           <div className="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-800">
-            Reserve: ${reserve.toFixed(2)}
+            Reserve: ${truncateCurrency(reserve)}
           </div>
         </div>
 
@@ -134,7 +136,7 @@ export default function BuyStockModal() {
           <div className="mt-3 rounded border bg-white px-4 py-3">
             <div className="font-medium">{stock.name}</div>
             <div className="mt-1 text-green-700 font-semibold">
-              ${price.toFixed(2)}
+              ${truncateCurrency(price)}
             </div>
           </div>
 

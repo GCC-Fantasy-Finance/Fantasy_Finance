@@ -10,13 +10,14 @@ import {
   calculateInvestedValue,
   calculatePortfolioValue,
 } from "@/lib/portfolioValue";
-import { calculateStockPercentChange } from "@/lib/utils";
+import { calculateStockPercentChange, truncateCurrency } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import ReportUserModal from "./ReportUserModal";
 import { kickMember } from "./kickMember";
 import UserBadgeHover from "./UserBadgeHover";
 import type { UserBadgeView } from "@/lib/userBadges";
+import { getDraftPicksByLeague } from "@/lib/draftpicks";
 
 type Props = {
   open: boolean;
@@ -30,11 +31,18 @@ type Props = {
   badges?: UserBadgeView[];
   joinedDate?: string;
   fallbackNetValue?: number;
+  leagueFinished?: boolean;
   onClose: () => void;
 };
 
 type PortfolioTotalsRow = {
   reserve_value: number | null;
+};
+
+type DraftedStockInfo = {
+  stock_id: number;
+  stock_symbol: string;
+  name: string;
 };
 
 export default function LeagueMemberPortfolioModal({
@@ -49,6 +57,7 @@ export default function LeagueMemberPortfolioModal({
   badges,
   joinedDate,
   fallbackNetValue,
+  leagueFinished,
   onClose,
 }: Props) {
   const { user } = useAuth();
@@ -58,6 +67,7 @@ export default function LeagueMemberPortfolioModal({
   const [reserveValue, setReserveValue] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [draftedStocks, setDraftedStocks] = useState<DraftedStockInfo[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -88,6 +98,7 @@ export default function LeagueMemberPortfolioModal({
     if (!open || portfolioId == null) {
       setHoldings([]);
       setReserveValue(0);
+      setDraftedStocks([]);
       setError(null);
       setLoading(false);
       return;
@@ -100,28 +111,56 @@ export default function LeagueMemberPortfolioModal({
       setError(null);
 
       try {
-        const [{ data: totalsRow, error: totalsError }, holdingsResult] =
-          await Promise.all([
-            supabase
-              .from("Portfolios")
-              .select("reserve_value")
-              .eq("portfolio_id", portfolioId)
-              .maybeSingle<PortfolioTotalsRow>(),
-            fetchPortfolioHoldingsWithStocks(portfolioId),
-          ]);
+        if (leagueFinished && leagueId) {
+          // Finished league: only load drafted stocks
+          const numericLeagueId =
+            typeof leagueId === "number" ? leagueId : Number(leagueId);
+          if (!Number.isFinite(numericLeagueId)) {
+            throw new Error("Invalid league id.");
+          }
 
-        if (totalsError) {
-          throw totalsError;
+          const picks = await getDraftPicksByLeague(numericLeagueId);
+          const myPickStockIds = picks
+            .filter((p) => p.portfolio_id === portfolioId)
+            .map((p) => p.stock_id);
+          const uniqueIds = Array.from(new Set(myPickStockIds));
+
+          if (uniqueIds.length > 0) {
+            const { data: stockRows } = await supabase
+              .from("Stocks")
+              .select("stock_id, stock_symbol, name")
+              .in("stock_id", uniqueIds);
+
+            if (mounted) {
+              setDraftedStocks(
+                (stockRows ?? []).map((s: any) => ({
+                  stock_id: s.stock_id,
+                  stock_symbol: s.stock_symbol ?? "—",
+                  name: s.name ?? "Unknown",
+                }))
+              );
+            }
+          }
+        } else {
+          // Active league: load full portfolio details
+          const [{ data: totalsRow, error: totalsError }, holdingsResult] =
+            await Promise.all([
+              supabase
+                .from("Portfolios")
+                .select("reserve_value")
+                .eq("portfolio_id", portfolioId)
+                .maybeSingle<PortfolioTotalsRow>(),
+              fetchPortfolioHoldingsWithStocks(portfolioId),
+            ]);
+
+          if (totalsError) throw totalsError;
+          if (holdingsResult.error) throw new Error(holdingsResult.error);
+
+          if (!mounted) return;
+
+          setReserveValue(Number(totalsRow?.reserve_value ?? 0));
+          setHoldings(holdingsResult.holdings);
         }
-
-        if (holdingsResult.error) {
-          throw new Error(holdingsResult.error);
-        }
-
-        if (!mounted) return;
-
-        setReserveValue(Number(totalsRow?.reserve_value ?? 0));
-        setHoldings(holdingsResult.holdings);
       } catch (err) {
         if (!mounted) return;
         setError(
@@ -139,7 +178,7 @@ export default function LeagueMemberPortfolioModal({
     return () => {
       mounted = false;
     };
-  }, [open, portfolioId]);
+  }, [open, portfolioId, leagueFinished, leagueId]);
 
   const investedValue = useMemo(
     () => calculateInvestedValue(holdings),
@@ -167,7 +206,7 @@ export default function LeagueMemberPortfolioModal({
     
     const success = await kickMember(
       memberUserId,
-      leagueId || "",
+      String(leagueId ?? ""),
       Boolean(isLeagueOwner),
       leagueOwnerId,
     );
@@ -252,23 +291,53 @@ export default function LeagueMemberPortfolioModal({
           <p className="text-gray-600">Loading portfolio...</p>
         ) : error ? (
           <p className="text-red-600">{error}</p>
+        ) : leagueFinished ? (
+          <>
+            <div className="mb-5">
+              <div className="rounded-lg border px-4 py-3 inline-block">
+                <p className="text-xs text-gray-500">FINAL NET VALUE</p>
+                <p className="text-lg font-semibold">
+                  ${truncateCurrency(Number(fallbackNetValue ?? 0))}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">Drafted Stocks</h3>
+              {draftedStocks.length === 0 ? (
+                <p className="text-sm text-gray-500">No stocks were drafted.</p>
+              ) : (
+                <div className="space-y-2">
+                  {draftedStocks.map((stock) => (
+                    <div
+                      key={stock.stock_id}
+                      className="flex items-center gap-3 rounded-lg border px-4 py-3 bg-white"
+                    >
+                      <span className="text-sm font-semibold">{stock.stock_symbol}</span>
+                      <span className="text-xs text-gray-500">{stock.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
               <div className="rounded-lg border px-4 py-3">
                 <p className="text-xs text-gray-500">NET</p>
-                <p className="text-lg font-semibold">${netValue.toFixed(2)}</p>
+                <p className="text-lg font-semibold">${truncateCurrency(netValue)}</p>
               </div>
               <div className="rounded-lg border px-4 py-3">
                 <p className="text-xs text-gray-500">INVESTED</p>
                 <p className="text-lg font-semibold">
-                  ${investedValue.toFixed(2)}
+                  ${truncateCurrency(investedValue)}
                 </p>
               </div>
               <div className="rounded-lg border px-4 py-3">
                 <p className="text-xs text-gray-500">RESERVE</p>
                 <p className="text-lg font-semibold">
-                  ${reserveValue.toFixed(2)}
+                  ${truncateCurrency(reserveValue)}
                 </p>
               </div>
             </div>
@@ -306,7 +375,7 @@ export default function LeagueMemberPortfolioModal({
                         </div>
                         <div className="flex flex-col items-end min-w-24">
                           <span className="text-sm">
-                            ${currentPrice.toFixed(2)}
+                            ${truncateCurrency(currentPrice)}
                           </span>
                           <span
                             className={`text-xs font-medium ${
@@ -324,7 +393,7 @@ export default function LeagueMemberPortfolioModal({
                       </div>
 
                       <div className="text-right">
-                        <span className="font-bold">${value.toFixed(2)}</span>
+                        <span className="font-bold">${truncateCurrency(value)}</span>
                         <span className="ml-2 text-xs text-gray-500">
                           ({quantity} shares)
                         </span>

@@ -46,7 +46,9 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
     e.preventDefault();
     setError(null);
 
-    if (!joinCode) {
+    const sanitizedJoinCode = joinCode.trim().toUpperCase();
+
+    if (!sanitizedJoinCode) {
       setError("Please enter a Join Code");
       return;
     }
@@ -60,7 +62,7 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
 
     try {
       const { data: portfolioId, error } = await supabase.rpc("join_league", {
-        p_join_code: joinCode,
+        p_join_code: sanitizedJoinCode,
       });
 
       if (error) {
@@ -70,13 +72,19 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
         return;
       }
 
-      // ✅ Use returned portfolio ID
+      if (!portfolioId) {
+        throw new Error("join_league did not return a portfolio id");
+      }
+
+      window.dispatchEvent(
+        new CustomEvent("ff:leagues-updated", {
+          detail: { portfolioId, joinCode: sanitizedJoinCode },
+        })
+      );
+
       toast.success("Joined league successfully!");
-
-      // Example: redirect instead of reload
+      onClose();
       window.location.href = `/portfolio/${portfolioId}`;
-
-      onClose(); // reset will trigger from useEffect
     } catch (err: any) {
       console.error("Error joining league:", err);
       const msg = err?.message || "Failed to join league";

@@ -25,6 +25,7 @@ export type LeaderboardEntry = {
   portfolio_id: number;
   previous_close_value: number;
   live_value?: number;
+  created_at?: string | null;
   user_id: string;
   Profiles: {
     username?: string;
@@ -38,11 +39,32 @@ type Props = {
   entries: LeaderboardEntry[];
   currentUserId?: string;
   onPortfolioClick?: (portfolioId: number) => void;
+  showDateStarted?: boolean;
+  valueColumnLabel?: string;
+  tickerPreviousValuesByPortfolioId?: Record<number, number>;
 };
 
 const ITEMS_PER_PAGE = 10;
 
-export default function Leaderboard({ entries, currentUserId, onPortfolioClick }: Props) {
+function formatDateStarted(value?: string | null) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+export default function Leaderboard({
+  entries,
+  currentUserId,
+  onPortfolioClick,
+  showDateStarted = false,
+  valueColumnLabel = "Portfolio Value",
+  tickerPreviousValuesByPortfolioId,
+}: Props) {
   const [currentPage, setCurrentPage] = useState(1);
 
   const totalPages = Math.ceil(entries.length / ITEMS_PER_PAGE);
@@ -52,7 +74,6 @@ export default function Leaderboard({ entries, currentUserId, onPortfolioClick }
   const currentUserRank = currentUserId
     ? entries.findIndex((entry) => entry.user_id === currentUserId) + 1
     : null;
-
   return (
     <section>
       <h2 className="text-lg font-semibold mb-3">Leaderboard</h2>
@@ -68,14 +89,15 @@ export default function Leaderboard({ entries, currentUserId, onPortfolioClick }
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-[100px] px-4">Rank</TableHead>
               <TableHead className="px-4">Member</TableHead>
-              <TableHead className="px-4">Portfolio Value</TableHead>
+              {showDateStarted && <TableHead className="px-4">Date Started</TableHead>}
+              <TableHead className="px-4">{valueColumnLabel}</TableHead>
             </TableRow>
           </TableHeader>
 
           <TableBody>
             {entries.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={3} className="h-24 text-center">
+                <TableCell colSpan={showDateStarted ? 4 : 3} className="h-24 text-center">
                   No members yet.
                 </TableCell>
               </TableRow>
@@ -86,6 +108,9 @@ export default function Leaderboard({ entries, currentUserId, onPortfolioClick }
                 const portfolioValue = calculatePortfolioValue({
                   netValue: entry.live_value ?? entry.previous_close_value,
                 });
+                const tickerPreviousValue =
+                  tickerPreviousValuesByPortfolioId?.[entry.portfolio_id] ??
+                  entry.previous_close_value;
 
                 return (
                   <TableRow
@@ -112,6 +137,12 @@ export default function Leaderboard({ entries, currentUserId, onPortfolioClick }
                       />
                     </TableCell>
 
+                    {showDateStarted && (
+                      <TableCell className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                        {formatDateStarted(entry.created_at)}
+                      </TableCell>
+                    )}
+
                     <TableCell
                       className={`px-4 ${isFallbackValue ? "text-gray-500" : ""}`}
                     >
@@ -125,7 +156,7 @@ export default function Leaderboard({ entries, currentUserId, onPortfolioClick }
                         </span>
                         <Ticker
                           currentValue={portfolioValue}
-                          previousValue={entry.previous_close_value}
+                          previousValue={tickerPreviousValue}
                           className="w-[96px] justify-end tabular-nums"
                         />
                       </div>
