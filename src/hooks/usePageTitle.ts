@@ -1,10 +1,13 @@
 import { useEffect } from "react";
 import { useLayout } from "../context/LayoutContext";
 
-export function usePageTitle(title: string) {
+export function usePageTitle(title?: string | null) {
   const { setPageTitle } = useLayout();
 
   useEffect(() => {
-    setPageTitle(title);
+    const normalizedTitle = title?.trim();
+    if (!normalizedTitle) return;
+
+    setPageTitle(normalizedTitle);
   }, [title, setPageTitle]);
 }

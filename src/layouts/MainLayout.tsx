@@ -18,7 +18,7 @@ export default function MainLayout() {
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto overflow-x-hidden bg-white">
-          <div className="w-full max-w-7xl">
+          <div className="w-full h-full min-h-0">
             <Outlet />
           </div>
         </main>

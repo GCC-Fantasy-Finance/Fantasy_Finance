@@ -35,6 +35,7 @@ type HoldingListItem = {
   key: string;
   holding: HoldingView;
   buyButtonLabel: "Buy" | "Buy More";
+  isDraftedUnowned: boolean;
 };
 
 type PortfolioPageProps = {
@@ -377,6 +378,7 @@ export default function PortfolioPage({
           key: `holding-${holding.portfolio_holding_id}`,
           holding,
           buyButtonLabel: qty > 0 ? "Buy More" : "Buy",
+          isDraftedUnowned: false,
         };
       });
     }
@@ -404,6 +406,7 @@ export default function PortfolioPage({
           key: `holding-${existingHolding.portfolio_holding_id}`,
           holding: existingHolding,
           buyButtonLabel: qty > 0 ? "Buy More" : "Buy",
+          isDraftedUnowned: false,
         });
         continue;
       }
@@ -419,6 +422,7 @@ export default function PortfolioPage({
           stock: draftedStock.stock,
         },
         buyButtonLabel: "Buy",
+        isDraftedUnowned: true,
       });
     }
 
@@ -430,6 +434,7 @@ export default function PortfolioPage({
         key: `holding-${holding.portfolio_holding_id}`,
         holding,
         buyButtonLabel: qty > 0 ? "Buy More" : "Buy",
+        isDraftedUnowned: false,
       });
     }
 
@@ -556,6 +561,7 @@ export default function PortfolioPage({
                   onBuy={handleBuy}
                   onBookmark={() => toast.info("Bookmark not implemented yet")}
                   buyButtonLabel={item.buyButtonLabel}
+                  muted={item.isDraftedUnowned}
                   showBottomBorder={index === holdingListItems.length - 1}
                   showTopRounded={index === 0}
                   showBottomRounded={index === holdingListItems.length - 1}

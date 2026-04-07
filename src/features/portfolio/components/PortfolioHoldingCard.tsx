@@ -2,7 +2,7 @@ import type { HoldingView } from "@/hooks/fetchPortfolio";
 import { Button } from "@/components/ui/button";
 import Ticker from "@/components/ui/ticker";
 import { Bookmark } from "lucide-react";
-import { truncateCurrency } from "@/lib/utils";
+import { cn, truncateCurrency } from "@/lib/utils";
 
 type PortfolioHoldingCardProps = {
   holding: HoldingView;
@@ -11,6 +11,7 @@ type PortfolioHoldingCardProps = {
   onBuy: (holding: HoldingView) => void;
   onBookmark: () => void;
   buyButtonLabel?: "Buy" | "Buy More";
+  muted?: boolean;
   showBottomBorder?: boolean;
   showTopRounded?: boolean;
   showBottomRounded?: boolean;
@@ -23,6 +24,7 @@ export default function PortfolioHoldingCard({
   onBuy,
   onBookmark,
   buyButtonLabel,
+  muted = false,
   showBottomBorder = false,
   showTopRounded = false,
   showBottomRounded = false,
@@ -38,7 +40,13 @@ export default function PortfolioHoldingCard({
     <div
       role="button"
       tabIndex={0}
-      className={`grid w-full cursor-pointer grid-cols-[20%_minmax(0,200px)_minmax(0,200px)_auto] items-center justify-items-start gap-4 border-x border-t border-gray-300 bg-white px-4 py-4 transition-all hover:bg-gray-50 max-[540px]:grid-cols-2 rounded-none ${showBottomBorder ? "border-b" : "border-b-0"} ${showTopRounded ? "rounded-t-lg" : ""} ${showBottomRounded ? "rounded-b-lg" : ""}`}
+      className={cn(
+        "grid w-full cursor-pointer grid-cols-[20%_minmax(0,200px)_minmax(0,200px)_auto] items-center justify-items-start gap-4 border-x border-t border-gray-300 bg-white px-4 py-4 transition-all hover:bg-gray-50 max-[540px]:grid-cols-2 rounded-none",
+        showBottomBorder ? "border-b" : "border-b-0",
+        showTopRounded && "rounded-t-lg",
+        showBottomRounded && "rounded-b-lg",
+        muted && "text-gray-500",
+      )}
       onClick={() => onOpenStockDetails(holding.stock?.stock_id)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -64,7 +72,7 @@ export default function PortfolioHoldingCard({
             previousValue={holding.stock?.previous_close}
             displayAs="percent"
             size="small"
-            className="min-w-0"
+            className={cn("min-w-0", muted && "text-gray-500!")}
           />
         </div>
       </div>
