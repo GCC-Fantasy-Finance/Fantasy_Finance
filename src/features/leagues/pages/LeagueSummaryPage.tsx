@@ -394,7 +394,7 @@ export default function LeagueSummaryPage() {
                   variant="outline"
                   onClick={handleCloseModal}
                 >
-                  View Details <span className="text-lg">→</span>
+                  View Final Results <span className="text-lg">→</span>
                 </Button>
               </div>
             </div>
