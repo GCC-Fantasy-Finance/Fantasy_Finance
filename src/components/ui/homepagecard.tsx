@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Ticker from "@/components/ui/ticker";
 import { calculateStockDelta } from "@/lib/utils";
@@ -28,6 +29,17 @@ function formatPlace(rank?: number | null) {
 
 export default function HomePageCard(portfolio: PortfolioCard) {
   const navigate = useNavigate();
+  const [hasSeenModal, setHasSeenModal] = useState(true);
+  
+  useEffect(() => {
+    // Check if modal has been seen for this league
+    if (portfolio.league_id && portfolio.is_league_ended) {
+      const hasSeenKey = `league_${portfolio.league_id}_seen_modal`;
+      const seen = Boolean(localStorage.getItem(hasSeenKey));
+      setHasSeenModal(seen);
+    }
+  }, [portfolio.league_id, portfolio.is_league_ended]);
+  
   const netValue = Number(
     portfolio.net_value ?? portfolio.previous_close_value ?? 0,
   );
@@ -87,25 +99,35 @@ export default function HomePageCard(portfolio: PortfolioCard) {
       </div>
       <div className="w-full mt-3 space-y-3">
         {isLeagueEnded ? (
-          <div className="rounded-md px-2 pb-2 flex items-center justify-between transition-colors">
-            {portfolio.rank === 1 ? (
-              <div className="text-sm font-medium flex gap-1.5 items-center text-yellow-600">
-                <img
-                  src="/crown.png"
-                  alt="Winner crown"
-                  className="w-4 h-4 object-contain"
-                />
-                {formatPlace(portfolio.rank)} place
+          <>
+            {!hasSeenModal ? (
+              <div className="rounded-md px-2 pb-2 flex items-center justify-start transition-colors">
+                <div className="text-sm font-medium text-gray-700">
+                  View Results <span className="ml-1">›</span>
+                </div>
               </div>
             ) : (
-              <div className="text-sm font-medium text-gray-600">
-                {formatPlace(portfolio.rank)} place
+              <div className="rounded-md px-2 pb-2 flex items-center justify-between transition-colors">
+                {portfolio.rank === 1 ? (
+                  <div className="text-sm font-medium flex gap-1.5 items-center text-yellow-600">
+                    <img
+                      src="/crown.png"
+                      alt="Winner crown"
+                      className="w-4 h-4 object-contain"
+                    />
+                    {formatPlace(portfolio.rank)} place
+                  </div>
+                ) : (
+                  <div className="text-sm font-medium text-gray-600">
+                    {formatPlace(portfolio.rank)} place
+                  </div>
+                )}
+                <div className="text-sm text-gray-600 uppercase tracking-wide">
+                  ${netValue.toFixed(2)}
+                </div>
               </div>
             )}
-            <div className="text-sm text-gray-600 uppercase tracking-wide">
-              ${netValue.toFixed(2)}
-            </div>
-          </div>
+          </>
         ) : null}
         {!isLeagueEnded ? (
           <div className="rounded-md bg-white  px-3 py-3 flex items-center justify-between transition-colors">
