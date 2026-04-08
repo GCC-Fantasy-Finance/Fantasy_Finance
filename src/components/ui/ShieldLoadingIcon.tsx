@@ -234,7 +234,7 @@ export default function ShieldLoadingIcon() {
     <svg
       viewBox="0 0 230.75 286.11"
       xmlns="http://www.w3.org/2000/svg"
-      style={{ width: "200px", height: "200px" }}
+      className="w-full h-full"
     >
       <defs>
         <clipPath id="sc">
@@ -242,20 +242,20 @@ export default function ShieldLoadingIcon() {
         </clipPath>
 
         <clipPath id="bc0">
-          <rect id="br0" x="35.71" width="29.89" y="286.11" height="0" />
+          <rect id="br0" x="35.71" width="29.89" y="0" height="286.11" />
         </clipPath>
         <clipPath id="bc1">
-          <rect id="br1" x="78.86" width="29.89" y="286.11" height="0" />
+          <rect id="br1" x="78.86" width="29.89" y="0" height="286.11" />
         </clipPath>
         <clipPath id="bc2">
-          <rect id="br2" x="122.01" width="29.89" y="286.11" height="0" />
+          <rect id="br2" x="122.01" width="29.89" y="0" height="286.11" />
         </clipPath>
         <clipPath id="bc3">
-          <rect id="br3" x="165.16" width="29.89" y="286.11" height="0" />
+          <rect id="br3" x="165.16" width="29.89" y="0" height="286.11" />
         </clipPath>
 
         <clipPath id="ahc">
-          <rect id="ahr" x="174.47" y="40" width="0" height="46" />
+          <rect id="ahr" x="174.47" y="40" width="34" height="46" />
         </clipPath>
       </defs>
 

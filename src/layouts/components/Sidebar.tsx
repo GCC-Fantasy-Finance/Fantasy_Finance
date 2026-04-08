@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import CreateLeagueModal from "@/components/ui/CreateLeagueModal";
 import JoinLeagueModal from "@/components/ui/JoinLeagueModal";
 import Ticker from "@/components/ui/ticker";
+import ShieldLoadingIcon from "@/components/ui/ShieldLoadingIcon";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -67,6 +68,7 @@ export default function Sidebar() {
   const { profile } = useAuth();
   const { isSidebarOpen, setIsSidebarOpen } = useLayout();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isLogoHovered, setIsLogoHovered] = useState(false);
   // const [error, setError] = useState<string | null>(null);
   const [isJoinOpen, setIsJoinOpen] = useState(false);
   const [leagues, setLeagues] =
@@ -459,12 +461,25 @@ export default function Sidebar() {
           to="/"
           aria-label="Go to home page"
           className="flex items-center p-4  h-14 w-min"
+          onMouseEnter={() => setIsLogoHovered(true)}
+          onMouseLeave={() => setIsLogoHovered(false)}
         >
-          <img
-            src="/ff_favicon.png"
-            alt="Fantasy Finance Logo"
-            className="w-6 h-6 mr-2"
-          />
+          <div className="relative w-6 h-6 mr-2">
+            <img
+              src="/ff_favicon.png"
+              alt="Fantasy Finance Logo"
+              className={`w-6 h-6 absolute transition-opacity duration-200 ${
+                isLogoHovered ? "opacity-0" : "opacity-100"
+              }`}
+            />
+            <div
+              className={`w-6 h-6 absolute transition-opacity duration-200 ${
+                isLogoHovered ? "opacity-100" : "opacity-0"
+              }`}
+            >
+              <ShieldLoadingIcon />
+            </div>
+          </div>
           <h1 className="text-sm font-semibold -leading-1 text-green-700 text-nowrap">
             FANTASY FINANCE
           </h1>
