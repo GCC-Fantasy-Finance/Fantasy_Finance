@@ -2,7 +2,6 @@ import { type ReactNode, useEffect, useState } from "react";
 import { Navigate, useParams, useLocation } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "../context/AuthContext";
-import Spinner from "@/components/ui/spinner";
 
 interface LeagueRouteProps {
   children: ReactNode;
