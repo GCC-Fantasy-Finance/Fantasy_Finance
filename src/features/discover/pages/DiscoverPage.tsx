@@ -206,15 +206,15 @@ function Discover() {
         </div>
 
         {/* Explore Sectors Section */}
-        <div>
+        <div className="ff-discover-sectors-panel">
           <h2 className="text-2xl font-semibold mb-4">Explore Sectors</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+          <div className="ff-discover-sectors-grid grid grid-cols-1 gap-3">
             {loading ? (
-              <div className="sm:col-span-2 md:col-span-3 lg:col-span-4 xl:col-span-5 flex items-center justify-center py-12">
+              <div className="col-span-full flex items-center justify-center py-12">
                 <p className="text-gray-600">Loading sectors...</p>
               </div>
             ) : sectors.length === 0 ? (
-              <div className="sm:col-span-2 md:col-span-3 lg:col-span-4 xl:col-span-5 border border-gray-300 rounded-lg px-4 py-4 text-sm text-gray-600 bg-white">
+              <div className="col-span-full border border-gray-300 rounded-lg px-4 py-4 text-sm text-gray-600 bg-white">
                 No sectors found.
               </div>
             ) : (
