@@ -38,6 +38,8 @@ import AIQuestionChip from "./AIQuestionChip";
 import { useAuth } from "@/context/AuthContext";
 import { useChatbot } from "@/context/ChatbotContext";
 import { supabase } from "@/lib/supabase";
+import readmeContent from "../../../README.md?raw";
+import uiInstructionsContent from "../../../UI-INSTRUCTIONS.md?raw";
 import {
   createConversation,
   addMessage,
@@ -1163,8 +1165,21 @@ export default function Chatbot({
         const systemPrompt = {
           role: "system",
           content: `
-            You are the Fantasy Finance portfolio assistant.
-            You help users manage portfolios in a stock trading game.
+            You have dual roles: you are an expert Fantasy Finance portfolio assistant AND an expert on using the Fantasy Finance app itself.
+            Determine if the user is asking a "normal financial/portfolio question" OR an "app/UI usage question".
+
+            APP/UI INSTRUCTIONS (FOR APP/UI QUESTIONS ONLY):
+            - If the question is about how to use the app, finding features, app behavior, or UI usage, you MUST answer using ONLY the exact instructions provided below.
+            - DO NOT go to the web or invent features for app/UI questions.
+            <README>
+            ${readmeContent}
+            </README>
+            <UI_INSTRUCTIONS>
+            ${uiInstructionsContent}
+            </UI_INSTRUCTIONS>
+
+            FINANCIAL/PORTFOLIO RULES (FOR FINANCIAL QUESTIONS):
+            - You help users manage portfolios in a stock trading game.
 
             Core game model:
             - A portfolio = reserve cash + stock holdings.
@@ -1271,6 +1286,18 @@ export default function Chatbot({
 
         boundedHistoryMessages.reverse();
 
+        if (systemPromptTokens + userMessageTokens > MAX_INPUT_TOKENS_BUDGET) {
+          setLoadingAI(false);
+          const limitMessage =
+            "Context window limit reached. Please start a new chat.";
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === aiMessageId ? { ...msg, text: limitMessage } : msg,
+            ),
+          );
+          return;
+        }
+
         // Add the new user message AND the system prompt at the start
         const apiMessages = [
           systemPrompt,
@@ -1312,16 +1339,20 @@ export default function Chatbot({
         setLoadingAI(false);
         setIsStreaming(false);
 
-        if (streamError) {
-          console.error("Failed to get AI response:", streamError);
-          // Show error message to user
-          const errorMessage: Message = {
-            id: (Date.now() + 2).toString(),
-            text: "Sorry, I encountered an error. Please try again.",
-            sender: "ai",
-            timestamp: new Date(),
-          };
-          setMessages((prev) => [...prev, errorMessage]);
+        if (streamError || !fullResponse) {
+          console.error(
+            "Failed to get AI response:",
+            streamError || "Empty response (likely context window limit)",
+          );
+          const errorMessageText = streamError
+            ? "Sorry, I encountered an error. Please try again."
+            : "Context window limit reached. Please start a new chat.";
+
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === aiMessageId ? { ...msg, text: errorMessageText } : msg,
+            ),
+          );
           return;
         }
 
