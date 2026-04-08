@@ -15,7 +15,7 @@ import { getLeagueById } from "@/lib/leagues";
 import { getPortfoliosByLeague } from "@/lib/portfolios";
 import { getLatestPortfolioHistoryValues } from "@/lib/portfolioHistory";
 import { getBadgesbyUserBadges } from "@/lib/userBadges";
-
+import { getCachedLeagueView } from "@/hooks/fetchLeagueView";
 
 const LEAGUE_SUMMARY_CACHE_TTL_MS = 15_000;
 
@@ -34,7 +34,7 @@ const inFlightLeagueSummaryRequests = new Map<
 >();
 
 function getCachedLeagueSummary(
-  leagueId: number
+  leagueId: number,
 ): LeagueSummaryCacheValue | null {
   const cached = leagueSummaryCache.get(leagueId);
   if (!cached) return null;
@@ -47,7 +47,7 @@ function getCachedLeagueSummary(
 
 function setCachedLeagueSummary(
   leagueId: number,
-  value: LeagueSummaryCacheValue
+  value: LeagueSummaryCacheValue,
 ) {
   leagueSummaryCache.set(leagueId, {
     value,
@@ -56,10 +56,12 @@ function setCachedLeagueSummary(
 }
 
 async function fetchLeagueSummaryData(
-  leagueId: number
+  leagueId: number,
 ): Promise<LeagueSummaryCacheValue> {
   const leagueData = await getLeagueById(leagueId);
-  const portfolios = (await getPortfoliosByLeague(leagueId)) as LeaderboardEntry[];
+  const portfolios = (await getPortfoliosByLeague(
+    leagueId,
+  )) as LeaderboardEntry[];
 
   const portfolioIds = portfolios
     .map((entry) => Number(entry.portfolio_id))
@@ -69,9 +71,8 @@ async function fetchLeagueSummaryData(
     return { league: leagueData, standings: portfolios };
   }
 
-  const latestValueByPortfolio = await getLatestPortfolioHistoryValues(
-    portfolioIds
-  );
+  const latestValueByPortfolio =
+    await getLatestPortfolioHistoryValues(portfolioIds);
 
   if (latestValueByPortfolio.size === 0) {
     const sortedPortfolios = portfolios
@@ -85,7 +86,7 @@ async function fetchLeagueSummaryData(
       sortedPortfolios.map(async (entry) => ({
         ...entry,
         badges: await getBadgesbyUserBadges(entry.user_id),
-      }))
+      })),
     );
 
     return { league: leagueData, standings: fallbackStandings };
@@ -104,7 +105,7 @@ async function fetchLeagueSummaryData(
     sortedPortfolios.map(async (entry) => ({
       ...entry,
       badges: await getBadgesbyUserBadges(entry.user_id),
-    }))
+    })),
   );
 
   return { league: leagueData, standings };
@@ -112,7 +113,7 @@ async function fetchLeagueSummaryData(
 
 async function getLeagueSummary(
   leagueId: number,
-  options?: { forceRefresh?: boolean }
+  options?: { forceRefresh?: boolean },
 ): Promise<LeagueSummaryCacheValue> {
   if (!options?.forceRefresh) {
     const cached = getCachedLeagueSummary(leagueId);
@@ -137,17 +138,29 @@ async function getLeagueSummary(
   }
 }
 
-
 export default function LeagueSummaryPage() {
   const { leagueId } = useParams<{ leagueId: string }>();
   const navigate = useNavigate();
+  const numericLeagueId = Number(leagueId);
+  const cachedLeagueName = Number.isFinite(numericLeagueId)
+    ? (getCachedLeagueSummary(numericLeagueId)?.league?.name ??
+      getCachedLeagueView(numericLeagueId)?.league?.name)
+    : undefined;
   const [league, setLeague] = useState<any>(null);
   const [standings, setStandings] = useState<any[]>([]);
-  const [selectedPortfolioId, setSelectedPortfolioId] = useState<number | null>(null);
+  const [selectedPortfolioId, setSelectedPortfolioId] = useState<number | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const { profile } = useAuth();
-  
-  usePageTitle(league ? `${league.name} - Results` : "League Results");
+
+  usePageTitle(
+    league?.name
+      ? `${league.name} - Results`
+      : cachedLeagueName
+        ? `${cachedLeagueName} - Results`
+        : undefined,
+  );
 
   useEffect(() => {
     const fetchSummary = async () => {
@@ -189,34 +202,53 @@ export default function LeagueSummaryPage() {
   }));
 
   const currentUserPortfolioId = standings.find(
-    (entry) => entry.user_id === profile?.id
+    (entry) => entry.user_id === profile?.id,
   )?.portfolio_id;
 
   const selectedEntry = standings.find(
-    (entry) => entry.portfolio_id === selectedPortfolioId
+    (entry) => entry.portfolio_id === selectedPortfolioId,
   );
 
   return (
-    <div className="p-6">
-      
+    <div className="w-full max-w-6xl p-6">
       <div className="mb-6 w-full flex justify-center">
-      {standings[0]?.portfolio_id === currentUserPortfolioId ? (
-        <h2 className="bg-green-100 text-xl font-bold mb-4 text-green-600 text-center border border-green-600 rounded px-4 py-2">Congratulations, you won the league!</h2>
-      ) : (
-        <h2 className="bg-red-100 text-xl font-bold mb-4 text-red-600 text-center border border-red-600 rounded px-4 py-2">Better luck next time!</h2>
-      )}
+        {standings[0]?.portfolio_id === currentUserPortfolioId ? (
+          <h2 className="bg-green-100 text-xl font-bold mb-4 text-green-600 text-center border border-green-600 rounded px-4 py-2">
+            Congratulations, you won the league!
+          </h2>
+        ) : (
+          <h2 className="bg-red-100 text-xl font-bold mb-4 text-red-600 text-center border border-red-600 rounded px-4 py-2">
+            Better luck next time!
+          </h2>
+        )}
       </div>
-      
+
       <div className="w-full flex gap-8">
         <div className="flex-1">
           <SummaryPageLeaderboard
             entries={standings}
             currentUserId={profile?.id}
-            onPortfolioClick={(portfolioId) => setSelectedPortfolioId(portfolioId)}
+            onPortfolioClick={(portfolioId) =>
+              setSelectedPortfolioId(portfolioId)
+            }
           />
         </div>
         <div className="flex-1 w-full">
-          <LeaguePortfolioChart portfolios={chartPortfolios} currentUserPortfolioId={Number(currentUserPortfolioId)} />
+          <LeaguePortfolioChart
+            portfolios={chartPortfolios}
+            currentUserPortfolioId={Number(currentUserPortfolioId)}
+            leaderboard={standings.map((entry) => ({
+              portfolio_id: Number(entry.portfolio_id),
+              username:
+                entry.Profiles?.username ?? `Portfolio ${entry.portfolio_id}`,
+              live_value: entry.live_value ?? entry.previous_close_value ?? 0,
+            }))}
+            endDate={
+              league?.finish_time
+                ? new Date(league.finish_time).toISOString().split("T")[0]
+                : undefined
+            }
+          />
         </div>
       </div>
 
@@ -225,7 +257,15 @@ export default function LeagueSummaryPage() {
         portfolioId={selectedPortfolioId}
         memberName={selectedEntry?.Profiles?.username ?? "Unknown User"}
         memberAvatarUrl={selectedEntry?.Profiles?.avatar_url}
-        memberUserId={selectedEntry ? (console.log("DEBUG LeagueSummaryPage selectedEntry:", selectedEntry), selectedEntry.user_id) : undefined}
+        memberUserId={
+          selectedEntry
+            ? (console.log(
+                "DEBUG LeagueSummaryPage selectedEntry:",
+                selectedEntry,
+              ),
+              selectedEntry.user_id)
+            : undefined
+        }
         leagueOwnerId={league?.owner_id}
         isLeagueOwner={profile?.id === league?.owner_id}
         badges={selectedEntry?.badges}
@@ -236,20 +276,23 @@ export default function LeagueSummaryPage() {
           selectedEntry
             ? calculatePortfolioValue({
                 netValue:
-                  selectedEntry.live_value ?? selectedEntry.previous_close_value,
+                  selectedEntry.live_value ??
+                  selectedEntry.previous_close_value,
               })
             : undefined
         }
         onClose={() => setSelectedPortfolioId(null)}
       />
 
-      <br/>
+      <br />
       {/* {selectedPortfolioId ? (
         <p className="text-sm text-gray-500 mb-2">
           Selected portfolio ID: {selectedPortfolioId}
         </p>
       ) : null} */}
-      <p className="text-sm text-gray-500 mb-2">Finished_at: {new Date(league.finish_time).toLocaleString()}</p>
+      <p className="text-sm text-gray-500 mb-2">
+        Finished_at: {new Date(league.finish_time).toLocaleString()}
+      </p>
 
       <Button
         variant="outline"
@@ -269,7 +312,7 @@ export default function LeagueSummaryPage() {
                   window.dispatchEvent(
                     new CustomEvent("ff:leagues-updated", {
                       detail: { leagueId: Number(leagueId) },
-                    })
+                    }),
                   );
                   navigate("/");
                 }

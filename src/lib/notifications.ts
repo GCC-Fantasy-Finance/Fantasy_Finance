@@ -9,6 +9,7 @@ export interface Notification {
   message: string;
   user_id: string;
   is_hidden: boolean;
+  join_code?: string;
 }
 
 /**

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Compass } from "lucide-react";
@@ -21,6 +21,7 @@ import {
 } from "@/lib/portfolioValue";
 import { supabase } from "@/lib/supabase";
 import { getStockById, type StockRow } from "@/lib/stocks";
+import { removeWishlistItem } from "@/lib/wishlists";
 import PageContent from "@/layouts/components/PageContent";
 import PortfolioHoldingCard from "@/features/portfolio/components/PortfolioHoldingCard";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
@@ -28,7 +29,19 @@ import Ticker from "@/components/ui/ticker";
 
 type DraftedStockItem = {
   stockId: number;
-  label: string;
+  stock: HoldingView["stock"];
+};
+
+type SavedStockItem = {
+  stockId: number;
+  stock: HoldingView["stock"];
+};
+
+type HoldingListItem = {
+  key: string;
+  holding: HoldingView;
+  buyButtonLabel: "Buy" | "Buy More";
+  isDraftedUnowned: boolean;
 };
 
 type PortfolioPageProps = {
@@ -50,10 +63,6 @@ function formatCurrency(value: number) {
   return truncateCurrency(value);
 }
 
-function EmptyPortfolioState({ message }: { message: string }) {
-  return <p className="text-sm text-gray-600">{message}</p>;
-}
-
 export default function PortfolioPage({
   mode,
   leagueId,
@@ -69,8 +78,9 @@ export default function PortfolioPage({
   const [portfolio, setPortfolio] = useState<{ portfolio_id: number } | null>(
     null,
   );
-  const [hasDrafting, setHasDrafting] = useState(false);
   const [draftedStocks, setDraftedStocks] = useState<DraftedStockItem[]>([]);
+  const [isLeagueDraftEnded, setIsLeagueDraftEnded] = useState(false);
+  const [savedStocks, setSavedStocks] = useState<SavedStockItem[]>([]);
   const [stockDetailsModalOpen, setStockDetailsModalOpen] = useState(false);
   const [selectedStock, setSelectedStock] = useState<StockRow | null>(null);
 
@@ -80,8 +90,9 @@ export default function PortfolioPage({
     setHoldings([]);
     setTotals(null);
     setPortfolio(null);
-    setHasDrafting(false);
     setDraftedStocks([]);
+    setIsLeagueDraftEnded(false);
+    setSavedStocks([]);
   }, []);
 
   const applyPortfolioState = useCallback((result: PortfolioViewResult) => {
@@ -89,6 +100,7 @@ export default function PortfolioPage({
       setHoldings([]);
       setTotals(null);
       setPortfolio(null);
+      setSavedStocks([]);
       return;
     }
 
@@ -101,18 +113,21 @@ export default function PortfolioPage({
     async (leagueIdAsNumber: number, portfolioId: number) => {
       const league = await getLeagueById(leagueIdAsNumber);
       const draftingEnabled = Boolean(league?.has_drafting);
-      setHasDrafting(draftingEnabled);
 
       if (!draftingEnabled) {
         setDraftedStocks([]);
+        setIsLeagueDraftEnded(false);
         return;
       }
 
       const draft = await getDraftByLeague(leagueIdAsNumber);
       if (!draft) {
         setDraftedStocks([]);
+        setIsLeagueDraftEnded(false);
         return;
       }
+
+      setIsLeagueDraftEnded(Boolean(draft.is_ended));
 
       const picks = await getDraftPicksByLeague(leagueIdAsNumber);
       const myPickStockIds = picks
@@ -130,29 +145,36 @@ export default function PortfolioPage({
 
       const { data: stockRows, error } = await supabase
         .from("Stocks")
-        .select("stock_id,name,stock_symbol")
+        .select("stock_id,stock_symbol,name,current_price,previous_close")
         .in("stock_id", uniqueStockIds);
 
       if (error) {
-        console.error("Failed to load drafted stock names:", error);
+        console.error("Failed to load drafted stocks:", error);
         setDraftedStocks([]);
         return;
       }
 
-      const stockNameById = new Map<number, string>();
+      const stockById = new Map<number, HoldingView["stock"]>();
       for (const stockRow of stockRows ?? []) {
         const stockId = Number((stockRow as { stock_id: number }).stock_id);
-        const stockName =
-          (stockRow as { name?: string | null }).name?.trim() ||
-          `Stock #${stockId}`;
-        const stockSymbol =
-          (stockRow as { stock_symbol?: string | null }).stock_symbol?.trim() ||
-          "";
-
-        stockNameById.set(
-          stockId,
-          stockSymbol ? `${stockSymbol} - ${stockName}` : stockName,
-        );
+        const currentPrice = (stockRow as { current_price?: number | null })
+          .current_price;
+        const previousClose = (stockRow as { previous_close?: number | null })
+          .previous_close;
+        stockById.set(stockId, {
+          stock_id: stockId,
+          stock_symbol:
+            (stockRow as { stock_symbol?: string | null }).stock_symbol ?? null,
+          name: (stockRow as { name?: string | null }).name ?? null,
+          current_price:
+            currentPrice === null || currentPrice === undefined
+              ? null
+              : Number(currentPrice),
+          previous_close:
+            previousClose === null || previousClose === undefined
+              ? null
+              : Number(previousClose),
+        });
       }
 
       const seenStockIds = new Set<number>();
@@ -162,7 +184,13 @@ export default function PortfolioPage({
         seenStockIds.add(stockId);
         orderedDraftedStocks.push({
           stockId,
-          label: stockNameById.get(stockId) ?? `Stock #${stockId}`,
+          stock: stockById.get(stockId) ?? {
+            stock_id: stockId,
+            stock_symbol: null,
+            name: `Stock #${stockId}`,
+            current_price: null,
+            previous_close: null,
+          },
         });
       }
 
@@ -219,8 +247,8 @@ export default function PortfolioPage({
           result.portfolio.portfolio_id,
         );
       } else {
-        setHasDrafting(false);
         setDraftedStocks([]);
+        setIsLeagueDraftEnded(false);
       }
     } catch (err) {
       console.error("Error loading holdings:", err);
@@ -237,9 +265,110 @@ export default function PortfolioPage({
     resetPortfolioState,
   ]);
 
+  const loadSavedStocks = useCallback(
+    async (portfolioId?: number) => {
+      if (isLeagueMode || !auth.user) {
+        setSavedStocks([]);
+        return;
+      }
+
+      const targetPortfolioId = Number(portfolioId ?? portfolio?.portfolio_id);
+      if (!Number.isFinite(targetPortfolioId)) {
+        setSavedStocks([]);
+        return;
+      }
+
+      try {
+        const { data: wishlistRows, error: wishlistError } = await supabase
+          .from("Wishlist Items")
+          .select("stock_id,rank")
+          .eq("portfolio_id", targetPortfolioId)
+          .order("rank", { ascending: true });
+
+        if (wishlistError) {
+          throw wishlistError;
+        }
+
+        const stockIds = Array.from(
+          new Set(
+            (wishlistRows ?? [])
+              .map((row) => Number((row as { stock_id: number }).stock_id))
+              .filter((stockId) => Number.isFinite(stockId)),
+          ),
+        );
+
+        if (stockIds.length === 0) {
+          setSavedStocks([]);
+          return;
+        }
+
+        const { data: stockRows, error: stockError } = await supabase
+          .from("Stocks")
+          .select("stock_id,stock_symbol,name,current_price,previous_close")
+          .in("stock_id", stockIds);
+
+        if (stockError) {
+          throw stockError;
+        }
+
+        const stockById = new Map<number, HoldingView["stock"]>();
+        for (const stockRow of stockRows ?? []) {
+          const stockId = Number((stockRow as { stock_id: number }).stock_id);
+          const currentPrice = (stockRow as { current_price?: number | null })
+            .current_price;
+          const previousClose = (stockRow as { previous_close?: number | null })
+            .previous_close;
+          stockById.set(stockId, {
+            stock_id: stockId,
+            stock_symbol:
+              (stockRow as { stock_symbol?: string | null }).stock_symbol ??
+              null,
+            name: (stockRow as { name?: string | null }).name ?? null,
+            current_price:
+              currentPrice === null || currentPrice === undefined
+                ? null
+                : Number(currentPrice),
+            previous_close:
+              previousClose === null || previousClose === undefined
+                ? null
+                : Number(previousClose),
+          });
+        }
+
+        const orderedSavedStocks: SavedStockItem[] = stockIds.map(
+          (stockId) => ({
+            stockId,
+            stock: stockById.get(stockId) ?? {
+              stock_id: stockId,
+              stock_symbol: null,
+              name: `Stock #${stockId}`,
+              current_price: null,
+              previous_close: null,
+            },
+          }),
+        );
+
+        setSavedStocks(orderedSavedStocks);
+      } catch (err) {
+        console.error("Failed to load saved stocks:", err);
+        setSavedStocks([]);
+      }
+    },
+    [auth.user, isLeagueMode, portfolio?.portfolio_id],
+  );
+
   useEffect(() => {
     loadHoldings();
   }, [loadHoldings]);
+
+  useEffect(() => {
+    if (isLeagueMode) {
+      setSavedStocks([]);
+      return;
+    }
+
+    void loadSavedStocks(portfolio?.portfolio_id);
+  }, [isLeagueMode, loadSavedStocks, portfolio?.portfolio_id]);
 
   // Background refresh after a trade — no loading spinner
   useEffect(() => {
@@ -264,6 +393,31 @@ export default function PortfolioPage({
       window.removeEventListener("ff:trade-completed", handleTradeCompleted);
     };
   }, [auth.user, leagueId, isLeagueMode, applyPortfolioState]);
+
+  useEffect(() => {
+    if (isLeagueMode) return;
+
+    const handleWishlistUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<{ portfolioId?: number }>).detail;
+      const eventPortfolioId = Number(detail?.portfolioId);
+      const currentPortfolioId = Number(portfolio?.portfolio_id);
+
+      if (
+        Number.isFinite(eventPortfolioId) &&
+        Number.isFinite(currentPortfolioId) &&
+        eventPortfolioId !== currentPortfolioId
+      ) {
+        return;
+      }
+
+      void loadSavedStocks(currentPortfolioId);
+    };
+
+    window.addEventListener("ff:wishlist-updated", handleWishlistUpdated);
+    return () => {
+      window.removeEventListener("ff:wishlist-updated", handleWishlistUpdated);
+    };
+  }, [isLeagueMode, loadSavedStocks, portfolio?.portfolio_id]);
 
   function handleBuy(holding: HoldingView) {
     if (
@@ -317,6 +471,35 @@ export default function PortfolioPage({
     });
   }
 
+  const handleUnsaveSavedStock = useCallback(
+    async (holding: HoldingView) => {
+      if (isLeagueMode || !portfolio?.portfolio_id) return;
+
+      const stockId = Number(holding.stock_id);
+      if (!Number.isFinite(stockId)) return;
+
+      setSavedStocks((prev) => prev.filter((item) => item.stockId !== stockId));
+
+      try {
+        await removeWishlistItem(portfolio.portfolio_id, stockId);
+        window.dispatchEvent(
+          new CustomEvent("ff:wishlist-updated", {
+            detail: {
+              portfolioId: portfolio.portfolio_id,
+              stockId,
+              saved: false,
+            },
+          }),
+        );
+      } catch (err) {
+        console.error("Failed to unsave stock:", err);
+        toast.error("Failed to unsave stock");
+        void loadSavedStocks(portfolio.portfolio_id);
+      }
+    },
+    [isLeagueMode, loadSavedStocks, portfolio?.portfolio_id],
+  );
+
   const handleOpenStockDetails = async (stockId?: number) => {
     if (!stockId) return;
 
@@ -357,6 +540,107 @@ export default function PortfolioPage({
     allocationTotal > 0 ? (investedValue / allocationTotal) * 100 : 0;
   const reservePercent =
     allocationTotal > 0 ? (reserveValue / allocationTotal) * 100 : 0;
+
+  const holdingListItems = useMemo<HoldingListItem[]>(() => {
+    if (!isLeagueMode || draftedStocks.length === 0) {
+      return holdings.map((holding) => {
+        const qty = Number(holding.quantity ?? 0);
+        return {
+          key: `holding-${holding.portfolio_holding_id}`,
+          holding,
+          buyButtonLabel: qty > 0 ? "Buy More" : "Buy",
+          isDraftedUnowned: false,
+        };
+      });
+    }
+
+    const holdingByStockId = new Map<number, HoldingView>();
+    for (const holding of holdings) {
+      const stockId = Number(holding.stock_id);
+      if (Number.isFinite(stockId) && !holdingByStockId.has(stockId)) {
+        holdingByStockId.set(stockId, holding);
+      }
+    }
+
+    const mergedItems: HoldingListItem[] = [];
+    const seenStockIds = new Set<number>();
+
+    for (const draftedStock of draftedStocks) {
+      const stockId = draftedStock.stockId;
+      if (seenStockIds.has(stockId)) continue;
+      seenStockIds.add(stockId);
+
+      const existingHolding = holdingByStockId.get(stockId);
+      if (existingHolding) {
+        const qty = Number(existingHolding.quantity ?? 0);
+        mergedItems.push({
+          key: `holding-${existingHolding.portfolio_holding_id}`,
+          holding: existingHolding,
+          buyButtonLabel: qty > 0 ? "Buy More" : "Buy",
+          isDraftedUnowned: false,
+        });
+        continue;
+      }
+
+      mergedItems.push({
+        key: `drafted-${stockId}`,
+        holding: {
+          portfolio_holding_id: -stockId,
+          portfolio_id: portfolio?.portfolio_id ?? 0,
+          stock_id: stockId,
+          quantity: 0,
+          average_buy_price: null,
+          stock: draftedStock.stock,
+        },
+        buyButtonLabel: "Buy",
+        isDraftedUnowned: true,
+      });
+    }
+
+    for (const holding of holdings) {
+      const stockId = Number(holding.stock_id);
+      if (Number.isFinite(stockId) && seenStockIds.has(stockId)) continue;
+      const qty = Number(holding.quantity ?? 0);
+      mergedItems.push({
+        key: `holding-${holding.portfolio_holding_id}`,
+        holding,
+        buyButtonLabel: qty > 0 ? "Buy More" : "Buy",
+        isDraftedUnowned: false,
+      });
+    }
+
+    return mergedItems;
+  }, [draftedStocks, holdings, isLeagueMode, portfolio?.portfolio_id]);
+
+  const savedHoldingListItems = useMemo<HoldingListItem[]>(() => {
+    if (isLeagueMode || !portfolio?.portfolio_id || savedStocks.length === 0) {
+      return [];
+    }
+
+    const ownedStockIds = new Set(
+      holdings
+        .map((holding) => Number(holding.stock_id))
+        .filter((stockId) => Number.isFinite(stockId)),
+    );
+
+    return savedStocks
+      .filter((savedStock) => !ownedStockIds.has(savedStock.stockId))
+      .map((savedStock) => ({
+        key: `saved-${savedStock.stockId}`,
+        holding: {
+          portfolio_holding_id: -100000 - savedStock.stockId,
+          portfolio_id: portfolio.portfolio_id,
+          stock_id: savedStock.stockId,
+          quantity: 0,
+          average_buy_price: null,
+          stock: savedStock.stock,
+        },
+        buyButtonLabel: "Buy" as const,
+        isDraftedUnowned: false,
+      }));
+  }, [holdings, isLeagueMode, portfolio?.portfolio_id, savedStocks]);
+
+  const showDiscoverButton = !isLeagueMode || !isLeagueDraftEnded;
 
   const content = loading ? (
     <div className="flex items-center justify-center py-12 mb-8">
@@ -450,75 +734,74 @@ export default function PortfolioPage({
         )}
       </div>
 
-      {isLeagueMode && hasDrafting && (
-        <div className="mb-6 rounded-lg border border-gray-300 bg-white px-4 py-3">
-          <h2 className="mb-2 text-sm font-semibold text-gray-900">
-            Your Drafted Stocks
-          </h2>
-          {draftedStocks.length === 0 ? (
-            <EmptyPortfolioState message="No drafted stocks yet." />
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {draftedStocks.map((stock) => (
-                <button
-                  key={stock.stockId}
-                  type="button"
-                  onClick={() => handleOpenStockDetails(stock.stockId)}
-                  className="inline-flex cursor-pointer items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-100"
-                >
-                  {stock.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
       <h2 className="mb-2 text-lg font-semibold">My Stocks</h2>
 
-      
-
       <div className="">
-        {holdings.length === 0 ? (
+        {holdingListItems.length === 0 ? (
           <div className="mb-4 flex justify-start">
+            <span className="text-base leading-none text-gray-500">
+              No stocks yet
+            </span>
+          </div>
+        ) : (
+          <>
+            {holdingListItems.map((item, index) => {
+              return (
+                <PortfolioHoldingCard
+                  key={item.key}
+                  holding={item.holding}
+                  onOpenStockDetails={handleOpenStockDetails}
+                  onSell={handleSell}
+                  onBuy={handleBuy}
+                  buyButtonLabel={item.buyButtonLabel}
+                  muted={item.isDraftedUnowned}
+                  showBottomBorder={index === holdingListItems.length - 1}
+                  showTopRounded={index === 0}
+                  showBottomRounded={index === holdingListItems.length - 1}
+                />
+              );
+            })}
+          </>
+        )}
+
+        {!isLeagueMode && savedHoldingListItems.length > 0 && (
+          <>
+            <h2 className="mb-2 mt-8 text-lg font-semibold">Saved Stocks</h2>
+            {savedHoldingListItems.map((item, index) => (
+              <PortfolioHoldingCard
+                key={item.key}
+                holding={item.holding}
+                onOpenStockDetails={handleOpenStockDetails}
+                onSell={handleSell}
+                onBuy={handleBuy}
+                onUnsave={handleUnsaveSavedStock}
+                buyButtonLabel={item.buyButtonLabel}
+                showSellButton={false}
+                showUnsaveButton={true}
+                showHoldingValue={false}
+                showBottomBorder={index === savedHoldingListItems.length - 1}
+                showTopRounded={index === 0}
+                showBottomRounded={index === savedHoldingListItems.length - 1}
+              />
+            ))}
+          </>
+        )}
+
+        {showDiscoverButton && (
+          <div
+            className={`mt-12 mb-4 flex ${holdingListItems.length === 0 ? "justify-start" : "justify-center"}`}
+          >
             <button
               type="button"
               onClick={() => navigate("/discover")}
               className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-green-700/30 px-4 py-2 text-green-700 hover:bg-green-700/10"
             >
               <Compass className="size-5 text-green-700" />
-              <span className="text-base leading-none">No stocks yet – Discover?</span>
+              <span className="text-base leading-none">
+                Discover More Stocks
+              </span>
             </button>
           </div>
-        ) : (
-          <>
-            {holdings.map((holding, index) => {
-              return (
-                <PortfolioHoldingCard
-                  key={holding.portfolio_holding_id}
-                  holding={holding}
-                  onOpenStockDetails={handleOpenStockDetails}
-                  onSell={handleSell}
-                  onBuy={handleBuy}
-                  onBookmark={() => toast.info("Bookmark not implemented yet")}
-                  showBottomBorder={index === holdings.length - 1}
-                  showTopRounded={index === 0}
-                  showBottomRounded={index === holdings.length - 1}
-                />
-              );
-            })}
-
-            <div className="mt-4 mb-4 flex justify-center">
-              <button
-                type="button"
-                onClick={() => navigate("/discover")}
-                className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-green-700/30 px-4 py-2 text-green-700 hover:bg-green-700/10"
-              >
-                <Compass className="size-5 text-green-700" />
-                <span className="text-base leading-none">Discover More Stocks</span>
-              </button>
-            </div>
-          </>
         )}
 
         <StockDetailsModal
@@ -527,7 +810,6 @@ export default function PortfolioPage({
           onClose={() => setStockDetailsModalOpen(false)}
         />
       </div>
-
     </div>
   );
 

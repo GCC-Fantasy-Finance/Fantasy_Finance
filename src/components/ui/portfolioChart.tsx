@@ -43,7 +43,9 @@ export default function PortfolioChart({
   timeFrame: string;
 }) {
   const [data, setData] = useState<Point[]>([]);
-  const [selectedPoint, setSelectedPoint] = useState<SelectedPoint | null>(null);
+  const [selectedPoint, setSelectedPoint] = useState<SelectedPoint | null>(
+    null,
+  );
   const [leagueId, setLeagueId] = useState<number | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [dayHoldings, setDayHoldings] = useState<any[]>([]);
@@ -83,9 +85,9 @@ export default function PortfolioChart({
         if (portfolio) {
           setLeagueId(portfolio.league_id);
           setUserId(portfolio.user_id);
-          
+
           const { holdings } = await fetchPortfolioHoldingsWithStocks(
-            portfolio.portfolio_id
+            portfolio.portfolio_id,
           );
 
           const currentValue = calculatePortfolioValue({
@@ -123,9 +125,15 @@ export default function PortfolioChart({
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Node;
       // Don't close if clicking on modal elements that are rendered via portal
-      const isClickOnModal = (target as HTMLElement).closest(".ff-modal-viewport");
-      
-      if (containerRef.current && !containerRef.current.contains(target) && !isClickOnModal) {
+      const isClickOnModal = (target as HTMLElement).closest(
+        ".ff-modal-viewport",
+      );
+
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(target) &&
+        !isClickOnModal
+      ) {
         setSelectedPoint(null);
       }
     };
@@ -163,7 +171,9 @@ export default function PortfolioChart({
         // Get all transactions for this portfolio up to the hovered date
         const { data: transactions } = await supabase
           .from("Transactions")
-          .select("stock_id, quantity, transaction_type, created_at, price_per_share")
+          .select(
+            "stock_id, quantity, transaction_type, created_at, price_per_share",
+          )
           .eq("portfolio_id", id)
           .lte("created_at", selectedDateStr);
 
@@ -178,14 +188,20 @@ export default function PortfolioChart({
         });
 
         // Calculate holdings as of hovered date
-        const holdingsMap: Record<number, { quantity: number; stock: any }> = {};
+        const holdingsMap: Record<number, { quantity: number; stock: any }> =
+          {};
         const selectedDateUTC = new Date(hoveredPoint.timestamp);
-        const selectedDayStart = new Date(Date.UTC(
-          selectedDateUTC.getUTCFullYear(),
-          selectedDateUTC.getUTCMonth(),
-          selectedDateUTC.getUTCDate(),
-          0, 0, 0, 0
-        ));
+        const selectedDayStart = new Date(
+          Date.UTC(
+            selectedDateUTC.getUTCFullYear(),
+            selectedDateUTC.getUTCMonth(),
+            selectedDateUTC.getUTCDate(),
+            0,
+            0,
+            0,
+            0,
+          ),
+        );
         const selectedDayEnd = new Date(selectedDayStart);
         selectedDayEnd.setUTCDate(selectedDayEnd.getUTCDate() + 1);
         selectedDayEnd.setUTCMilliseconds(-1);
@@ -212,14 +228,18 @@ export default function PortfolioChart({
             if (!transactionsOnSelectedDay[stockId]) {
               transactionsOnSelectedDay[stockId] = [];
             }
-            transactionsOnSelectedDay[stockId].push({ type, quantity, price: txn.price_per_share });
+            transactionsOnSelectedDay[stockId].push({
+              type,
+              quantity,
+              price: txn.price_per_share,
+            });
           }
         });
 
         // Get stock IDs that are held or traded on hovered day
         const stockIds = Object.keys(holdingsMap)
           .map(Number)
-          .filter(stockId => {
+          .filter((stockId) => {
             const currentQuantity = holdingsMap[stockId].quantity;
             const tradedOnDay = !!transactionsOnSelectedDay[stockId];
             return currentQuantity > 0 || tradedOnDay;
@@ -234,14 +254,21 @@ export default function PortfolioChart({
         }
 
         // Get prices for hovered date and previous date
-        const selectedDayStartForHistory = new Date(Date.UTC(
-          selectedDateUTC.getUTCFullYear(),
-          selectedDateUTC.getUTCMonth(),
-          selectedDateUTC.getUTCDate(),
-          0, 0, 0, 0
-        ));
+        const selectedDayStartForHistory = new Date(
+          Date.UTC(
+            selectedDateUTC.getUTCFullYear(),
+            selectedDateUTC.getUTCMonth(),
+            selectedDateUTC.getUTCDate(),
+            0,
+            0,
+            0,
+            0,
+          ),
+        );
         const selectedDayEndForHistory = new Date(selectedDayStartForHistory);
-        selectedDayEndForHistory.setUTCDate(selectedDayEndForHistory.getUTCDate() + 1);
+        selectedDayEndForHistory.setUTCDate(
+          selectedDayEndForHistory.getUTCDate() + 1,
+        );
         selectedDayEndForHistory.setUTCMilliseconds(-1);
 
         const { data: selectedDayPrices } = await supabase
@@ -266,7 +293,7 @@ export default function PortfolioChart({
             .from("Stocks")
             .select("stock_id, current_price")
             .in("stock_id", stockIds);
-          
+
           // Convert to same format as Stock Histories
           selectedDayPricesForMap = (currentPrices || []).map((stock: any) => ({
             stock_id: stock.stock_id,
@@ -293,13 +320,17 @@ export default function PortfolioChart({
         const holdingsList = Object.entries(holdingsMap)
           .filter(([stockId]) => {
             const stockIdNum = Number(stockId);
-            return holdingsMap[stockIdNum].quantity > 0 || !!transactionsOnSelectedDay[stockIdNum];
+            return (
+              holdingsMap[stockIdNum].quantity > 0 ||
+              !!transactionsOnSelectedDay[stockIdNum]
+            );
           })
           .map(([stockId, holding]) => {
             const stockIdNum = Number(stockId);
             const tradedToday = !!transactionsOnSelectedDay[stockIdNum];
             const endOfDayPrice = selectedPriceMap[stockIdNum] || 0;
-            const previousPrice = previousPriceMap[stockIdNum] || endOfDayPrice || 0;
+            const previousPrice =
+              previousPriceMap[stockIdNum] || endOfDayPrice || 0;
 
             let dollarPnL = 0;
 
@@ -313,12 +344,16 @@ export default function PortfolioChart({
                 price_per_share: t.price || 0,
               }));
 
-              const transactionImpact = calculateDayTransactionImpact(stockIdNum, txRecords, endOfDayPrice);
+              const transactionImpact = calculateDayTransactionImpact(
+                stockIdNum,
+                txRecords,
+                endOfDayPrice,
+              );
               const pnlCalc = calculateDollarPnL(
                 transactionImpact,
                 endOfDayPrice,
                 previousPrice,
-                holding.quantity
+                holding.quantity,
               );
               dollarPnL = pnlCalc.pnl_dollars;
             } else {
@@ -334,8 +369,10 @@ export default function PortfolioChart({
           });
 
         // Sort by absolute dollar change and take top 3
-        holdingsList.sort((a, b) => Math.abs(b.dollarPnL) - Math.abs(a.dollarPnL));
-        
+        holdingsList.sort(
+          (a, b) => Math.abs(b.dollarPnL) - Math.abs(a.dollarPnL),
+        );
+
         // Only update state if this is still the current request
         if (currentRequestId === requestIdRef.current) {
           setDayHoldings(holdingsList.slice(0, 3));
@@ -343,7 +380,7 @@ export default function PortfolioChart({
         }
       } catch (error) {
         console.error("Error fetching holdings for hovered date:", error);
-        
+
         // Only update state if this is still the current request
         if (currentRequestId === requestIdRef.current) {
           setDayHoldings([]);
@@ -356,7 +393,11 @@ export default function PortfolioChart({
   }, [hoveredIndex, data, id]);
 
   const handleChartClick = (state: any) => {
-    if (state && state.activeTooltipIndex !== undefined && data[state.activeTooltipIndex]) {
+    if (
+      state &&
+      state.activeTooltipIndex !== undefined &&
+      data[state.activeTooltipIndex]
+    ) {
       const point = data[state.activeTooltipIndex];
       const event = state.activeCoordinate;
       if (event) {
@@ -380,8 +421,10 @@ export default function PortfolioChart({
 
     const value = payload[0].value;
     const date = payload[0].payload.date;
-    const dataIndex = payload[0].dataKey ? data.findIndex((d: Point) => d.close === value && d.date === date) : -1;
-    
+    const dataIndex = payload[0].dataKey
+      ? data.findIndex((d: Point) => d.close === value && d.date === date)
+      : -1;
+
     // Calculate portfolio day change
     let previousDayValue = value;
     if (dataIndex > 0) {
@@ -395,8 +438,8 @@ export default function PortfolioChart({
           <p className="text-xs text-gray-500">{date}</p>
           {/* Portfolio day change ticker */}
           <div className="mt-2 flex items-baseline">
-            <Ticker 
-              currentValue={value} 
+            <Ticker
+              currentValue={value}
               previousValue={previousDayValue}
               displayAs="dollar"
               size="small"
@@ -408,14 +451,21 @@ export default function PortfolioChart({
         {/* Show loading state or top 3 movers from that day - only if stocks are owned */}
         {dayHoldings && dayHoldings.length > 0 ? (
           <div>
-            <p className="text-xs font-semibold text-gray-700 mb-2">Your Gains/Losses</p>
+            <p className="text-xs font-semibold text-gray-700 mb-2">
+              Your Gains/Losses
+            </p>
             <div className="space-y-2">
               {dayHoldings.map((holding: any) => {
                 const dollarPnL = holding.dollarPnL ?? 0;
                 return (
-                  <div key={holding.stock_id} className="flex justify-between items-baseline gap-2">
-                    <span className="font-medium text-xs">{holding.stock_symbol}</span>
-                    <Ticker 
+                  <div
+                    key={holding.stock_id}
+                    className="flex justify-between items-baseline gap-2"
+                  >
+                    <span className="font-medium text-xs">
+                      {holding.stock_symbol}
+                    </span>
+                    <Ticker
                       currentValue={dollarPnL}
                       previousValue={0}
                       displayAs="dollar"
@@ -426,14 +476,21 @@ export default function PortfolioChart({
                 );
               })}
             </div>
-            <p className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200">Click to see more</p>
+            <p className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200">
+              Click to see more
+            </p>
           </div>
         ) : isLoadingHoldings ? (
           <div>
-            <p className="text-xs font-semibold text-gray-700 mb-2">Your Gains/Losses</p>
+            <p className="text-xs font-semibold text-gray-700 mb-2">
+              Your Gains/Losses
+            </p>
             <div className="space-y-2">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="flex justify-between items-center gap-2">
+                <div
+                  key={i}
+                  className="flex justify-between items-center gap-2"
+                >
                   <div className="h-3 bg-gray-200 rounded flex-1"></div>
                   <div className="h-3 bg-gray-200 rounded w-12"></div>
                 </div>
@@ -442,7 +499,9 @@ export default function PortfolioChart({
           </div>
         ) : (
           <div>
-            <p className="text-xs font-semibold text-gray-700 mb-2">Your Gains/Losses</p>
+            <p className="text-xs font-semibold text-gray-700 mb-2">
+              Your Gains/Losses
+            </p>
             <p className="text-xs text-gray-500">No stocks owned</p>
           </div>
         )}
@@ -462,12 +521,31 @@ export default function PortfolioChart({
     setHoveredIndex(null);
   };
 
+  const seenYears = new Set<number>();
+  const xAxisTickFormatter = (value: string) => {
+    const parsedDate = new Date(value);
+    if (Number.isNaN(parsedDate.getTime())) return value;
+
+    const monthDay = parsedDate.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+    const year = parsedDate.getFullYear();
+
+    if (!seenYears.has(year)) {
+      seenYears.add(year);
+      return `${monthDay}, ${year}`;
+    }
+
+    return monthDay;
+  };
+
   return (
     <div ref={containerRef} className="relative w-full cursor-pointer">
       <ResponsiveContainer width="100%" height={300}>
         <AreaChart
           data={data}
-          margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+          margin={{ top: 10, right: 30, left: 0, bottom: 10 }}
           onClick={handleChartClick}
           onMouseMove={handleChartMouseMove}
           onMouseLeave={handleChartMouseLeave}
@@ -489,8 +567,14 @@ export default function PortfolioChart({
               )}
             </linearGradient>
           </defs>
-          <XAxis dataKey="date" />
-          <YAxis domain={["auto", "auto"]} />
+          <XAxis
+            dataKey="date"
+            tickFormatter={xAxisTickFormatter}
+            tickMargin={12}
+            height={42}
+            tick={{ fontSize: 13 }}
+          />
+          <YAxis domain={["auto", "auto"]} tick={{ fontSize: 13 }} />
           <CartesianGrid strokeDasharray="3 3" />
           <Tooltip content={<CustomTooltip />} />
           <Area
