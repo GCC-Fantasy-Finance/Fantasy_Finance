@@ -72,10 +72,9 @@ export default function SummaryPageLeaderboard({
 						<TableRow className="hover:bg-transparent">
 							<TableHead className="w-[100px] px-4">Rank</TableHead>
 							<TableHead className="px-4">Member</TableHead>
-							<TableHead className="px-4">Portfolio Value</TableHead>
+							<TableHead className="px-4">Final Value & Return</TableHead>
 						</TableRow>
 					</TableHeader>
-
 					<TableBody>
 						{entries.length === 0 ? (
 							<TableRow>
@@ -146,7 +145,8 @@ export default function SummaryPageLeaderboard({
 												</span>
 												<Ticker
 													currentValue={portfolioValue}
-													previousValue={entry.previous_close_value}
+													previousValue={10000}
+													displayAs="percent"
 													className="w-[96px] justify-end tabular-nums"
 												/>
 											</div>

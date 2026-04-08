@@ -193,7 +193,8 @@ export default function LeagueMemberPortfolioModal({
   const canKickMember =
     Boolean(isLeagueOwner) &&
     Boolean(memberUserId) &&
-    memberUserId !== leagueOwnerId;
+    memberUserId !== leagueOwnerId &&
+    !leagueFinished;
 
   const handleReportUser = () => {
     setReportModalOpen(true);
