@@ -210,7 +210,7 @@ export default function LeagueSummaryPage() {
   );
 
   return (
-    <div className="w-full max-w-7xl p-6">
+    <div className="w-full max-w-6xl p-6">
       <div className="mb-6 w-full flex justify-center">
         {standings[0]?.portfolio_id === currentUserPortfolioId ? (
           <h2 className="bg-green-100 text-xl font-bold mb-4 text-green-600 text-center border border-green-600 rounded px-4 py-2">

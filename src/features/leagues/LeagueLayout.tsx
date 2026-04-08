@@ -60,7 +60,7 @@ export default function LeagueLayout() {
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <SubNav items={subNavItems} />
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-        <div className="w-full max-w-7xl">
+        <div className="w-full max-w-6xl">
           <Outlet />
         </div>
       </div>

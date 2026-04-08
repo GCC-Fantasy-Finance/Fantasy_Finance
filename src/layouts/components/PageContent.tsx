@@ -8,6 +8,6 @@ interface PageContentProps {
 
 export default function PageContent({ children, className }: PageContentProps) {
   return (
-    <div className={cn("w-full max-w-7xl p-6", className)}>{children}</div>
+    <div className={cn("w-full max-w-6xl p-6", className)}>{children}</div>
   );
 }
