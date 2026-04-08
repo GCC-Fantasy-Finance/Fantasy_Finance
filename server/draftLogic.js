@@ -111,21 +111,9 @@ async function advanceDraftState(leagueId) {
 }
 
 // =============================
-// MAKE PICK (NO LOCK HERE)
+// MAKE PICK (INTERNAL - NO USER VALIDATION)
 // =============================
-async function makePick({ leagueId, portfolioId, stockId, round, pickNumber }) {
-  const { data: draft } = await supabase
-    .from('Drafts')
-    .select('*')
-    .eq('league_id', leagueId)
-    .single();
-
-  if (draft?.is_ended) return { ended: true };
-
-  if (draft.current_portfolio_id !== portfolioId) {
-    throw new Error('Not this portfolios turn');
-  }
-
+async function makePickInternal({ leagueId, portfolioId, stockId, round, pickNumber }) {
   const { error: pickError } = await supabase
     .from('Draft Picks')
     .insert({
@@ -144,6 +132,95 @@ async function makePick({ leagueId, portfolioId, stockId, round, pickNumber }) {
   const newState = await advanceDraftState(leagueId);
 
   return { success: true, newState };
+}
+
+// =============================
+// MAKE PICK (WITH LOCKING & VALIDATION)
+// =============================
+async function makePick({ leagueId, portfolioId, stockId, round, pickNumber, userId }) {
+  // Input validation
+  if (!Number.isInteger(leagueId) || leagueId <= 0) {
+    throw new Error('Invalid league ID');
+  }
+  if (!Number.isInteger(portfolioId) || portfolioId <= 0) {
+    throw new Error('Invalid portfolio ID');
+  }
+  if (!Number.isInteger(stockId) || stockId <= 0) {
+    throw new Error('Invalid stock ID');
+  }
+  if (!userId) {
+    throw new Error('User ID required');
+  }
+
+  if (!acquireLock(leagueId)) {
+    return { busy: true };
+  }
+
+  try {
+    // Verify portfolio belongs to league
+    const { data: portfolio, error: portfolioError } = await supabase
+      .from('Portfolios')
+      .select('user_id')
+      .eq('portfolio_id', portfolioId)
+      .eq('league_id', leagueId)
+      .single();
+
+    if (portfolioError || !portfolio) {
+      throw new Error('Portfolio not found in this league');
+    }
+
+    // Verify user owns the portfolio
+    if (portfolio.user_id !== userId) {
+      throw new Error('You do not own this portfolio');
+    }
+
+    // Get current draft state
+    const { data: draft } = await supabase
+      .from('Drafts')
+      .select('*')
+      .eq('league_id', leagueId)
+      .single();
+
+    if (!draft) {
+      throw new Error('Draft not found');
+    }
+
+    if (draft.is_ended) {
+      return { ended: true };
+    }
+
+    // Verify it's the right portfolio's turn
+    if (draft.current_portfolio_id !== portfolioId) {
+      throw new Error('Not this portfolio\'s turn');
+    }
+
+    // Verify stock hasn't been drafted yet
+    const { data: existingPick } = await supabase
+      .from('Draft Picks')
+      .select('stock_id')
+      .eq('draft_id', leagueId)
+      .eq('stock_id', stockId)
+      .single();
+
+    if (existingPick) {
+      throw new Error('Stock already drafted');
+    }
+
+    // Verify stock exists
+    const { data: stock } = await supabase
+      .from('Stocks')
+      .select('stock_id')
+      .eq('stock_id', stockId)
+      .single();
+
+    if (!stock) {
+      throw new Error('Stock not found');
+    }
+
+    return await makePickInternal({ leagueId, portfolioId, stockId, round, pickNumber });
+  } finally {
+    releaseLock(leagueId);
+  }
 }
 
 // =============================
@@ -198,7 +275,7 @@ async function autopick({ leagueId }) {
       stockId = await getFirstUndraftedStock(leagueId);
     }
 
-    return await makePick({
+    return await makePickInternal({
       leagueId,
       portfolioId: currentPortfolioId,
       stockId,

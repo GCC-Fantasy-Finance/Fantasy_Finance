@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
 import { useDraft } from "../../context/DraftContext";
-import { getDraftPicksByLeague, type DraftPickRow } from "../../lib/draftpicks";
 import { supabase } from "@/lib/supabase";
 import { Check, Minus, X } from "lucide-react";
 
@@ -29,9 +28,9 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
     draftStarted,
     draftEnded,
     draftRounds,
-    leagueId,
     myPortfolio,
     activeUsers,
+    draftPicks,
   } = useDraft();
 
   const [pickedStocks, setPickedStocks] = useState<
@@ -41,16 +40,14 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
 
   const loadDraftResults = useCallback(async () => {
     if (!draftStarted && !draftEnded) return;
-    if (!users.length) return;
-
-    const picks = await getDraftPicksByLeague(leagueId);
-    if (!picks.length) {
+    if (!draftPicks.length) {
       setPickedStocks({});
       setStocksMap({});
       return;
     }
 
-    const stockIds = [...new Set(picks.map((p) => p.stock_id))];
+    // Extract unique stock IDs from context draftPicks
+    const stockIds = [...new Set(draftPicks.map((p) => p.stock_id))];
 
     const { data: stocks, error } = await supabase
       .from("Stocks")
@@ -68,18 +65,29 @@ const DraftResultsPanel = ({ onStockClick }: DraftResultsPanelProps) => {
     });
     setStocksMap(map);
 
+    // Transform draftPicks array into pickedStocks structure
     const userPicks: Record<string, Record<number, number>> = {};
-    picks.forEach((pick: DraftPickRow) => {
+    draftPicks.forEach((pick) => {
+      if (pick.temp) return; // Skip temporary optimistic picks for now, but show them
       const roundIdx = pick.round_number - 1;
       if (!userPicks[pick.portfolio_id]) userPicks[pick.portfolio_id] = {};
       userPicks[pick.portfolio_id][roundIdx] = pick.stock_id;
     });
+
+    // Also include temp picks in the display
+    draftPicks.forEach((pick) => {
+      if (!pick.temp) return; // Only temp picks here
+      const roundIdx = pick.round_number - 1;
+      if (!userPicks[pick.portfolio_id]) userPicks[pick.portfolio_id] = {};
+      userPicks[pick.portfolio_id][roundIdx] = pick.stock_id;
+    });
+
     setPickedStocks(userPicks);
-  }, [draftStarted, draftEnded, users, leagueId]);
+  }, [draftStarted, draftEnded, draftPicks]);
 
   useEffect(() => {
     loadDraftResults();
-  }, [loadDraftResults, round, currentPick, direction]);
+  }, [loadDraftResults]);
 
   const slotsContainerHeight =
     draftRounds * SLOT_HEIGHT + (draftRounds - 1) * SLOT_GAP;

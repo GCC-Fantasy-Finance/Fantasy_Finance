@@ -162,7 +162,7 @@ export default function Header({ title }: HeaderProps) {
         </button>
       </div>
 
-      <div className="h-14 bg-white border-b border-gray-300 flex items-center justify-between pl-3 sm:pl-6 w-full gap-3">
+      <div className="h-14 bg-white border-b border-gray-300 flex flex-1 min-w-0 items-center justify-between pl-3 sm:pl-6 gap-3">
         {isMobileSearchOpen ? (
           <div
             ref={searchContainerRef}
@@ -229,8 +229,8 @@ export default function Header({ title }: HeaderProps) {
           </div>
         ) : (
           <>
-            <div className="flex items-center gap-2 min-w-0">
-              <h1 className="text-lg sm:text-xl font-medium truncate">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <h1 className="max-w-full truncate text-lg font-medium sm:text-xl">
                 {title}
               </h1>
             </div>
@@ -357,7 +357,7 @@ export default function Header({ title }: HeaderProps) {
               {lastConversationId ? "Resume Chat" : "New AI Chat"}
             </p>
           </div>
-          <p className="hidden lg:block text-gray-700 text-xs truncate">
+          <p className="hidden w-full min-w-0 truncate text-xs text-gray-700 lg:block text-left">
             {lastConversationId
               ? conversationTitle || "Loading..."
               : "Ask anything"}

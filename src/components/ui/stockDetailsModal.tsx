@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom";
-import { X } from "lucide-react";
+import { Bookmark, X } from "lucide-react";
 import { Button } from "./button";
 import { useAuth } from "@/context/AuthContext";
 import { useChatbot } from "@/context/ChatbotContext";
 import StockChart from "./stockChart";
+import { toast } from "sonner";
 
 // import Sparkles from "@/components/icons/Sparkles";
 import { useTradeModal } from "@/context/TradeModalContext";
@@ -67,39 +68,108 @@ type StockHeaderProps = {
   stock: Stock;
   stockPrice: number | null;
   timeFrame: string;
+  canToggleSave: boolean;
+  isSavedInSolo: boolean;
+  isOwnedInSolo: boolean;
+  saveTooltipMessage: string;
+  isSavingSoloWishlist: boolean;
+  savingSoloWishlistAction: "save" | "unsave" | null;
+  onToggleSaveInSolo: () => void;
 };
 
-const StockHeader = ({ stock, stockPrice
-  // , timeFrame // add timeframe once it is needed 
-}: StockHeaderProps) => (
-  <>
-    <div className="flex flex-col gap-2 mb-1">
-      <div className="flex gap-2 items-center mr-6">
-        <img
-          src={stock.logo_url}
-          alt={`${stock.stock_symbol} logo`}
-          className="w-7 h-7 object-cover rounded-sm"
-        />
-        <p className="text-gray-600 flex items-center gap-2 flex-wrap">
-          <span>{stock.stock_symbol}</span>
-        </p>
-        <span className="h-5 w-px mx-1 bg-gray-400" aria-hidden="true" />
-        <h2 className="text-lg line">{stock.name}</h2>
+const StockHeader = ({
+  stock,
+  stockPrice,
+  canToggleSave,
+  isSavedInSolo,
+  isOwnedInSolo,
+  saveTooltipMessage,
+  isSavingSoloWishlist,
+  savingSoloWishlistAction,
+  onToggleSaveInSolo,
+  // , timeFrame // add timeframe once it is needed
+}: StockHeaderProps) => {
+  const showSavedIcon = isSavedInSolo && !isOwnedInSolo;
+
+  return (
+    <div className="flex justify-between items-end lg:items-center">
+      <div className="flex flex-col gap-2 mb-1">
+        <div className="flex gap-2 items-center mr-6">
+          <img
+            src={stock.logo_url}
+            alt={`${stock.stock_symbol} logo`}
+            className="w-7 h-7 object-cover rounded-sm"
+          />
+          <p className="text-gray-600 flex items-center gap-2 flex-wrap">
+            <span>{stock.stock_symbol}</span>
+          </p>
+          <span className="h-5 w-px mx-1 bg-gray-400" aria-hidden="true" />
+          <h2 className="text-lg line">{stock.name}</h2>
+        </div>
+
+        <div className="flex gap-2  text-3xl">
+          {stockPrice != null ? `$${stockPrice.toFixed(2)}` : "Loading..."}
+          <Ticker
+            currentValue={stockPrice ?? undefined}
+            previousValue={stock.previous_close ?? undefined}
+            dollarAmount={true}
+            background={true}
+            timeFrame={"1D"}
+          />
+        </div>
       </div>
 
-      <div className="flex gap-2  text-3xl">
-        {stockPrice != null ? `$${stockPrice.toFixed(2)}` : "Loading..."}
-        <Ticker
-          currentValue={stockPrice ?? undefined}
-          previousValue={stock.previous_close ?? undefined}
-          dollarAmount={true}
-          background={true}
-          timeFrame={"1D"}
-        />
-      </div>
+      <TooltipProvider delayDuration={100}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={
+                  !canToggleSave || isSavingSoloWishlist || isOwnedInSolo
+                }
+                onClick={onToggleSaveInSolo}
+                className={
+                  isOwnedInSolo
+                    ? "border-gray-300 bg-gray-100 text-gray-500 hover:bg-gray-100 hover:text-gray-500"
+                    : isSavedInSolo
+                      ? "border-green-700 text-green-700"
+                      : undefined
+                }
+              >
+                <Bookmark
+                  className={
+                    showSavedIcon
+                      ? "fill-green-700 text-green-700"
+                      : "text-current"
+                  }
+                  strokeWidth={showSavedIcon ? 0 : 2}
+                />
+                {isOwnedInSolo
+                  ? "Save"
+                  : isSavingSoloWishlist
+                    ? savingSoloWishlistAction === "unsave"
+                      ? "Unsaving..."
+                      : "Saving..."
+                    : isSavedInSolo
+                      ? "Saved"
+                      : "Save"}
+              </Button>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent
+            side="top"
+            align="end"
+            className="text-white text-xs rounded px-2 py-1"
+          >
+            {saveTooltipMessage}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
-  </>
-);
+  );
+};
 
 const AI_QUESTIONS = [
   {
@@ -198,6 +268,28 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
   const [dayRangeDisplay, setDayRangeDisplay] = useState<string>("-");
   const [yearRangeDisplay, setYearRangeDisplay] = useState<string>("-");
   const [activeTab, setActiveTab] = useState<"details" | "trade">("details");
+  const [isSavingSoloWishlist, setIsSavingSoloWishlist] = useState(false);
+  const [savingSoloWishlistAction, setSavingSoloWishlistAction] = useState<
+    "save" | "unsave" | null
+  >(null);
+
+  const soloPortfolio = useMemo(
+    () => portfolios.find((portfolio) => portfolio.is_solo) ?? null,
+    [portfolios],
+  );
+  const soloHoldingQty = Number(
+    holdings[Number(soloPortfolio?.portfolio_id ?? 0)] ?? 0,
+  );
+  const isOwnedInSolo = soloHoldingQty > 0;
+  const canToggleSaveInSolo = Boolean(
+    soloPortfolio?.portfolio_id && stock?.stock_id && !isOwnedInSolo,
+  );
+  const isSavedInSolo = Boolean(soloPortfolio?.wishlisted);
+  const saveTooltipMessage = isOwnedInSolo
+    ? "You already own this stock in your Solo portfolio!"
+    : isSavedInSolo
+      ? "Saved for later in your Solo portfolio"
+      : "Save for later to your Solo portfolio";
 
   const formatRangeFallback = (value: any) => {
     if (value == null || value === "") return "-";
@@ -577,6 +669,61 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
     });
   };
 
+  const handleToggleSaveInSolo = async () => {
+    if (
+      !soloPortfolio?.portfolio_id ||
+      !stock?.stock_id ||
+      isSavingSoloWishlist
+    ) {
+      return;
+    }
+
+    const nextSavedState = !soloPortfolio.wishlisted;
+    setIsSavingSoloWishlist(true);
+    setSavingSoloWishlistAction(nextSavedState ? "save" : "unsave");
+    setPortfolios((prev) =>
+      prev.map((portfolio) =>
+        portfolio.portfolio_id === soloPortfolio.portfolio_id
+          ? { ...portfolio, wishlisted: nextSavedState }
+          : portfolio,
+      ),
+    );
+
+    try {
+      if (nextSavedState) {
+        await addWishlistItemStockPage(
+          soloPortfolio.portfolio_id,
+          stock.stock_id,
+        );
+      } else {
+        await removeWishlistItem(soloPortfolio.portfolio_id, stock.stock_id);
+      }
+
+      window.dispatchEvent(
+        new CustomEvent("ff:wishlist-updated", {
+          detail: {
+            portfolioId: soloPortfolio.portfolio_id,
+            stockId: stock.stock_id,
+            saved: nextSavedState,
+          },
+        }),
+      );
+    } catch (err) {
+      console.error("Failed to update solo wishlist:", err);
+      toast.error("Failed to update saved stock");
+      setPortfolios((prev) =>
+        prev.map((portfolio) =>
+          portfolio.portfolio_id === soloPortfolio.portfolio_id
+            ? { ...portfolio, wishlisted: !nextSavedState }
+            : portfolio,
+        ),
+      );
+    } finally {
+      setIsSavingSoloWishlist(false);
+      setSavingSoloWishlistAction(null);
+    }
+  };
+
   const formatDetails = (amount: number): string => {
     return new Intl.NumberFormat("en-US", {
       style: "decimal",
@@ -623,6 +770,13 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
               stock={stock}
               stockPrice={stockPrice}
               timeFrame={timeFrame}
+              canToggleSave={canToggleSaveInSolo}
+              isSavedInSolo={isSavedInSolo}
+              isOwnedInSolo={isOwnedInSolo}
+              saveTooltipMessage={saveTooltipMessage}
+              isSavingSoloWishlist={isSavingSoloWishlist}
+              savingSoloWishlistAction={savingSoloWishlistAction}
+              onToggleSaveInSolo={handleToggleSaveInSolo}
             />
           </div>
 
@@ -682,6 +836,13 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                   stock={stock}
                   stockPrice={stockPrice}
                   timeFrame={timeFrame}
+                  canToggleSave={canToggleSaveInSolo}
+                  isSavedInSolo={isSavedInSolo}
+                  isOwnedInSolo={isOwnedInSolo}
+                  saveTooltipMessage={saveTooltipMessage}
+                  isSavingSoloWishlist={isSavingSoloWishlist}
+                  savingSoloWishlistAction={savingSoloWishlistAction}
+                  onToggleSaveInSolo={handleToggleSaveInSolo}
                 />
               </div>
               <div className="rounded-lg border border-gray-200 bg-white p-4">

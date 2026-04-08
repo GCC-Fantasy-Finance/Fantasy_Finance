@@ -59,7 +59,10 @@ const RankedTooltip = ({ active, payload, label }: TooltipProps) => {
           <span style={{ fontWeight: "bold", marginRight: "8px" }}>
             #{index + 1}
           </span>
-          {entry.name}: ${typeof entry.value === "number" ? entry.value.toFixed(2) : entry.value}
+          {entry.name}: $
+          {typeof entry.value === "number"
+            ? entry.value.toFixed(2)
+            : entry.value}
         </p>
       ))}
     </div>
@@ -124,7 +127,7 @@ export default function LeaguePortfolioChart({
         };
 
         // Helper to get ISO date string (YYYY-MM-DD)
-        const getIsoDate = (date: Date) => date.toISOString().split('T')[0];
+        const getIsoDate = (date: Date) => date.toISOString().split("T")[0];
 
         // Group data by date
         const dataByDate = new Map<string, ChartDataPoint>();
@@ -143,11 +146,11 @@ export default function LeaguePortfolioChart({
             }
 
             const portfolioData = portfolios.find(
-              (p) => p.portfolio_id === Number(row.portfolio_id)
+              (p) => p.portfolio_id === Number(row.portfolio_id),
             );
             if (portfolioData) {
               dataByDate.get(dateStr)![portfolioData.username] = Number(
-                row.value.toFixed(2)
+                row.value.toFixed(2),
               );
             }
           }
@@ -168,7 +171,9 @@ export default function LeaguePortfolioChart({
           if (!endDate || todayIsoDate <= endDate) {
             const todayDataPoint: ChartDataPoint = { date: todayStr };
             for (const entry of leaderboard) {
-              todayDataPoint[entry.username] = Number(entry.live_value.toFixed(2));
+              todayDataPoint[entry.username] = Number(
+                entry.live_value.toFixed(2),
+              );
             }
             chartData.push(todayDataPoint);
           }
@@ -198,13 +203,42 @@ export default function LeaguePortfolioChart({
     );
   }
 
+  const seenYears = new Set<number>();
+  const xAxisTickFormatter = (value: string) => {
+    const parsedDate = new Date(value);
+    if (Number.isNaN(parsedDate.getTime())) return value;
+
+    const monthDay = parsedDate.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+    const year = parsedDate.getFullYear();
+
+    if (!seenYears.has(year)) {
+      seenYears.add(year);
+      return `${monthDay}, ${year}`;
+    }
+
+    return monthDay;
+  };
+
   return (
     <div className="w-full">
       <ResponsiveContainer width="100%" height={400}>
-        <LineChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+        <LineChart
+          data={data}
+          margin={{ top: 10, right: 30, left: 0, bottom: 10 }}
+        >
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="date"  textAnchor="end" height={80} />
-          <YAxis domain={["auto", "auto"]} />
+          <XAxis
+            dataKey="date"
+            textAnchor="end"
+            height={70}
+            tickFormatter={xAxisTickFormatter}
+            tickMargin={12}
+            tick={{ fontSize: 13 }}
+          />
+          <YAxis domain={["auto", "auto"]} tick={{ fontSize: 13 }} />
           <Tooltip content={<RankedTooltip />} />
           {portfolios.map((portfolio) => (
             <Line

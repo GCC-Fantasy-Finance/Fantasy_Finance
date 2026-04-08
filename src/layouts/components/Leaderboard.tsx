@@ -69,17 +69,22 @@ export default function Leaderboard({
 
   const totalPages = Math.ceil(entries.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedEntries = entries.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const paginatedEntries = entries.slice(
+    startIndex,
+    startIndex + ITEMS_PER_PAGE,
+  );
 
   const currentUserRank = currentUserId
     ? entries.findIndex((entry) => entry.user_id === currentUserId) + 1
     : null;
   return (
     <section>
-      <h2 className="text-lg font-semibold mb-3">Leaderboard</h2>
+      <h2 className="text-xl font-semibold mb-3">Leaderboard</h2>
       {currentUserRank && (
         <div className="mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
-          <p className="text-sm font-medium text-green-900">Your Rank: {currentUserRank}</p>
+          <p className="text-sm font-medium text-green-900">
+            Your Rank: {currentUserRank}
+          </p>
         </div>
       )}
 
@@ -89,7 +94,9 @@ export default function Leaderboard({
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-[100px] px-4">Rank</TableHead>
               <TableHead className="px-4">Member</TableHead>
-              {showDateStarted && <TableHead className="px-4">Date Started</TableHead>}
+              {showDateStarted && (
+                <TableHead className="px-4">Date Started</TableHead>
+              )}
               <TableHead className="px-4">{valueColumnLabel}</TableHead>
             </TableRow>
           </TableHeader>
@@ -97,7 +104,10 @@ export default function Leaderboard({
           <TableBody>
             {entries.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={showDateStarted ? 4 : 3} className="h-24 text-center">
+                <TableCell
+                  colSpan={showDateStarted ? 4 : 3}
+                  className="h-24 text-center"
+                >
                   No members yet.
                 </TableCell>
               </TableRow>
@@ -116,13 +126,11 @@ export default function Leaderboard({
                   <TableRow
                     key={entry.portfolio_id}
                     onClick={() => onPortfolioClick?.(entry.portfolio_id)}
-                    className={
-                      `${
-                        currentUserId === entry.user_id
-                          ? "bg-green-50/60 hover:bg-green-100/60 font-semibold"
-                          : ""
-                      } ${onPortfolioClick ? "cursor-pointer" : ""}`
-                    }
+                    className={`${
+                      currentUserId === entry.user_id
+                        ? "bg-green-50/60 hover:bg-green-100/60 font-semibold"
+                        : ""
+                    } ${onPortfolioClick ? "cursor-pointer" : ""}`}
                   >
                     <TableCell className="font-bold text-lg px-4 pl-7 text-green-700">
                       {absoluteIndex + 1}
@@ -157,7 +165,7 @@ export default function Leaderboard({
                         <Ticker
                           currentValue={portfolioValue}
                           previousValue={tickerPreviousValue}
-                          className="w-[96px] justify-end tabular-nums"
+                          className="w-24 justify-end tabular-nums"
                         />
                       </div>
                     </TableCell>
@@ -165,8 +173,6 @@ export default function Leaderboard({
                 );
               })
             )}
-
-
           </TableBody>
         </Table>
       </div>
@@ -184,49 +190,53 @@ export default function Leaderboard({
                 />
               </PaginationItem>
 
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                const isEllipsis =
-                  (page < currentPage - 1 && page !== 1) ||
-                  (page > currentPage + 1 && page !== totalPages);
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                (page) => {
+                  const isEllipsis =
+                    (page < currentPage - 1 && page !== 1) ||
+                    (page > currentPage + 1 && page !== totalPages);
 
-                if (isEllipsis && page === 2) {
-                  return (
-                    <PaginationItem key="ellipsis-start">
-                      <PaginationEllipsis />
-                    </PaginationItem>
-                  );
-                }
+                  if (isEllipsis && page === 2) {
+                    return (
+                      <PaginationItem key="ellipsis-start">
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    );
+                  }
 
-                if (isEllipsis && page === totalPages - 1) {
-                  return (
-                    <PaginationItem key="ellipsis-end">
-                      <PaginationEllipsis />
-                    </PaginationItem>
-                  );
-                }
+                  if (isEllipsis && page === totalPages - 1) {
+                    return (
+                      <PaginationItem key="ellipsis-end">
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    );
+                  }
 
-                if (
-                  page === 1 ||
-                  page === totalPages ||
-                  Math.abs(page - currentPage) <= 1
-                ) {
-                  return (
-                    <PaginationItem key={page}>
-                      <PaginationLink
-                        isActive={page === currentPage}
-                        onClick={() => setCurrentPage(page)}
-                        className="cursor-pointer"
-                      >
-                        {page}
-                      </PaginationLink>
-                    </PaginationItem>
-                  );
-                }
-              })}
+                  if (
+                    page === 1 ||
+                    page === totalPages ||
+                    Math.abs(page - currentPage) <= 1
+                  ) {
+                    return (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          isActive={page === currentPage}
+                          onClick={() => setCurrentPage(page)}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  }
+                },
+              )}
 
               <PaginationItem>
                 <PaginationNext
-                  onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(p + 1, totalPages))
+                  }
                   disabled={currentPage === totalPages}
                   className="cursor-pointer"
                 />

@@ -38,7 +38,7 @@ const inFlightLeagueSummaryRequests = new Map<
 >();
 
 function getCachedLeagueSummary(
-  leagueId: number
+  leagueId: number,
 ): LeagueSummaryCacheValue | null {
   const cached = leagueSummaryCache.get(leagueId);
   if (!cached) return null;
@@ -51,7 +51,7 @@ function getCachedLeagueSummary(
 
 function setCachedLeagueSummary(
   leagueId: number,
-  value: LeagueSummaryCacheValue
+  value: LeagueSummaryCacheValue,
 ) {
   leagueSummaryCache.set(leagueId, {
     value,
@@ -60,10 +60,12 @@ function setCachedLeagueSummary(
 }
 
 async function fetchLeagueSummaryData(
-  leagueId: number
+  leagueId: number,
 ): Promise<LeagueSummaryCacheValue> {
   const leagueData = await getLeagueById(leagueId);
-  const portfolios = (await getPortfoliosByLeague(leagueId)) as LeaderboardEntry[];
+  const portfolios = (await getPortfoliosByLeague(
+    leagueId,
+  )) as LeaderboardEntry[];
 
   const portfolioIds = portfolios
     .map((entry) => Number(entry.portfolio_id))
@@ -73,9 +75,8 @@ async function fetchLeagueSummaryData(
     return { league: leagueData, standings: portfolios };
   }
 
-  const latestValueByPortfolio = await getLatestPortfolioHistoryValues(
-    portfolioIds
-  );
+  const latestValueByPortfolio =
+    await getLatestPortfolioHistoryValues(portfolioIds);
 
   if (latestValueByPortfolio.size === 0) {
     const sortedPortfolios = portfolios
@@ -89,7 +90,7 @@ async function fetchLeagueSummaryData(
       sortedPortfolios.map(async (entry) => ({
         ...entry,
         badges: await getBadgesbyUserBadges(entry.user_id),
-      }))
+      })),
     );
 
     return { league: leagueData, standings: fallbackStandings };
@@ -108,7 +109,7 @@ async function fetchLeagueSummaryData(
     sortedPortfolios.map(async (entry) => ({
       ...entry,
       badges: await getBadgesbyUserBadges(entry.user_id),
-    }))
+    })),
   );
 
   return { league: leagueData, standings };
@@ -116,7 +117,7 @@ async function fetchLeagueSummaryData(
 
 async function getLeagueSummary(
   leagueId: number,
-  options?: { forceRefresh?: boolean }
+  options?: { forceRefresh?: boolean },
 ): Promise<LeagueSummaryCacheValue> {
   if (!options?.forceRefresh) {
     const cached = getCachedLeagueSummary(leagueId);
@@ -141,13 +142,19 @@ async function getLeagueSummary(
   }
 }
 
-
 export default function LeagueSummaryPage() {
   const { leagueId } = useParams<{ leagueId: string }>();
   const navigate = useNavigate();
+  const numericLeagueId = Number(leagueId);
+  const cachedLeagueName = Number.isFinite(numericLeagueId)
+    ? (getCachedLeagueSummary(numericLeagueId)?.league?.name ??
+      getCachedLeagueView(numericLeagueId)?.league?.name)
+    : undefined;
   const [league, setLeague] = useState<any>(null);
   const [standings, setStandings] = useState<any[]>([]);
-  const [selectedPortfolioId, setSelectedPortfolioId] = useState<number | null>(null);
+  const [selectedPortfolioId, setSelectedPortfolioId] = useState<number | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [showResultsModal, setShowResultsModal] = useState(false);
   const [hasSeenModal, setHasSeenModal] = useState(false);
@@ -155,8 +162,14 @@ export default function LeagueSummaryPage() {
   const [stockDetailsModalOpen, setStockDetailsModalOpen] = useState(false);
   const [selectedStock, setSelectedStock] = useState<StockRow | null>(null);
   const { profile } = useAuth();
-  
-  usePageTitle(league ? `${league.name} - Results` : "League Results");
+
+  usePageTitle(
+    league?.name
+      ? `${league.name} - Results`
+      : cachedLeagueName
+        ? `${cachedLeagueName} - Results`
+        : undefined,
+  );
 
   const handleCloseModal = () => {
     // Save to localStorage so modal doesn't show again for this league
@@ -327,7 +340,7 @@ export default function LeagueSummaryPage() {
   })), [standings]);
 
   const currentUserPortfolioId = standings.find(
-    (entry) => entry.user_id === profile?.id
+    (entry) => entry.user_id === profile?.id,
   )?.portfolio_id;
 
   const hasWon = standings[0]?.portfolio_id === currentUserPortfolioId;
@@ -342,7 +355,7 @@ export default function LeagueSummaryPage() {
   if (!league) return <p>League not found.</p>;
 
   const selectedEntry = standings.find(
-    (entry) => entry.portfolio_id === selectedPortfolioId
+    (entry) => entry.portfolio_id === selectedPortfolioId,
   );
 
   return (

@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
 import {
+  ChevronRight,
   Compass,
   Home,
   PlusCircle,
@@ -13,6 +14,12 @@ import { Button } from "@/components/ui/button";
 import CreateLeagueModal from "@/components/ui/CreateLeagueModal";
 import JoinLeagueModal from "@/components/ui/JoinLeagueModal";
 import Ticker from "@/components/ui/ticker";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { supabase } from "@/lib/supabase";
 import { calculatePortfolioValue } from "@/lib/portfolioValue";
 import { prefetchLeagueView } from "@/hooks/fetchLeagueView";
@@ -36,6 +43,7 @@ type LeagueRow = {
   league_id: number;
   name: string;
   finish_time?: string | null;
+  is_ended?: boolean | null;
 };
 
 type LeagueSidebarEntry = LeagueRow & {
@@ -43,9 +51,16 @@ type LeagueSidebarEntry = LeagueRow & {
   previous_close_value: number;
 };
 
+type SoloSidebarTicker = {
+  current_value: number;
+  previous_close_value: number;
+};
+
 const SIDEBAR_LEAGUES_REFRESH_MS = 30_000;
 let cachedSidebarLeagues: LeagueSidebarEntry[] = [];
 let cachedSidebarLeaguesAt = 0;
+let cachedSoloTicker: SoloSidebarTicker | null = null;
+let cachedSoloTickerAt = 0;
 
 export default function Sidebar() {
   const location = useLocation();
@@ -56,6 +71,9 @@ export default function Sidebar() {
   const [isJoinOpen, setIsJoinOpen] = useState(false);
   const [leagues, setLeagues] =
     useState<LeagueSidebarEntry[]>(cachedSidebarLeagues);
+  const [soloTicker, setSoloTicker] = useState<SoloSidebarTicker | null>(
+    cachedSoloTicker,
+  );
   const [loading, setLoading] = useState(cachedSidebarLeagues.length === 0);
 
   const navItems: NavItem[] = [
@@ -98,7 +116,7 @@ export default function Sidebar() {
 
     const { data: leagues, error: leaguesError } = await supabase
       .from("Leagues")
-      .select("league_id, name, finish_time")
+      .select("league_id, name, finish_time, is_ended")
       .in("league_id", uniqueLeagueIds);
 
     if (leaguesError || !leagues) return [];
@@ -190,6 +208,75 @@ export default function Sidebar() {
     return sidebarEntries;
   }
 
+  async function fetchSoloTicker(): Promise<SoloSidebarTicker | null> {
+    if (!profile) return null;
+
+    const { data: soloPortfolio, error: soloPortfolioError } = await supabase
+      .from("Portfolios")
+      .select("portfolio_id, previous_close_value, reserve_value, created_at")
+      .eq("user_id", profile.id)
+      .eq("is_solo", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (soloPortfolioError || !soloPortfolio) return null;
+
+    const portfolioId = Number(
+      (soloPortfolio as PortfolioLeagueRow).portfolio_id,
+    );
+    if (!Number.isFinite(portfolioId)) return null;
+
+    const { data: holdingsRows } = await supabase
+      .from("Portfolio Holdings")
+      .select("portfolio_id, stock_id, quantity")
+      .eq("portfolio_id", portfolioId);
+
+    const stockIds = Array.from(
+      new Set(
+        (holdingsRows ?? [])
+          .map((holding: any) => Number(holding.stock_id))
+          .filter((stockId) => Number.isFinite(stockId)),
+      ),
+    );
+
+    const stockPricesById = new Map<number, number>();
+    if (stockIds.length > 0) {
+      const { data: stockRows } = await supabase
+        .from("Stocks")
+        .select("stock_id, current_price")
+        .in("stock_id", stockIds);
+
+      for (const stock of stockRows ?? []) {
+        stockPricesById.set(
+          Number((stock as any).stock_id),
+          Number((stock as any).current_price ?? 0),
+        );
+      }
+    }
+
+    const holdings = (holdingsRows ?? []).map((holding: any) => ({
+      quantity: Number(holding.quantity ?? 0),
+      stock: {
+        current_price: stockPricesById.get(Number(holding.stock_id)) ?? 0,
+      },
+    }));
+
+    const currentValue = calculatePortfolioValue({
+      holdings,
+      reserveValue: Number(
+        (soloPortfolio as PortfolioLeagueRow).reserve_value ?? 0,
+      ),
+    });
+
+    return {
+      current_value: currentValue,
+      previous_close_value: Number(
+        (soloPortfolio as PortfolioLeagueRow).previous_close_value ?? 0,
+      ),
+    };
+  }
+
   const reloadLeagues = useCallback(
     async (options?: { silent?: boolean }) => {
       const silent = options?.silent ?? false;
@@ -223,28 +310,57 @@ export default function Sidebar() {
     [leagues.length, profile],
   );
 
+  const reloadSoloTicker = useCallback(async () => {
+    const timeoutPromise = new Promise((resolve) =>
+      setTimeout(() => resolve("__timeout__"), 5000),
+    );
+
+    Promise.race([fetchSoloTicker(), timeoutPromise])
+      .then((data) => {
+        if (data === "__timeout__") return;
+        const nextSoloTicker = data as SoloSidebarTicker | null;
+        setSoloTicker(nextSoloTicker);
+        cachedSoloTicker = nextSoloTicker;
+        cachedSoloTickerAt = Date.now();
+      })
+      .catch(() => {
+        // Keep existing ticker value if refresh fails.
+      });
+  }, [profile]);
+
   useEffect(() => {
-    const hasRecentCache =
+    const hasRecentLeagueCache =
       cachedSidebarLeagues.length > 0 &&
       Date.now() - cachedSidebarLeaguesAt < SIDEBAR_LEAGUES_REFRESH_MS;
 
-    if (hasRecentCache) {
+    const hasRecentSoloCache =
+      cachedSoloTicker !== null &&
+      Date.now() - cachedSoloTickerAt < SIDEBAR_LEAGUES_REFRESH_MS;
+
+    if (hasRecentLeagueCache) {
       setLeagues(cachedSidebarLeagues);
       setLoading(false);
-      return;
+    } else {
+      void reloadLeagues({ silent: leagues.length > 0 });
     }
 
-    void reloadLeagues({ silent: leagues.length > 0 });
-  }, [reloadLeagues]);
+    if (hasRecentSoloCache) {
+      setSoloTicker(cachedSoloTicker);
+    } else {
+      void reloadSoloTicker();
+    }
+  }, [leagues.length, reloadLeagues, reloadSoloTicker]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
       void reloadLeagues({ silent: true });
+      void reloadSoloTicker();
     }, SIDEBAR_LEAGUES_REFRESH_MS);
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         void reloadLeagues({ silent: true });
+        void reloadSoloTicker();
       }
     };
 
@@ -253,7 +369,7 @@ export default function Sidebar() {
       window.clearInterval(intervalId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [reloadLeagues]);
+  }, [reloadLeagues, reloadSoloTicker]);
 
   useEffect(() => {
     setIsSidebarOpen(false);
@@ -262,13 +378,14 @@ export default function Sidebar() {
   useEffect(() => {
     const handleLeaguesUpdated = () => {
       void reloadLeagues({ silent: true });
+      void reloadSoloTicker();
     };
 
     window.addEventListener("ff:leagues-updated", handleLeaguesUpdated);
     return () => {
       window.removeEventListener("ff:leagues-updated", handleLeaguesUpdated);
     };
-  }, [reloadLeagues]);
+  }, [reloadLeagues, reloadSoloTicker]);
 
   useEffect(() => {
     if (leagues.length === 0) return;
@@ -297,6 +414,30 @@ export default function Sidebar() {
     );
   };
 
+  const isLeagueEnded = (league: LeagueSidebarEntry) => {
+    if (league.is_ended) return true;
+    return Boolean(
+      league.finish_time && new Date(league.finish_time) < new Date(),
+    );
+  };
+
+  const ongoingLeagues = leagues.filter((league) => !isLeagueEnded(league));
+  const endedLeagues = leagues.filter((league) => isLeagueEnded(league));
+
+  const soloBaselineValue =
+    soloTicker && soloTicker.previous_close_value > 0
+      ? soloTicker.previous_close_value
+      : (soloTicker?.current_value ?? 0);
+
+  const shouldShowSoloTicker =
+    soloTicker !== null &&
+    Math.abs(soloTicker.current_value - soloBaselineValue) > 0;
+
+  const getLeaguePath = (league: LeagueSidebarEntry) =>
+    isLeagueEnded(league)
+      ? `/league/${league.league_id}/results`
+      : `/league/${league.league_id}`;
+
   return (
     <>
       {isSidebarOpen && (
@@ -314,18 +455,20 @@ export default function Sidebar() {
         }`}
       >
         {/* Logo/Brand */}
-        <div className="flex items-center p-4">
+        <Link
+          to="/"
+          aria-label="Go to home page"
+          className="flex items-center p-4  h-14 w-min"
+        >
           <img
             src="/ff_favicon.png"
             alt="Fantasy Finance Logo"
-            className="w-9 h-9 mr-2"
+            className="w-6 h-6 mr-2"
           />
-          <h1 className="text-sm font-bold leading-none text-green-800">
-            FANTASY
-            <br />
-            FINANCE
+          <h1 className="text-sm font-semibold -leading-1 text-green-700 text-nowrap">
+            FANTASY FINANCE
           </h1>
-        </div>
+        </Link>
 
         {/* Navigation Links */}
         <nav
@@ -336,32 +479,45 @@ export default function Sidebar() {
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.path);
+              const isSoloItem = item.path === "/solo";
+
               return (
                 <li key={item.path}>
                   <Link
                     to={item.path}
-                    className={`flex items-center gap-2 px-4 py-2 rounded transition-colors ${
+                    className={`flex items-center justify-between gap-2 px-4 py-2 transition-colors ${
                       active
                         ? "bg-gray-200 font-semibold text-green-700"
                         : "hover:bg-gray-50"
                     }`}
                   >
-                    <Icon
-                      className="w-5 h-5"
-                      strokeWidth={active ? 2.5 : 1.8}
-                    />
-                    <span>{item.name}</span>
+                    <span className="flex items-center gap-2 min-w-0">
+                      <Icon
+                        className="w-5 h-5"
+                        strokeWidth={active ? 2.5 : 1.8}
+                      />
+                      <span>{item.name}</span>
+                    </span>
+                    {isSoloItem && shouldShowSoloTicker ? (
+                      <Ticker
+                        currentValue={soloTicker.current_value}
+                        previousValue={soloBaselineValue}
+                        displayAs="percent"
+                        size="small"
+                        className="shrink-0"
+                      />
+                    ) : null}
                   </Link>
                 </li>
               );
             })}
           </ul>
 
-          <div className="my-4 px-4">
-            <div className="border-t-2 border-gray-300" />
+          <div className="my-3">
+            <div className="border-t-[1.5px] border-gray-300" />
           </div>
 
-          <h2 className="px-4 text-xs font-semibold text-gray-500">LEAGUES</h2>
+          <h2 className="px-4 text-xs font-medium text-gray-500">LEAGUES</h2>
 
           <div className="flex gap-2 px-4 mt-2">
             <Button
@@ -383,19 +539,15 @@ export default function Sidebar() {
           </div>
 
           {/* Links to League pages */}
-          <div className="px-2 mt-2 flex-1 min-h-0 overflow-y-auto">
+          <div className="px-2 mt-2 flex-1 min-h-0 overflow-y-auto chatbot-scroll">
             {loading ? (
               <p className="text-xs text-gray-500 px-2 py-1">Loading...</p>
             ) : leagues.length === 0 ? (
               <p className="text-xs text-gray-400 px-2 py-1">No leagues yet</p>
             ) : (
               <ul className="space-y-1">
-                {leagues.map((league) => {
-                  const path =
-                    league.finish_time &&
-                    new Date(league.finish_time) < new Date()
-                      ? `/league/${league.league_id}/results`
-                      : `/league/${league.league_id}`;
+                {ongoingLeagues.map((league) => {
+                  const path = getLeaguePath(league);
                   const active = isActive(path);
                   const baselineValue =
                     league.previous_close_value > 0
@@ -415,7 +567,7 @@ export default function Sidebar() {
                         onTouchStart={() =>
                           handlePrefetchLeague(league.league_id)
                         }
-                        className={`flex items-center justify-between gap-2 px-4 py-2 rounded text-sm transition-colors ${
+                        className={`flex items-center justify-between gap-2 px-3 py-1.5 rounded text-sm transition-colors ${
                           active
                             ? "bg-green-700/10 font-semibold text-green-700"
                             : "hover:bg-gray-200"
@@ -437,7 +589,66 @@ export default function Sidebar() {
                     </li>
                   );
                 })}
-                <li aria-hidden="true" className="h-9" />
+                {endedLeagues.length > 0 ? (
+                  <li>
+                    <div className="my-2 px-3">
+                      <div className="border-t-[1.5px] border-gray-300" />
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label="View ended leagues"
+                          className="cursor-pointer text-gray-700 font-medium w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded text-sm transition-colors hover:bg-gray-200"
+                        >
+                          <span className="block truncate min-w-0 ">
+                            Ended Leagues
+                          </span>
+                          <ChevronRight className="w-4 h-4 shrink-0" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        side="right"
+                        align="start"
+                        className="w-56 "
+                      >
+                        {endedLeagues.map((league) => {
+                          const path = getLeaguePath(league);
+                          const active = isActive(path);
+                          return (
+                            <DropdownMenuItem
+                              key={league.league_id}
+                              asChild
+                              className={
+                                active
+                                  ? "bg-green-700/10 text-green-700 font-medium cursor-pointer"
+                                  : "cursor-pointer"
+                              }
+                            >
+                              <Link
+                                to={path}
+                                title={league.name}
+                                onMouseEnter={() =>
+                                  handlePrefetchLeague(league.league_id)
+                                }
+                                onFocus={() =>
+                                  handlePrefetchLeague(league.league_id)
+                                }
+                                onTouchStart={() =>
+                                  handlePrefetchLeague(league.league_id)
+                                }
+                                className="block w-full truncate"
+                              >
+                                {league.name}
+                              </Link>
+                            </DropdownMenuItem>
+                          );
+                        })}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </li>
+                ) : null}
+                <li aria-hidden="true" className="h-6" />
               </ul>
             )}
           </div>
@@ -456,7 +667,7 @@ export default function Sidebar() {
         <div className="border-t border-gray-300">
           <Link
             to="/profile"
-            className="flex items-center gap-2.5 p-4 hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2.5 px-4 py-3 hover:bg-gray-50 transition-colors"
           >
             {profile?.avatar_url ? (
               <img

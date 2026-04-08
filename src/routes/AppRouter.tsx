@@ -1,4 +1,8 @@
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import {
+  createBrowserRouter,
+  Navigate,
+  RouterProvider,
+} from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
 import DraftLayout from "../layouts/DraftLayout";
 import AppLayout from "../layouts/AppLayout";
@@ -20,6 +24,7 @@ import LeagueDetailPage from "@/features/leagues/pages/LeagueDetailPage";
 import LeagueSummaryPage from "@/features/leagues/pages/LeagueSummaryPage";
 import LeagueLayout from "@/features/leagues/LeagueLayout";
 import LeaguePortfolioPage from "@/features/leagues/pages/LeaguePortfolioPage";
+import LeagueLeaderboardPage from "@/features/leagues/pages/LeagueLeaderboardPage";
 
 import { LayoutProvider } from "../context/LayoutContext";
 import { AuthProvider } from "../context/AuthContext";
@@ -76,8 +81,10 @@ export default function AppRouter() {
                 </LeagueGuardRoute>
               ),
               children: [
-                { index: true, element: <LeagueDetailPage /> },
+                { index: true, element: <Navigate to="portfolio" replace /> },
                 { path: "portfolio", element: <LeaguePortfolioPage /> },
+                { path: "leaderboard", element: <LeagueLeaderboardPage /> },
+                { path: "details", element: <LeagueDetailPage /> },
               ],
             },
             {

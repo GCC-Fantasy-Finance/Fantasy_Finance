@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import Ticker from "@/components/ui/ticker";
+import { calculateStockDelta } from "@/lib/utils";
 
 type PortfolioCard = {
   portfolio_id: number;
@@ -32,12 +33,14 @@ export default function HomePageCard(portfolio: PortfolioCard) {
   );
   const previousCloseValue = Number(portfolio.previous_close_value ?? 0);
   const baselineValue = previousCloseValue > 0 ? previousCloseValue : netValue;
+  const valueDelta = calculateStockDelta(netValue, baselineValue);
+  const movementThreshold = 0.01;
   const reserveValue = Number(portfolio.reserve_value ?? 0);
   const amountInvested = netValue - reserveValue;
   const isLeagueEnded =
     !portfolio.is_solo && Boolean(portfolio.is_league_ended);
-  const isLeagueUp = netValue > previousCloseValue;
-  const isLeagueDown = netValue < previousCloseValue;
+  const isLeagueUp = valueDelta > movementThreshold;
+  const isLeagueDown = valueDelta < -movementThreshold;
 
   return (
     <button
