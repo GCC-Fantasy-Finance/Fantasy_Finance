@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { Navigate, useParams, useLocation } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "../context/AuthContext";
+import Spinner from "@/components/ui/spinner";
 
 interface LeagueRouteProps {
   children: ReactNode;
@@ -56,7 +57,8 @@ export default function LeagueRoute({ children }: LeagueRouteProps) {
   if (loading || checking) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <p className="text-gray-600">Checking league access...</p>
+        {/* <p className="text-gray-600">Checking league access...</p> */}
+        {/* <Spinner /> */}
       </div>
     );
   }

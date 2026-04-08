@@ -10,6 +10,7 @@ import Leaderboard from "@/layouts/components/Leaderboard";
 import LeagueMemberPortfolioModal from "@/components/ui/LeagueMemberPortfolioModal";
 import InviteMembersModal from "@/components/ui/InviteMembersModal";
 import { calculatePortfolioValue } from "@/lib/portfolioValue";
+import Spinner from "@/components/ui/spinner";
 import {
   fetchLeagueView,
   getCachedLeagueView,
@@ -149,7 +150,9 @@ export default function LeagueLeaderboardPage() {
   if (loading) {
     return (
       <PageContent>
-        <p className="text-gray-600">Loading leaderboard...</p>
+        <div className="flex min-h-[40vh] items-center justify-center">
+          <Spinner />
+        </div>
       </PageContent>
     );
   }

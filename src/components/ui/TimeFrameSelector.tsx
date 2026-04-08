@@ -8,6 +8,7 @@ type TimeFrameSelectorProps = {
   value: string;
   onChange: (value: string) => void;
   className?: string;
+  buttonWidthClass?: string;
 };
 
 export default function TimeFrameSelector({
@@ -26,7 +27,7 @@ export default function TimeFrameSelector({
             type="button"
             onClick={() => onChange(option.value)}
             aria-pressed={value === option.value}
-            className={`w-10 cursor-pointer border-b-2 pb-1 text-center text-sm uppercase tracking-wide transition-colors -mb-0.5 ${
+            className={`$ win-w-10 px-2 cursor-pointer border-b-2 pb-1 text-center text-sm uppercase tracking-wide transition-colors -mb-0.5 ${
               value === option.value
                 ? "border-green-700 font-semibold text-green-700"
                 : "border-transparent text-gray-400 hover:border-gray-300 hover:text-gray-700"

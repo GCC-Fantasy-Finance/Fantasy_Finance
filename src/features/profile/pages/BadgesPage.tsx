@@ -3,25 +3,24 @@ import { useAuth } from "@/context/AuthContext";
 import { useEffect, useState } from "react";
 import type { BadgeWithEarned } from "@/lib/userBadges";
 
-
-
 function Badges() {
+  const { profile } = useAuth();
+  const [badges, setBadges] = useState<BadgeWithEarned[]>([]);
+  const [selectedBadge, setSelectedBadge] = useState<BadgeWithEarned | null>(
+    null,
+  );
 
-    const { profile } = useAuth();
-    const [badges, setBadges] = useState<BadgeWithEarned[]>([]);
-    const [selectedBadge, setSelectedBadge] = useState<BadgeWithEarned | null>(null);
+  useEffect(() => {
+    if (profile?.id) {
+      getAllBadgesWithEarned(profile.id).then((result) => {
+        setBadges(result || []);
+      });
+    }
+  }, [profile?.id]);
 
-    useEffect(() => {
-        if (profile?.id) {
-          getAllBadgesWithEarned(profile.id).then((result) => {
-                setBadges(result || []);
-            });
-        }
-    }, [profile?.id]);
+  const earnedBadges = badges.filter((b) => b.earned);
+  const unearnedBadges = badges.filter((b) => !b.earned);
 
-    const earnedBadges = badges.filter(b => b.earned);
-    const unearnedBadges = badges.filter(b => !b.earned);
-    
   return (
     <>
       {earnedBadges.length > 0 && (
@@ -29,7 +28,10 @@ function Badges() {
           <p className="text-gray-600 mb-3">Your Badges</p>
           <div className="w-full flex flex-wrap gap-2 mb-6">
             {earnedBadges.map((badge) => (
-              <div key={badge.fixed_badge_id} className="w-fit flex flex-col items-center">
+              <div
+                key={badge.fixed_badge_id}
+                className="w-fit flex flex-col items-center"
+              >
                 <button
                   type="button"
                   onClick={() => setSelectedBadge(badge)}
@@ -38,14 +40,20 @@ function Badges() {
                   aria-label={`View badge ${badge.name}`}
                 >
                   {badge.image_path ? (
-                    <img src={badge.image_path} alt={badge.name} className="w-full h-full object-contain" />
+                    <img
+                      src={badge.image_path}
+                      alt={badge.name}
+                      className="w-full h-full object-contain"
+                    />
                   ) : (
                     <div className="w-full h-full rounded bg-gray-100 flex items-center justify-center text-xs text-gray-500">
                       Badge
                     </div>
                   )}
                 </button>
-                <p className="text-xs text-center mt-1 text-gray-600 max-w-32">{badge.name}</p>
+                <p className="text-xs text-center mt-1 text-gray-600 max-w-32">
+                  {badge.name}
+                </p>
               </div>
             ))}
           </div>
@@ -57,7 +65,10 @@ function Badges() {
           <p className="text-gray-600 mb-3">Other Badges</p>
           <div className="w-full flex flex-wrap gap-2">
             {unearnedBadges.map((badge) => (
-              <div key={badge.fixed_badge_id} className="w-fit flex flex-col items-center">
+              <div
+                key={badge.fixed_badge_id}
+                className="w-fit flex flex-col items-center"
+              >
                 <button
                   type="button"
                   onClick={() => setSelectedBadge(badge)}
@@ -66,14 +77,20 @@ function Badges() {
                   aria-label={`Locked badge ${badge.name}`}
                 >
                   {badge.image_path ? (
-                    <img src={badge.image_path} alt={badge.name} className="w-full h-full object-contain" />
+                    <img
+                      src={badge.image_path}
+                      alt={badge.name}
+                      className="w-full h-full object-contain"
+                    />
                   ) : (
                     <div className="w-full h-full rounded bg-gray-100 flex items-center justify-center text-xs text-gray-500">
                       Badge
                     </div>
                   )}
                 </button>
-                <p className="text-xs text-center mt-1 text-gray-600 max-w-32">{badge.name}</p>
+                <p className="text-xs text-center mt-1 text-gray-600 max-w-32">
+                  {badge.name}
+                </p>
               </div>
             ))}
           </div>
@@ -81,20 +98,34 @@ function Badges() {
       )}
 
       {selectedBadge && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setSelectedBadge(null)}>
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-lg" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+          onClick={() => setSelectedBadge(null)}
+        >
+          <div
+            className="bg-white rounded-lg p-6 max-w-sm w-full shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex justify-center mb-4">
               {selectedBadge.image_path ? (
-                <img src={selectedBadge.image_path} alt={selectedBadge.name} className="w-24 h-24 object-contain" />
+                <img
+                  src={selectedBadge.image_path}
+                  alt={selectedBadge.name}
+                  className="w-24 h-24 object-contain"
+                />
               ) : (
                 <div className="w-24 h-24 rounded bg-gray-100 flex items-center justify-center text-gray-500">
                   Badge
                 </div>
               )}
             </div>
-            <h2 className="text-lg font-semibold text-center mb-2">{selectedBadge.name}</h2>
-            <p className="text-gray-600 text-center mb-2">{selectedBadge.description || "No description available"}</p>
-            
+            <h2 className="text-lg font-semibold text-center mb-2">
+              {selectedBadge.name}
+            </h2>
+            <p className="text-gray-600 text-center mb-2">
+              {selectedBadge.description || "No description available"}
+            </p>
+
             <div className="flex gap-2">
               {/* {selectedBadge.earned && (
                 <button
@@ -114,6 +145,7 @@ function Badges() {
           </div>
         </div>
       )}
+      <div className="h-16" />
     </>
   );
 }
