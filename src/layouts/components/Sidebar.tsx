@@ -51,9 +51,16 @@ type LeagueSidebarEntry = LeagueRow & {
   previous_close_value: number;
 };
 
+type SoloSidebarTicker = {
+  current_value: number;
+  previous_close_value: number;
+};
+
 const SIDEBAR_LEAGUES_REFRESH_MS = 30_000;
 let cachedSidebarLeagues: LeagueSidebarEntry[] = [];
 let cachedSidebarLeaguesAt = 0;
+let cachedSoloTicker: SoloSidebarTicker | null = null;
+let cachedSoloTickerAt = 0;
 
 export default function Sidebar() {
   const location = useLocation();
@@ -64,6 +71,9 @@ export default function Sidebar() {
   const [isJoinOpen, setIsJoinOpen] = useState(false);
   const [leagues, setLeagues] =
     useState<LeagueSidebarEntry[]>(cachedSidebarLeagues);
+  const [soloTicker, setSoloTicker] = useState<SoloSidebarTicker | null>(
+    cachedSoloTicker,
+  );
   const [loading, setLoading] = useState(cachedSidebarLeagues.length === 0);
 
   const navItems: NavItem[] = [
@@ -198,6 +208,75 @@ export default function Sidebar() {
     return sidebarEntries;
   }
 
+  async function fetchSoloTicker(): Promise<SoloSidebarTicker | null> {
+    if (!profile) return null;
+
+    const { data: soloPortfolio, error: soloPortfolioError } = await supabase
+      .from("Portfolios")
+      .select("portfolio_id, previous_close_value, reserve_value, created_at")
+      .eq("user_id", profile.id)
+      .eq("is_solo", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (soloPortfolioError || !soloPortfolio) return null;
+
+    const portfolioId = Number(
+      (soloPortfolio as PortfolioLeagueRow).portfolio_id,
+    );
+    if (!Number.isFinite(portfolioId)) return null;
+
+    const { data: holdingsRows } = await supabase
+      .from("Portfolio Holdings")
+      .select("portfolio_id, stock_id, quantity")
+      .eq("portfolio_id", portfolioId);
+
+    const stockIds = Array.from(
+      new Set(
+        (holdingsRows ?? [])
+          .map((holding: any) => Number(holding.stock_id))
+          .filter((stockId) => Number.isFinite(stockId)),
+      ),
+    );
+
+    const stockPricesById = new Map<number, number>();
+    if (stockIds.length > 0) {
+      const { data: stockRows } = await supabase
+        .from("Stocks")
+        .select("stock_id, current_price")
+        .in("stock_id", stockIds);
+
+      for (const stock of stockRows ?? []) {
+        stockPricesById.set(
+          Number((stock as any).stock_id),
+          Number((stock as any).current_price ?? 0),
+        );
+      }
+    }
+
+    const holdings = (holdingsRows ?? []).map((holding: any) => ({
+      quantity: Number(holding.quantity ?? 0),
+      stock: {
+        current_price: stockPricesById.get(Number(holding.stock_id)) ?? 0,
+      },
+    }));
+
+    const currentValue = calculatePortfolioValue({
+      holdings,
+      reserveValue: Number(
+        (soloPortfolio as PortfolioLeagueRow).reserve_value ?? 0,
+      ),
+    });
+
+    return {
+      current_value: currentValue,
+      previous_close_value: Number(
+        (soloPortfolio as PortfolioLeagueRow).previous_close_value ?? 0,
+      ),
+    };
+  }
+
   const reloadLeagues = useCallback(
     async (options?: { silent?: boolean }) => {
       const silent = options?.silent ?? false;
@@ -231,28 +310,57 @@ export default function Sidebar() {
     [leagues.length, profile],
   );
 
+  const reloadSoloTicker = useCallback(async () => {
+    const timeoutPromise = new Promise((resolve) =>
+      setTimeout(() => resolve("__timeout__"), 5000),
+    );
+
+    Promise.race([fetchSoloTicker(), timeoutPromise])
+      .then((data) => {
+        if (data === "__timeout__") return;
+        const nextSoloTicker = data as SoloSidebarTicker | null;
+        setSoloTicker(nextSoloTicker);
+        cachedSoloTicker = nextSoloTicker;
+        cachedSoloTickerAt = Date.now();
+      })
+      .catch(() => {
+        // Keep existing ticker value if refresh fails.
+      });
+  }, [profile]);
+
   useEffect(() => {
-    const hasRecentCache =
+    const hasRecentLeagueCache =
       cachedSidebarLeagues.length > 0 &&
       Date.now() - cachedSidebarLeaguesAt < SIDEBAR_LEAGUES_REFRESH_MS;
 
-    if (hasRecentCache) {
+    const hasRecentSoloCache =
+      cachedSoloTicker !== null &&
+      Date.now() - cachedSoloTickerAt < SIDEBAR_LEAGUES_REFRESH_MS;
+
+    if (hasRecentLeagueCache) {
       setLeagues(cachedSidebarLeagues);
       setLoading(false);
-      return;
+    } else {
+      void reloadLeagues({ silent: leagues.length > 0 });
     }
 
-    void reloadLeagues({ silent: leagues.length > 0 });
-  }, [reloadLeagues]);
+    if (hasRecentSoloCache) {
+      setSoloTicker(cachedSoloTicker);
+    } else {
+      void reloadSoloTicker();
+    }
+  }, [leagues.length, reloadLeagues, reloadSoloTicker]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
       void reloadLeagues({ silent: true });
+      void reloadSoloTicker();
     }, SIDEBAR_LEAGUES_REFRESH_MS);
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         void reloadLeagues({ silent: true });
+        void reloadSoloTicker();
       }
     };
 
@@ -261,7 +369,7 @@ export default function Sidebar() {
       window.clearInterval(intervalId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [reloadLeagues]);
+  }, [reloadLeagues, reloadSoloTicker]);
 
   useEffect(() => {
     setIsSidebarOpen(false);
@@ -270,13 +378,14 @@ export default function Sidebar() {
   useEffect(() => {
     const handleLeaguesUpdated = () => {
       void reloadLeagues({ silent: true });
+      void reloadSoloTicker();
     };
 
     window.addEventListener("ff:leagues-updated", handleLeaguesUpdated);
     return () => {
       window.removeEventListener("ff:leagues-updated", handleLeaguesUpdated);
     };
-  }, [reloadLeagues]);
+  }, [reloadLeagues, reloadSoloTicker]);
 
   useEffect(() => {
     if (leagues.length === 0) return;
@@ -314,6 +423,15 @@ export default function Sidebar() {
 
   const ongoingLeagues = leagues.filter((league) => !isLeagueEnded(league));
   const endedLeagues = leagues.filter((league) => isLeagueEnded(league));
+
+  const soloBaselineValue =
+    soloTicker && soloTicker.previous_close_value > 0
+      ? soloTicker.previous_close_value
+      : (soloTicker?.current_value ?? 0);
+
+  const shouldShowSoloTicker =
+    soloTicker !== null &&
+    Math.abs(soloTicker.current_value - soloBaselineValue) > 0;
 
   const getLeaguePath = (league: LeagueSidebarEntry) =>
     isLeagueEnded(league)
@@ -361,21 +479,34 @@ export default function Sidebar() {
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.path);
+              const isSoloItem = item.path === "/solo";
+
               return (
                 <li key={item.path}>
                   <Link
                     to={item.path}
-                    className={`flex items-center gap-2 px-4 py-2 rounded transition-colors ${
+                    className={`flex items-center justify-between gap-2 px-4 py-2 transition-colors ${
                       active
                         ? "bg-gray-200 font-semibold text-green-700"
                         : "hover:bg-gray-50"
                     }`}
                   >
-                    <Icon
-                      className="w-5 h-5"
-                      strokeWidth={active ? 2.5 : 1.8}
-                    />
-                    <span>{item.name}</span>
+                    <span className="flex items-center gap-2 min-w-0">
+                      <Icon
+                        className="w-5 h-5"
+                        strokeWidth={active ? 2.5 : 1.8}
+                      />
+                      <span>{item.name}</span>
+                    </span>
+                    {isSoloItem && shouldShowSoloTicker ? (
+                      <Ticker
+                        currentValue={soloTicker.current_value}
+                        previousValue={soloBaselineValue}
+                        displayAs="percent"
+                        size="small"
+                        className="shrink-0"
+                      />
+                    ) : null}
                   </Link>
                 </li>
               );
@@ -479,7 +610,7 @@ export default function Sidebar() {
                       <DropdownMenuContent
                         side="right"
                         align="start"
-                        className="w-56"
+                        className="w-56 "
                       >
                         {endedLeagues.map((league) => {
                           const path = getLeaguePath(league);
@@ -490,8 +621,8 @@ export default function Sidebar() {
                               asChild
                               className={
                                 active
-                                  ? "bg-green-700/10 text-green-700 font-medium"
-                                  : ""
+                                  ? "bg-green-700/10 text-green-700 font-medium cursor-pointer"
+                                  : "cursor-pointer"
                               }
                             >
                               <Link

@@ -13,14 +13,18 @@ import {
   Area,
 } from "recharts";
 
-
-
 type PricePoint = {
   date: number; // timestamp in ms
   close: number;
 };
 
-export default function StockChart({ id, timeFrame }: { id: number, timeFrame: string }) {
+export default function StockChart({
+  id,
+  timeFrame,
+}: {
+  id: number;
+  timeFrame: string;
+}) {
   const [data, setData] = useState<PricePoint[]>([]);
   const [loading, setLoading] = useState(true);
   const mounted = useRef(true);
@@ -58,15 +62,15 @@ export default function StockChart({ id, timeFrame }: { id: number, timeFrame: s
           const formatted = (rows ?? []).map((r: any) => {
             const ts = new Date(
               r.timestamp_of ||
-              r.timestamp ||
-              r.time ||
-              r.created_at ||
-              Date.now()
+                r.timestamp ||
+                r.time ||
+                r.created_at ||
+                Date.now(),
             );
             return {
               date: ts.getTime(),
               close: Number(
-                (r.price ?? r.current_price ?? r.close ?? 0).toFixed(2)
+                (r.price ?? r.current_price ?? r.close ?? 0).toFixed(2),
               ),
             };
           });
@@ -74,7 +78,7 @@ export default function StockChart({ id, timeFrame }: { id: number, timeFrame: s
           // ---- GROUP BY DAY ----
           const groupedByDay: Record<string, PricePoint[]> = {};
 
-          formatted.forEach(point => {
+          formatted.forEach((point) => {
             const d = new Date(point.date);
             const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
             if (!groupedByDay[key]) groupedByDay[key] = [];
@@ -171,12 +175,28 @@ export default function StockChart({ id, timeFrame }: { id: number, timeFrame: s
           .channel(`intraday-${id}`)
           .on(
             "postgres_changes",
-            { event: "*", schema: "public", table: "Stock Intraday", filter: `stock_id=eq.${id}` },
+            {
+              event: "*",
+              schema: "public",
+              table: "Stock Intraday",
+              filter: `stock_id=eq.${id}`,
+            },
             (payload: any) => {
               const row = payload.new ?? payload.record ?? null;
               if (!row) return;
-              const ts = new Date(row.timestamp_of || row.timestamp || row.time || row.created_at || Date.now()).getTime();
-              const point = { date: ts, close: Number((row.price ?? row.current_price ?? row.close ?? 0).toFixed(2)) };
+              const ts = new Date(
+                row.timestamp_of ||
+                  row.timestamp ||
+                  row.time ||
+                  row.created_at ||
+                  Date.now(),
+              ).getTime();
+              const point = {
+                date: ts,
+                close: Number(
+                  (row.price ?? row.current_price ?? row.close ?? 0).toFixed(2),
+                ),
+              };
               // merge into existing data
               setData((prev) => {
                 const exists = prev.findIndex((p) => p.date === point.date);
@@ -189,7 +209,7 @@ export default function StockChart({ id, timeFrame }: { id: number, timeFrame: s
                 }
                 return next;
               });
-            }
+            },
           )
           .subscribe();
       } catch (err) {
@@ -207,18 +227,33 @@ export default function StockChart({ id, timeFrame }: { id: number, timeFrame: s
 
   if (loading) return <p>Loading chart…</p>;
 
+  const seenYears = new Set<number>();
   const tickFormatter = (value: number) => {
     const d = new Date(value);
     if (timeFrame === "1D") {
       return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
     }
-    // for 1M/1Y show short date
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+    const monthDay = d.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+    const year = d.getFullYear();
+
+    if (!seenYears.has(year)) {
+      seenYears.add(year);
+      return `${monthDay}, ${year}`;
+    }
+
+    return monthDay;
   };
 
   return (
     <ResponsiveContainer width="100%" height={290}>
-      <AreaChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+      <AreaChart
+        data={data}
+        margin={{ top: 10, right: 30, left: 0, bottom: 10 }}
+      >
         <defs>
           <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
             {data[data.length - 1]?.close >= data[0]?.close ? (
@@ -242,12 +277,16 @@ export default function StockChart({ id, timeFrame }: { id: number, timeFrame: s
           domain={["dataMin", "dataMax"]}
           tickFormatter={tickFormatter}
           tickCount={6}
+          tickMargin={12}
+          height={42}
+          tick={{ fontSize: 13 }}
         />
-        <YAxis domain={["auto", "auto"]} />
+        <YAxis domain={["auto", "auto"]} tick={{ fontSize: 13 }} />
         <Tooltip
           labelFormatter={(val: any) => {
             const d = new Date(val as number);
-            if (timeFrame === "1D") return `${d.getHours()}:${d.getMinutes().toString().padStart(2, "0")}`;
+            if (timeFrame === "1D")
+              return `${d.getHours()}:${d.getMinutes().toString().padStart(2, "0")}`;
             return d.toLocaleDateString();
           }}
           formatter={(value: any) => [`$${Number(value).toFixed(2)}`, "Price"]}
@@ -256,7 +295,11 @@ export default function StockChart({ id, timeFrame }: { id: number, timeFrame: s
         <Area
           type="linear"
           dataKey="close"
-          stroke={data[data.length - 1]?.close >= data[0]?.close ? "#0da70d" : "#ff4d4f"}
+          stroke={
+            data[data.length - 1]?.close >= data[0]?.close
+              ? "#0da70d"
+              : "#ff4d4f"
+          }
           fill="url(#lineGradient)"
           dot={false}
           isAnimationActive={true}
