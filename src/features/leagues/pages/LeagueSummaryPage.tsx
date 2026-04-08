@@ -20,6 +20,7 @@ import StockDetailsModal from "@/components/ui/stockDetailsModal";
 import { getStockById, type StockRow } from "@/lib/stocks";
 import { toast } from "sonner";
 
+import { getCachedLeagueView } from "@/hooks/fetchLeagueView";
 
 const LEAGUE_SUMMARY_CACHE_TTL_MS = 15_000;
 
