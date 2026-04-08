@@ -124,12 +124,23 @@ export default function PostDraftBuyModal({
   }, [open, onClose]);
 
   const handleAmountChange = (stockId: number, value: string) => {
-    // Only allow valid numbers (no letters, no negative signs)
+    // Allow empty string
     if (value === "") {
       setBuyAmounts(prev => ({ ...prev, [stockId]: "" }));
       return;
     }
 
+    // Only allow digits and single decimal point
+    if (!/^\d*\.?\d*$/.test(value)) {
+      return; // Reject if contains invalid characters
+    }
+
+    // Prevent multiple decimal points
+    if ((value.match(/\./g) || []).length > 1) {
+      return;
+    }
+
+    // Parse and validate it's a positive number
     const parsed = parseFloat(value);
     if (Number.isFinite(parsed) && parsed >= 0) {
       setBuyAmounts(prev => ({ ...prev, [stockId]: value }));
@@ -301,11 +312,14 @@ export default function PostDraftBuyModal({
                     <input
                       type="text"
                       inputMode="decimal"
+                      pattern="[0-9]*\.?[0-9]*"
                       value={buyAmounts[stock.stock_id]}
                       onChange={(e) => handleAmountChange(stock.stock_id, e.target.value)}
                       onClick={(e) => e.stopPropagation()}
                       placeholder="0.00"
                       className="w-24 px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      min="0"
+                      maxLength={12}
                     />
                   </div>
                 </div>

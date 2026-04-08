@@ -436,7 +436,18 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
   }, [timerStartTime, secondsPerPick]);
 
   const startDraft = async () => {
-    await fetch(`${SERVER_URL}/draft/${leagueId}/start`, { method: "POST" });
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      throw new Error("Not authenticated");
+    }
+
+    await fetch(`${SERVER_URL}/draft/${leagueId}/start`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+    });
   };
 
   const queueStock = async (stockId: number) => {
@@ -515,9 +526,15 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     }
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error("Not authenticated");
+      }
+
       await fetch(`${SERVER_URL}/draft/${leagueId}/pick`, {
         method: "POST",
         headers: {
+          "Authorization": `Bearer ${session.access_token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
