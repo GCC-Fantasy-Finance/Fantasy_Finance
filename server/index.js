@@ -105,9 +105,23 @@ async function startOrResetDraftTimer(leagueId) {
 
 // Make a draft pick
 app.post('/draft/:leagueId/pick', verifyAuth, async (req, res) => {
-  const { leagueId } = req.params;
+  const leagueId = parseInt(req.params.leagueId, 10);
   const { portfolioId, stockId, round, pickNumber } = req.body;
   const userId = req.user.id;
+
+  // Validate body parameters
+  if (!Number.isInteger(portfolioId) || portfolioId <= 0) {
+    return res.status(400).json({ error: 'Invalid portfolio ID' });
+  }
+  if (!Number.isInteger(stockId) || stockId <= 0) {
+    return res.status(400).json({ error: 'Invalid stock ID' });
+  }
+  if (!Number.isInteger(round) || round <= 0) {
+    return res.status(400).json({ error: 'Invalid round number' });
+  }
+  if (!Number.isInteger(pickNumber) || pickNumber < 0) {
+    return res.status(400).json({ error: 'Invalid pick number' });
+  }
 
   try {
     const result = await makePick({ leagueId, portfolioId, stockId, round, pickNumber, userId });
@@ -128,7 +142,7 @@ app.post('/draft/:leagueId/pick', verifyAuth, async (req, res) => {
 
 // Start draft
 app.post('/draft/:leagueId/start', verifyAuth, async (req, res) => {
-  const { leagueId } = req.params;
+  const leagueId = parseInt(req.params.leagueId, 10);
   const userId = req.user.id;
 
   try {
