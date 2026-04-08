@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { useAuth } from "@/context/AuthContext";
@@ -15,6 +15,10 @@ import { getLeagueById } from "@/lib/leagues";
 import { getPortfoliosByLeague } from "@/lib/portfolios";
 import { getLatestPortfolioHistoryValues } from "@/lib/portfolioHistory";
 import { getBadgesbyUserBadges } from "@/lib/userBadges";
+import { getDraftPicksByLeague } from "@/lib/draftpicks";
+import StockDetailsModal from "@/components/ui/stockDetailsModal";
+import { getStockById, type StockRow } from "@/lib/stocks";
+import { toast } from "sonner";
 
 
 const LEAGUE_SUMMARY_CACHE_TTL_MS = 15_000;
@@ -145,9 +149,59 @@ export default function LeagueSummaryPage() {
   const [standings, setStandings] = useState<any[]>([]);
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showResultsModal, setShowResultsModal] = useState(false);
+  const [hasSeenModal, setHasSeenModal] = useState(false);
+  const [draftedStocks, setDraftedStocks] = useState<{ stockId: number; label: string }[]>([]);
+  const [stockDetailsModalOpen, setStockDetailsModalOpen] = useState(false);
+  const [selectedStock, setSelectedStock] = useState<StockRow | null>(null);
   const { profile } = useAuth();
   
   usePageTitle(league ? `${league.name} - Results` : "League Results");
+
+  const handleCloseModal = () => {
+    // Save to localStorage so modal doesn't show again for this league
+    const hasSeenKey = `league_${leagueId}_seen_modal`;
+    localStorage.setItem(hasSeenKey, 'true');
+    setShowResultsModal(false);
+    setHasSeenModal(true);
+  };
+
+  const handleOpenStockDetails = async (stockId?: number) => {
+    if (!stockId) return;
+
+    setStockDetailsModalOpen(true);
+
+    try {
+      const stock = await getStockById(stockId);
+      setSelectedStock(stock);
+    } catch {
+      toast.error("Failed to load stock details");
+      setStockDetailsModalOpen(false);
+    }
+  };
+
+  useEffect(() => {
+    // Prevent body scroll when stock details modal is open
+    if (stockDetailsModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [stockDetailsModalOpen]);
+
+  useEffect(() => {
+    // Check if user has already seen modal for this league
+    if (leagueId && !hasSeenModal && !loading) {
+      const hasSeenKey = `league_${leagueId}_seen_modal`;
+      if (!localStorage.getItem(hasSeenKey)) {
+        setShowResultsModal(true);
+      }
+    }
+  }, [leagueId, hasSeenModal, loading]);
 
   useEffect(() => {
     const fetchSummary = async () => {
@@ -180,114 +234,307 @@ export default function LeagueSummaryPage() {
     fetchSummary();
   }, [leagueId]);
 
-  if (loading) return <p>Loading league summary...</p>;
-  if (!league) return <p>League not found.</p>;
+  useEffect(() => {
+    const loadDraftedStocks = async () => {
+      if (!standings.length || !profile?.id) return;
 
-  const chartPortfolios = standings.map((entry) => ({
+      try {
+        const currentUserPortfolio = standings.find(
+          (entry) => entry.user_id === profile?.id
+        );
+        if (!currentUserPortfolio) return;
+
+        const leagueIdAsNumber = Number(leagueId);
+
+        // Check if drafting is enabled
+        const leagueData = await getLeagueById(leagueIdAsNumber);
+        const draftingEnabled = Boolean(leagueData?.has_drafting);
+        if (!draftingEnabled) {
+          setDraftedStocks([]);
+          return;
+        }
+
+        // Get all draft picks for this league
+        const picks = await getDraftPicksByLeague(leagueIdAsNumber);
+        const myPickStockIds = picks
+          .filter((pick) => pick.portfolio_id === currentUserPortfolio.portfolio_id)
+          .map((pick) => Number(pick.stock_id));
+
+        const uniqueStockIds = Array.from(
+          new Set(myPickStockIds.filter((stockId) => Number.isFinite(stockId)))
+        );
+
+        if (uniqueStockIds.length === 0) {
+          setDraftedStocks([]);
+          return;
+        }
+
+        // Fetch stock data from database
+        const { data: stockRows, error } = await supabase
+          .from("Stocks")
+          .select("stock_id,name,stock_symbol")
+          .in("stock_id", uniqueStockIds);
+
+        if (error) {
+          console.error("Failed to load drafted stock names:", error);
+          setDraftedStocks([]);
+          return;
+        }
+
+        // Map stock IDs to their labels
+        const stockNameById = new Map<number, string>();
+        for (const stockRow of stockRows ?? []) {
+          const stockId = Number((stockRow as { stock_id: number }).stock_id);
+          const stockName =
+            (stockRow as { name?: string | null }).name?.trim() ||
+            `Stock #${stockId}`;
+          const stockSymbol =
+            (stockRow as { stock_symbol?: string | null }).stock_symbol?.trim() ||
+            "";
+
+          stockNameById.set(
+            stockId,
+            stockSymbol ? `${stockSymbol} - ${stockName}` : stockName
+          );
+        }
+
+        // Create ordered list of drafted stocks
+        const seenStockIds = new Set<number>();
+        const orderedDraftedStocks: { stockId: number; label: string }[] = [];
+        for (const stockId of myPickStockIds) {
+          if (seenStockIds.has(stockId)) continue;
+          seenStockIds.add(stockId);
+          orderedDraftedStocks.push({
+            stockId,
+            label: stockNameById.get(stockId) ?? `Stock #${stockId}`,
+          });
+        }
+
+        setDraftedStocks(orderedDraftedStocks);
+      } catch (err) {
+        console.error("Failed to load drafted stocks:", err);
+        setDraftedStocks([]);
+      }
+    };
+
+    loadDraftedStocks();
+  }, [leagueId, standings, profile?.id]);
+
+  // Calculate values BEFORE early returns to maintain hook order
+  const chartPortfolios = useMemo(() => standings.map((entry) => ({
     portfolio_id: Number(entry.portfolio_id),
     username: entry.Profiles?.username ?? `Portfolio ${entry.portfolio_id}`,
-  }));
+  })), [standings]);
 
   const currentUserPortfolioId = standings.find(
     (entry) => entry.user_id === profile?.id
   )?.portfolio_id;
+
+  const hasWon = standings[0]?.portfolio_id === currentUserPortfolioId;
+
+  const leaderboardData = useMemo(() => standings.map((entry) => ({
+    portfolio_id: Number(entry.portfolio_id),
+    username: entry.Profiles?.username ?? `Portfolio ${entry.portfolio_id}`,
+    live_value: entry.live_value ?? entry.previous_close_value ?? 0,
+  })), [standings]);
+
+  if (loading) return <p>Loading league summary...</p>;
+  if (!league) return <p>League not found.</p>;
 
   const selectedEntry = standings.find(
     (entry) => entry.portfolio_id === selectedPortfolioId
   );
 
   return (
-    <div className="p-6">
-      
-      <div className="mb-6 w-full flex justify-center">
-      {standings[0]?.portfolio_id === currentUserPortfolioId ? (
-        <h2 className="bg-green-100 text-xl font-bold mb-4 text-green-600 text-center border border-green-600 rounded px-4 py-2">Congratulations, you won the league!</h2>
-      ) : (
-        <h2 className="bg-red-100 text-xl font-bold mb-4 text-red-600 text-center border border-red-600 rounded px-4 py-2">Better luck next time!</h2>
+    <div className="w-full relative">
+      {/* Results Modal */}
+      {showResultsModal && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-start pt-24 pointer-events-none\">
+          {/* Overlay */}
+          <div className="absolute inset-0 bg-black/20 pointer-events-auto" onClick={handleCloseModal} />
+
+          {/* Modal Container */}
+          <div className="relative z-10 max-w-md w-full mx-4 pointer-events-auto">
+            {/* Modal */}
+            <div className="rounded-lg p-8 shadow-lg bg-white border-2 border-green-500">
+              {/* Logo */}
+              <div className="flex justify-center mb-6">
+                <img
+                  src="/ff_favicon.png"
+                  alt="Fantasy Finance"
+                  className="w-12 h-12 object-contain"
+                />
+              </div>
+
+              {/* Header */}
+              <div className="text-center mb-8">
+                <p className="text-lg font-semibold text-gray-700">
+                  The {league?.name} league has ended
+                </p>
+              </div>
+
+              {/* Footer with CTA */}
+              <div className="flex justify-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCloseModal}
+                >
+                  View Details <span className="text-lg">→</span>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
-      </div>
-      
-      <div className="w-full flex gap-8">
-        <div className="flex-1">
-          <SummaryPageLeaderboard
-            entries={standings}
-            currentUserId={profile?.id}
-            onPortfolioClick={(portfolioId) => setSelectedPortfolioId(portfolioId)}
-          />
+
+      <div className="mx-auto max-w-full px-2 md:px-4 lg:px-6 py-4 md:py-6">
+        {/* Results Banner */}
+        <div className={`mb-6 flex flex-col justify-center items-center transition-opacity duration-500 ${showResultsModal ? 'opacity-0' : 'opacity-100'}`}>
+          {hasWon && (
+            <img
+              src="/crown.png"
+              alt="Winner crown"
+              className="w-12 h-12 object-contain mb-3"
+            />
+          )}
+          {standings[0]?.portfolio_id === currentUserPortfolioId ? (
+            <div className="w-full rounded-lg p-8 bg-green-50 border-2 border-green-500 max-w-md">
+              <p className="text-sm font-medium text-green-700 text-center mb-4">
+                The {league?.name} league has ended
+              </p>
+              <h2 className="text-2xl font-bold text-green-600 text-center">
+                You are the champion!
+              </h2>
+            </div>
+          ) : (
+            <div className="w-full rounded-lg p-8 bg-red-50 border-2 border-red-500 max-w-md">
+              <p className="text-sm font-medium text-red-700 text-center mb-4">
+                The {league?.name} league has ended
+              </p>
+              <h2 className="text-2xl font-bold text-red-600 text-center">
+                Better luck next time!
+              </h2>
+            </div>
+          )}
         </div>
-        <div className="flex-1 w-full">
-          <LeaguePortfolioChart 
-            portfolios={chartPortfolios} 
-            currentUserPortfolioId={Number(currentUserPortfolioId)}
-            leaderboard={standings.map((entry) => ({
-              portfolio_id: Number(entry.portfolio_id),
-              username: entry.Profiles?.username ?? `Portfolio ${entry.portfolio_id}`,
-              live_value: entry.live_value ?? entry.previous_close_value ?? 0,
-            }))}
-            endDate={league?.finish_time ? new Date(league.finish_time).toISOString().split('T')[0] : undefined}
-          />
+
+        {/* Main Content */}
+        <div className={`mb-18 transition-opacity duration-500 ${showResultsModal ? 'opacity-0' : 'opacity-100'}`}>
+          {/* Leaderboard and Graph - Two Column Grid */}
+          <div className="mb-6 grid grid-cols-1 gap-6 min-[1200px]:grid-cols-2">
+            {/* Leaderboard Column */}
+            <div className="w-full rounded-md border border-gray-300 bg-white">
+              <div className="px-6 py-5">
+                <SummaryPageLeaderboard
+                  entries={standings}
+                  currentUserId={profile?.id}
+                  onPortfolioClick={(portfolioId) => setSelectedPortfolioId(portfolioId)}
+                />
+              </div>
+            </div>
+
+            {/* Graph Column */}
+            <div className="w-full">
+              <LeaguePortfolioChart 
+                portfolios={chartPortfolios} 
+                currentUserPortfolioId={Number(currentUserPortfolioId)}
+                leaderboard={leaderboardData}
+                endDate={league?.finish_time ? new Date(league.finish_time).toISOString().split('T')[0] : undefined}
+              />
+            </div>
+          </div>
+
+          {/* Drafted Stocks Section */}
+          {draftedStocks.length > 0 && (
+            <div className="mb-6 rounded-lg border border-gray-300 bg-white px-4 py-3">
+              <h2 className="mb-2 text-sm font-semibold text-gray-900">
+                Your Drafted Stocks
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {draftedStocks.map((stock) => (
+                  <button
+                    key={stock.stockId}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleOpenStockDetails(stock.stockId);
+                    }}
+                    className="inline-flex cursor-pointer items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                  >
+                    {stock.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Bottom Actions */}
+          <div className="flex items-center gap-4">
+            <div className="flex flex-col gap-2">
+              <p className="text-xs text-gray-500">Finished at: {new Date(league.finish_time).toLocaleString()}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-fit text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700"
+                onClick={() => {
+                  if (window.confirm("Are you sure you want to leave this league?")) {
+                    supabase
+                      .from("Portfolios")
+                      .delete()
+                      .eq("league_id", leagueId)
+                      .eq("user_id", profile?.id)
+                      .then(({ error }) => {
+                        if (error) {
+                          alert("Failed to leave league: " + error.message);
+                        } else {
+                          leagueSummaryCache.delete(Number(leagueId));
+                          window.dispatchEvent(
+                            new CustomEvent("ff:leagues-updated", {
+                              detail: { leagueId: Number(leagueId) },
+                            })
+                          );
+                          navigate("/");
+                        }
+                      });
+                  }
+                }}
+              >
+                Leave League
+              </Button>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <LeagueMemberPortfolioModal
-        open={selectedPortfolioId != null}
-        portfolioId={selectedPortfolioId}
-        memberName={selectedEntry?.Profiles?.username ?? "Unknown User"}
-        memberAvatarUrl={selectedEntry?.Profiles?.avatar_url}
-        memberUserId={selectedEntry ? (console.log("DEBUG LeagueSummaryPage selectedEntry:", selectedEntry), selectedEntry.user_id) : undefined}
-        leagueOwnerId={league?.owner_id}
-        isLeagueOwner={profile?.id === league?.owner_id}
-        badges={selectedEntry?.badges}
-        joinedDate={selectedEntry?.Profiles?.created_at}
-        leagueFinished
-        leagueId={Number(leagueId)}
-        fallbackNetValue={
-          selectedEntry
-            ? calculatePortfolioValue({
-                netValue:
-                  selectedEntry.live_value ?? selectedEntry.previous_close_value,
-              })
-            : undefined
-        }
-        onClose={() => setSelectedPortfolioId(null)}
-      />
-
-      <br/>
-      {/* {selectedPortfolioId ? (
-        <p className="text-sm text-gray-500 mb-2">
-          Selected portfolio ID: {selectedPortfolioId}
-        </p>
-      ) : null} */}
-      <p className="text-sm text-gray-500 mb-2">Finished_at: {new Date(league.finish_time).toLocaleString()}</p>
-
-      <Button
-        variant="outline"
-        className="mt-3 text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700"
-        onClick={() => {
-          if (window.confirm("Are you sure you want to leave this league?")) {
-            supabase
-              .from("Portfolios")
-              .delete()
-              .eq("league_id", leagueId)
-              .eq("user_id", profile?.id)
-              .then(({ error }) => {
-                if (error) {
-                  alert("Failed to leave league: " + error.message);
-                } else {
-                  leagueSummaryCache.delete(Number(leagueId));
-                  window.dispatchEvent(
-                    new CustomEvent("ff:leagues-updated", {
-                      detail: { leagueId: Number(leagueId) },
-                    })
-                  );
-                  navigate("/");
-                }
-              });
+        <LeagueMemberPortfolioModal
+          open={selectedPortfolioId != null}
+          portfolioId={selectedPortfolioId}
+          memberName={selectedEntry?.Profiles?.username ?? "Unknown User"}
+          memberAvatarUrl={selectedEntry?.Profiles?.avatar_url}
+          memberUserId={selectedEntry ? (console.log("DEBUG LeagueSummaryPage selectedEntry:", selectedEntry), selectedEntry.user_id) : undefined}
+          leagueOwnerId={league?.owner_id}
+          isLeagueOwner={profile?.id === league?.owner_id}
+          badges={selectedEntry?.badges}
+          joinedDate={selectedEntry?.Profiles?.created_at}
+          leagueFinished
+          leagueId={Number(leagueId)}
+          fallbackNetValue={
+            selectedEntry
+              ? calculatePortfolioValue({
+                  netValue:
+                    selectedEntry.live_value ?? selectedEntry.previous_close_value,
+                })
+              : undefined
           }
-        }}
-      >
-        Leave League
-      </Button>
+          onClose={() => setSelectedPortfolioId(null)}
+        />
+
+        <StockDetailsModal
+          open={stockDetailsModalOpen}
+          stock={selectedStock}
+          onClose={() => setStockDetailsModalOpen(false)}
+        />
+      </div>
     </div>
   );
 }
