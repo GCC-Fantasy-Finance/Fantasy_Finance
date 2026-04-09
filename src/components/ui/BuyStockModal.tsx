@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom";
-import { X, ChevronUp, ChevronDown } from "lucide-react";
+import { X } from "lucide-react";
 import { Button } from "./button";
 import { useTradeModal } from "@/context/TradeModalContext";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { buyStock } from "@/hooks/buyStock";
 import { invalidateCachedPortfolioView } from "@/hooks/fetchPortfolio";
-import { truncateCurrency } from "@/lib/utils";
+import { calculateShareQuantityForAmount, truncateCurrency } from "@/lib/utils";
 
 export default function BuyStockModal() {
   const { buyOpen, stock, portfolio, closeBuy } = useTradeModal();
@@ -61,7 +61,7 @@ export default function BuyStockModal() {
 
     try {
       setSubmitting(true);
-      const quantity = Number((parsedAmount / price).toFixed(6));
+      const quantity = calculateShareQuantityForAmount(parsedAmount, price);
       const res = await buyStock({
         stockId: stock!.stock_id,
         price,
@@ -82,18 +82,6 @@ export default function BuyStockModal() {
       setSubmitting(false);
     }
   }
-
-  const step = 1; // $1 increments
-  const onStepUp = () =>
-    setAmount((prev) => {
-      const v = Number(prev) || 0;
-      return String(v + step);
-    });
-  const onStepDown = () =>
-    setAmount((prev) => {
-      const v = Number(prev) || 0;
-      return String(Math.max(0, v - step));
-    });
 
   const buyLabel = canBuy ? `Buy $${truncateCurrency(parsedAmount)}` : "Buy";
 
@@ -133,10 +121,23 @@ export default function BuyStockModal() {
         {/* Body */}
         <div className="px-4 pb-4">
           {/* Stock box */}
-          <div className="mt-3 rounded border bg-white px-4 py-3">
-            <div className="font-medium">{stock.name}</div>
-            <div className="mt-1 text-green-700 font-semibold">
-              ${truncateCurrency(price)}
+          <div className="mt-3 rounded border bg-white px-4 py-3 flex items-center gap-3">
+            {stock.logo_url ? (
+              <img
+                src={stock.logo_url}
+                alt={stock.stock_symbol}
+                className="h-10 w-10 shrink-0 object-contain"
+              />
+            ) : (
+              <div className="h-10 w-10 shrink-0 rounded bg-gray-200 flex items-center justify-center text-gray-500 text-sm font-medium">
+                {stock.stock_symbol[0]}
+              </div>
+            )}
+            <div>
+              <div className="font-medium">{stock.name}</div>
+              <div className="mt-1 text-green-700 font-semibold">
+                ${truncateCurrency(price)} / Share
+              </div>
             </div>
           </div>
 
@@ -151,22 +152,6 @@ export default function BuyStockModal() {
                 inputMode="decimal"
                 className="w-full rounded border px-3 py-2 text-sm"
               />
-              <div className="flex flex-col">
-                <button
-                  type="button"
-                  onClick={onStepUp}
-                  className="border rounded-t px-2 py-1 bg-white hover:bg-gray-50"
-                >
-                  <ChevronUp className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={onStepDown}
-                  className="border rounded-b px-2 py-1 bg-white hover:bg-gray-50"
-                >
-                  <ChevronDown className="w-4 h-4" />
-                </button>
-              </div>
             </div>
           </div>
 

@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import SearchIcon from "@/components/ui/search-icon";
 import Leaderboard from "@/layouts/components/Leaderboard";
-import LeagueMemberPortfolioModal from "@/components/ui/LeagueMemberPortfolioModal";
+import MemberPortfolioModal from "@/components/ui/LeagueMemberPortfolioModal";
 import InviteMembersModal from "@/components/ui/InviteMembersModal";
 import { calculatePortfolioValue } from "@/lib/portfolioValue";
 import Spinner from "@/components/ui/spinner";
@@ -201,7 +201,7 @@ export default function LeagueLeaderboardPage() {
           />
         </div>
 
-        <LeagueMemberPortfolioModal
+        <MemberPortfolioModal
           open={Boolean(selectedPortfolio)}
           portfolioId={selectedPortfolio?.portfolio_id ?? null}
           memberName={selectedPortfolio?.Profiles?.username ?? "Unknown User"}
