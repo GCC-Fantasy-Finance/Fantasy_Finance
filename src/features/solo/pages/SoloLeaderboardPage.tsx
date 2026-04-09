@@ -6,10 +6,11 @@ import Leaderboard, {
 import MemberPortfolioModal from "@/components/ui/LeagueMemberPortfolioModal";
 import { useAuth } from "@/context/AuthContext";
 import { buildSortedLeaderboardEntries } from "@/lib/leagues";
-import { calculatePortfolioValue } from "@/lib/portfolioValue";
 import { getBadgesbyUserBadges } from "@/lib/userBadges";
 import TimeFrameSelector from "@/components/ui/TimeFrameSelector";
-import Spinner from "@/components/ui/spinner";
+import LeaderboardSkeleton from "@/components/ui/LeaderboardSkeleton";
+import SoloPortfolioModal from "@/components/ui/SoloPortfolioModal";
+import { calculatePortfolioValue } from "@/lib/portfolioValue";
 
 const SOLO_LEADERBOARD_CACHE_TTL_MS = 15_000;
 
@@ -25,23 +26,20 @@ type SoloLeaderboardCacheValue = {
   >;
 };
 
-type TimeFrame = "1D" | "1M" | "1Y" | "ALL" | "TOTAL";
+type TimeFrame = "1D" | "1M" | "1Y" | "ALL";
 
 const TIMEFRAME_OPTIONS = [
   { value: "1D", label: "1D" },
   { value: "1M", label: "1M" },
   { value: "1Y", label: "1Y" },
   { value: "ALL", label: "ALL" },
-  { value: "TOTAL", label: "TOT ($)" },
 ];
 
 const TIMEFRAME_DESCRIPTIONS: Record<TimeFrame, string> = {
   "1D": "Ranked by percentage gain since the previous market close.",
   "1M": "Ranked by percentage gain over the last month.",
   "1Y": "Ranked by percentage gain over the last year.",
-  ALL: "Ranked by percentage gain since your portfolio's earliest recorded value.",
-  TOTAL:
-    "Ranked by current total portfolio value, regardless of performance period.",
+  "ALL": "Ranked by percentage gain since your portfolio's earliest recorded value.",
 };
 
 type HistoryRow = {
@@ -251,11 +249,11 @@ function SoloLeaderboardPage() {
   const [baselinesByPortfolioId, setBaselinesByPortfolioId] = useState<
     SoloLeaderboardCacheValue["baselinesByPortfolioId"]
   >({});
-  const [selectedPortfolio, setSelectedPortfolio] =
-    useState<LeaderboardEntry | null>(null);
   const [timeFrame, setTimeFrame] = useState<TimeFrame>("1D");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedPortfolio, setSelectedPortfolio] =
+    useState<LeaderboardEntry | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -317,7 +315,7 @@ function SoloLeaderboardPage() {
       return normalizeBaseline(Number(baseline?.oneYear ?? previousClose));
     }
     if (selectedTimeFrame === "ALL") {
-      return normalizeBaseline(Number(baseline?.allTime ?? previousClose));
+      return 10000;
     }
 
     return normalizeBaseline(previousClose);
@@ -332,12 +330,28 @@ function SoloLeaderboardPage() {
         right.live_value ?? right.previous_close_value ?? 0,
       );
 
-      if (timeFrame === "TOTAL") {
-        return rightLive - leftLive;
+      // Calculate cutoff dates for each timeframe
+      const now = new Date();
+      let cutoffDate: Date | null = null;
+
+      if (timeFrame === "1D") {
+        cutoffDate = new Date(now);
+        cutoffDate.setDate(cutoffDate.getDate() - 1);
+      } else if (timeFrame === "1M") {
+        cutoffDate = new Date(now);
+        cutoffDate.setMonth(cutoffDate.getMonth() - 1);
+      } else if (timeFrame === "1Y") {
+        cutoffDate = new Date(now);
+        cutoffDate.setFullYear(cutoffDate.getFullYear() - 1);
       }
 
-      const leftBaseline = getBaselineForEntry(left, timeFrame);
-      const rightBaseline = getBaselineForEntry(right, timeFrame);
+      // Check if portfolios were created after the timeframe cutoff
+      const leftCreatedAfterCutoff = cutoffDate && left.created_at ? new Date(left.created_at) > cutoffDate : false;
+      const rightCreatedAfterCutoff = cutoffDate && right.created_at ? new Date(right.created_at) > cutoffDate : false;
+
+      // For new accounts (created after cutoff), use 10,000 as baseline
+      const leftBaseline = leftCreatedAfterCutoff ? 10000 : getBaselineForEntry(left, timeFrame);
+      const rightBaseline = rightCreatedAfterCutoff ? 10000 : getBaselineForEntry(right, timeFrame);
 
       const leftScore =
         leftBaseline > 0
@@ -348,37 +362,60 @@ function SoloLeaderboardPage() {
           ? (rightLive - rightBaseline) / rightBaseline
           : rightLive - rightBaseline;
 
+      // First, compare scores (percent change)
       if (rightScore !== leftScore) {
         return rightScore - leftScore;
       }
 
+      // Tiebreaker: compare by absolute portfolio value
       return rightLive - leftLive;
     });
   }, [entries, timeFrame, baselinesByPortfolioId]);
 
   const tickerPreviousValuesByPortfolioId = useMemo(() => {
     const values: Record<number, number> = {};
+    
+    // Calculate cutoff dates for each timeframe
+    const now = new Date();
+    let cutoffDate: Date | null = null;
+
+    if (timeFrame === "1D") {
+      cutoffDate = new Date(now);
+      cutoffDate.setDate(cutoffDate.getDate() - 1);
+    } else if (timeFrame === "1M") {
+      cutoffDate = new Date(now);
+      cutoffDate.setMonth(cutoffDate.getMonth() - 1);
+    } else if (timeFrame === "1Y") {
+      cutoffDate = new Date(now);
+      cutoffDate.setFullYear(cutoffDate.getFullYear() - 1);
+    }
+    
     for (const entry of sortedEntries) {
-      values[entry.portfolio_id] = getBaselineForEntry(entry, timeFrame);
+      // Check if portfolio was created after the timeframe cutoff
+      const createdAfterCutoff = cutoffDate && entry.created_at ? new Date(entry.created_at) > cutoffDate : false;
+      values[entry.portfolio_id] = createdAfterCutoff ? 10000 : getBaselineForEntry(entry, timeFrame);
     }
     return values;
   }, [sortedEntries, timeFrame, baselinesByPortfolioId]);
 
   const valueColumnLabel =
-    timeFrame === "TOTAL"
-      ? "Portfolio Value (Total)"
-      : timeFrame === "ALL"
-        ? "Portfolio Value (All Time)"
-        : `Portfolio Value (${timeFrame})`;
+    timeFrame === "ALL"
+      ? "Portfolio Value (All Time)"
+      : `Portfolio Value (${timeFrame})`;
 
   const timeFrameDescription = TIMEFRAME_DESCRIPTIONS[timeFrame];
 
   return (
     <div className="max-w-3xl">
       {loading && (
-        <div className="flex items-center justify-center py-12">
-          <Spinner />
-        </div>
+        <LeaderboardSkeleton
+          showDateStarted
+          showTimeFrameSelector
+          timeFrameOptions={TIMEFRAME_OPTIONS}
+        />
+        // <div className="flex items-center justify-center py-12">
+        //   <Spinner />
+        // </div>
       )}
       {error && <p className="text-red-600">{error}</p>}
 
@@ -434,6 +471,26 @@ function SoloLeaderboardPage() {
           />
         </>
       )}
+
+      <SoloPortfolioModal
+        open={Boolean(selectedPortfolio)}
+        portfolioId={selectedPortfolio?.portfolio_id ?? null}
+        memberName={selectedPortfolio?.Profiles?.username ?? "Unknown User"}
+        memberAvatarUrl={selectedPortfolio?.Profiles?.avatar_url}
+        badges={selectedPortfolio?.badges}
+        joinedDate={selectedPortfolio?.Profiles?.created_at}
+        fallbackNetValue={
+          selectedPortfolio
+            ? calculatePortfolioValue({
+                netValue:
+                  selectedPortfolio.live_value ??
+                  selectedPortfolio.previous_close_value,
+              })
+            : undefined
+        }
+        onClose={() => setSelectedPortfolio(null)}
+      />
+
       <div className="h-16" />
     </div>
   );

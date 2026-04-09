@@ -13,10 +13,10 @@ import {
 import { calculateStockPercentChange, truncateCurrency } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
-import StockDetailsModal from "./stockDetailsModal";
 import ReportUserModal from "./ReportUserModal";
 import { kickMember } from "./kickMember";
 import UserBadgeHover from "./UserBadgeHover";
+import StockDetailsModal from "./stockDetailsModal";
 import type { UserBadgeView } from "@/lib/userBadges";
 import { getDraftPicksByLeague } from "@/lib/draftpicks";
 import { getStockById, type StockRow } from "@/lib/stocks";
@@ -236,7 +236,7 @@ export default function MemberPortfolioModal({
   if (!open || portfolioId == null) return null;
   if (typeof document === "undefined") return null;
 
-  return ReactDOM.createPortal(
+  const portal = ReactDOM.createPortal(
     <div className="ff-modal-viewport fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onMouseDown={onClose} />
 
@@ -464,5 +464,16 @@ export default function MemberPortfolioModal({
       />
     </div>,
     document.body,
+  );
+
+  return (
+    <>
+      {portal}
+      <StockDetailsModal
+        open={!!selectedStock}
+        stock={(selectedStock?.stock_id as any) ?? null}
+        onClose={() => setSelectedStock(null)}
+      />
+    </>
   );
 }

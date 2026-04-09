@@ -14,6 +14,8 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "./tool
 import LeagueInviteModal from "./LeagueInviteModal";
 import { supabase } from "@/lib/supabase";
 
+const LayeredTrashIcon = () => <Trash2 className="w-4 h-4" />;
+
 export default function NotificationsPanel() {
   const { user } = useAuth();
   const { notificationsState, setNotificationsState, setUnreadCount } =
@@ -198,6 +200,26 @@ export default function NotificationsPanel() {
     setUnreadCount(0);
   };
 
+  const handleDeleteAllNotifications = async () => {
+    if (!user || notifications.length === 0) return;
+    try {
+      const { error } = await supabase
+        .from("Notifications")
+        .update({ is_hidden: true })
+        .in(
+          "notification_id",
+          notifications.map((n) => n.notification_id)
+        );
+
+      if (!error) {
+        setNotifications([]);
+        setUnreadCount(0);
+      }
+    } catch (err) {
+      console.error("Error deleting all notifications:", err);
+    }
+  };
+
   const renderHeader = () => (
     <div className="flex items-center justify-between h-14 px-4 border-b border-gray-200 shrink-0">
       <div className="flex items-center gap-2">
@@ -218,6 +240,19 @@ export default function NotificationsPanel() {
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">Mark all as read</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={handleDeleteAllNotifications}
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 opacity-100!"
+              >
+                <LayeredTrashIcon />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Delete all</TooltipContent>
           </Tooltip>
         </TooltipProvider>
         <Button

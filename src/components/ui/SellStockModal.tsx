@@ -34,6 +34,30 @@ export default function SellStockModal() {
     return Number.isFinite(q) ? q : 0;
   }, [mode, parsedAmount, price, availableShares]);
 
+  const handleAmountChange = (value: string) => {
+    // Allow empty string
+    if (value === "") {
+      setAmount("");
+      return;
+    }
+
+    // Only allow digits and single decimal point
+    if (!/^\d*\.?\d*$/.test(value)) {
+      return; // Reject if contains invalid characters
+    }
+
+    // Prevent multiple decimal points
+    if ((value.match(/\./g) || []).length > 1) {
+      return;
+    }
+
+    // Parse and validate it's a positive number
+    const parsed = parseFloat(value);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      setAmount(value);
+    }
+  };
+
   const valid = useMemo(() => {
     if (!sellOpen || !stock || !portfolio) return false;
     if (mode === "all") return availableShares > 0;
@@ -187,7 +211,7 @@ export default function SellStockModal() {
               <div className="mt-2 flex items-center gap-2">
                 <input
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={(e) => handleAmountChange(e.target.value)}
                   placeholder="0"
                   inputMode="decimal"
                   className="w-full rounded border px-3 py-2 text-sm"
