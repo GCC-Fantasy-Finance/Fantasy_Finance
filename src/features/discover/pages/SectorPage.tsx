@@ -223,25 +223,40 @@ function SectorPage() {
                       setSelectedStock(stock);
                       setShowStockModal(true);
                     }}
-                    className="border border-gray-300 rounded-md px-4 py-3 text-left bg-white hover:bg-gray-50 transition-colors"
+                    className="border border-gray-300 rounded-md px-4 py-3 text-left bg-white hover:bg-gray-50 transition-colors flex items-center justify-between gap-3"
                   >
-                    <p className="font-semibold text-gray-900 truncate">
-                      {stock.name}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {stock.stock_symbol}
-                    </p>
-                    <p className="text-sm text-gray-900 mt-2">
-                      ${stock.current_price.toFixed(2)}
-                    </p>
-                    <p className="text-sm font-semibold text-green-700">
-                      +
-                      {calculateStockPercentChange(
-                        stock.current_price,
-                        stock.previous_close,
-                      ).toFixed(2)}
-                      %
-                    </p>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-gray-900 truncate">
+                        {stock.name}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {stock.stock_symbol}
+                      </p>
+                      <p className="text-sm text-gray-900 mt-2">
+                        ${stock.current_price.toFixed(2)}
+                      </p>
+                      <p className="text-sm font-semibold text-green-700">
+                        +
+                        {calculateStockPercentChange(
+                          stock.current_price,
+                          stock.previous_close,
+                        ).toFixed(2)}
+                        %
+                      </p>
+                    </div>
+                    <div className="shrink-0">
+                      {stock.logo_url ? (
+                        <img
+                          src={stock.logo_url}
+                          alt={stock.stock_symbol}
+                          className="h-12 w-12 object-contain"
+                        />
+                      ) : (
+                        <div className="h-12 w-12 rounded bg-gray-200 flex items-center justify-center text-gray-500 text-sm font-medium">
+                          {stock.stock_symbol[0]}
+                        </div>
+                      )}
+                    </div>
                   </button>
                 ))
               )}

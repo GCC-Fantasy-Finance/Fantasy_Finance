@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { buyStock } from "@/hooks/buyStock";
 import { invalidateCachedPortfolioView } from "@/hooks/fetchPortfolio";
+import { calculateShareQuantityForAmount } from "@/lib/utils";
 
 interface DraftedStock {
   stock_id: number;
@@ -189,7 +190,10 @@ export default function PostDraftBuyModal({
 
         if (amount <= 0) continue;
 
-        const quantity = Number((amount / stock.current_price).toFixed(6));
+        const quantity = calculateShareQuantityForAmount(
+          amount,
+          stock.current_price,
+        );
 
         const res = await buyStock({
           stockId: stock.stock_id,

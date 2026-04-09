@@ -13,11 +13,13 @@ import {
 import { calculateStockPercentChange, truncateCurrency } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
+import StockDetailsModal from "./stockDetailsModal";
 import ReportUserModal from "./ReportUserModal";
 import { kickMember } from "./kickMember";
 import UserBadgeHover from "./UserBadgeHover";
 import type { UserBadgeView } from "@/lib/userBadges";
 import { getDraftPicksByLeague } from "@/lib/draftpicks";
+import { getStockById, type StockRow } from "@/lib/stocks";
 
 type Props = {
   open: boolean;
@@ -43,9 +45,10 @@ type DraftedStockInfo = {
   stock_id: number;
   stock_symbol: string;
   name: string;
+  logo_url?: string | null;
 };
 
-export default function LeagueMemberPortfolioModal({
+export default function MemberPortfolioModal({
   open,
   portfolioId,
   memberName,
@@ -68,6 +71,7 @@ export default function LeagueMemberPortfolioModal({
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [draftedStocks, setDraftedStocks] = useState<DraftedStockInfo[]>([]);
+  const [selectedStock, setSelectedStock] = useState<StockRow | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -99,6 +103,7 @@ export default function LeagueMemberPortfolioModal({
       setHoldings([]);
       setReserveValue(0);
       setDraftedStocks([]);
+      setSelectedStock(null);
       setError(null);
       setLoading(false);
       return;
@@ -128,7 +133,7 @@ export default function LeagueMemberPortfolioModal({
           if (uniqueIds.length > 0) {
             const { data: stockRows } = await supabase
               .from("Stocks")
-              .select("stock_id, stock_symbol, name")
+              .select("stock_id, stock_symbol, name, logo_url")
               .in("stock_id", uniqueIds);
 
             if (mounted) {
@@ -137,6 +142,7 @@ export default function LeagueMemberPortfolioModal({
                   stock_id: s.stock_id,
                   stock_symbol: s.stock_symbol ?? "—",
                   name: s.name ?? "Unknown",
+                  logo_url: s.logo_url ?? null,
                 }))
               );
             }
@@ -199,6 +205,16 @@ export default function LeagueMemberPortfolioModal({
   const handleReportUser = () => {
     setReportModalOpen(true);
     setMenuOpen(false);
+  };
+
+  const handleOpenStockDetails = async (stockId?: number | null) => {
+    const numericStockId = Number(stockId);
+    if (!Number.isFinite(numericStockId)) return;
+
+    const stock = await getStockById(numericStockId);
+    if (!stock) return;
+
+    setSelectedStock(stock);
   };
 
   const handleKickMember = async () => {
@@ -312,10 +328,24 @@ export default function LeagueMemberPortfolioModal({
                   {draftedStocks.map((stock) => (
                     <div
                       key={stock.stock_id}
-                      className="flex items-center gap-3 rounded-lg border px-4 py-3 bg-white"
+                      className="flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 bg-white transition-colors hover:bg-gray-50"
+                      onClick={() => void handleOpenStockDetails(stock.stock_id)}
                     >
-                      <span className="text-sm font-semibold">{stock.stock_symbol}</span>
-                      <span className="text-xs text-gray-500">{stock.name}</span>
+                      {stock.logo_url ? (
+                        <img
+                          src={stock.logo_url}
+                          alt={stock.stock_symbol}
+                          className="h-8 w-8 shrink-0 object-contain"
+                        />
+                      ) : (
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-gray-200 text-xs text-gray-500">
+                          {stock.stock_symbol[0]}
+                        </div>
+                      )}
+                      <div className="flex min-w-0 flex-col">
+                        <span className="text-sm font-semibold">{stock.stock_symbol}</span>
+                        <span className="truncate text-xs text-gray-500">{stock.name}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -363,14 +393,26 @@ export default function LeagueMemberPortfolioModal({
                   return (
                     <div
                       key={holding.portfolio_holding_id}
-                      className="flex items-center justify-between rounded-lg border shadow-sm w-full px-4 py-3 bg-white"
+                      className="flex w-full cursor-pointer items-center justify-between rounded-lg border bg-white px-4 py-3 shadow-sm transition-colors hover:bg-gray-50"
+                      onClick={() => void handleOpenStockDetails(holding.stock?.stock_id)}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="flex flex-col min-w-[120px]">
+                        {holding.stock?.logo_url ? (
+                          <img
+                            src={holding.stock.logo_url}
+                            alt={holding.stock?.stock_symbol ?? ""}
+                            className="h-8 w-8 shrink-0 object-contain"
+                          />
+                        ) : (
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-gray-200 text-xs text-gray-500">
+                            {holding.stock?.stock_symbol?.[0] ?? "—"}
+                          </div>
+                        )}
+                        <div className="flex min-w-[120px] flex-col">
                           <span className="text-sm font-semibold">
                             {holding.stock?.stock_symbol ?? "—"}
                           </span>
-                          <span className="text-xs text-gray-500">
+                          <span className="truncate text-xs text-gray-500">
                             {holding.stock?.name ?? "Unknown stock"}
                           </span>
                         </div>
@@ -413,6 +455,12 @@ export default function LeagueMemberPortfolioModal({
         userName={memberName}
         reportedUserId={memberUserId}
         onClose={() => setReportModalOpen(false)}
+      />
+
+      <StockDetailsModal
+        open={Boolean(selectedStock)}
+        stock={selectedStock}
+        onClose={() => setSelectedStock(null)}
       />
     </div>,
     document.body,

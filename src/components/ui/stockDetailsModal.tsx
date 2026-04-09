@@ -643,6 +643,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
         stock_symbol: stock.stock_symbol ?? "",
         name: stock.name ?? "",
         current_price: stockPrice,
+        logo_url: stock.logo_url ?? null,
       },
       portfolio: {
         portfolio_id: portfolio.portfolio_id,
@@ -660,6 +661,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
         stock_symbol: stock.stock_symbol ?? "",
         name: stock.name ?? "",
         current_price: stockPrice,
+        logo_url: stock.logo_url ?? null,
       },
       portfolio: {
         portfolio_id: portfolio.portfolio_id,

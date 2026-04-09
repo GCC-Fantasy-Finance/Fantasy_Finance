@@ -3,8 +3,10 @@ import { supabase } from "@/lib/supabase";
 import Leaderboard, {
   type LeaderboardEntry,
 } from "@/layouts/components/Leaderboard";
+import MemberPortfolioModal from "@/components/ui/LeagueMemberPortfolioModal";
 import { useAuth } from "@/context/AuthContext";
 import { buildSortedLeaderboardEntries } from "@/lib/leagues";
+import { calculatePortfolioValue } from "@/lib/portfolioValue";
 import { getBadgesbyUserBadges } from "@/lib/userBadges";
 import TimeFrameSelector from "@/components/ui/TimeFrameSelector";
 
@@ -237,6 +239,8 @@ function SoloLeaderboardPage() {
   const [baselinesByPortfolioId, setBaselinesByPortfolioId] = useState<
     SoloLeaderboardCacheValue["baselinesByPortfolioId"]
   >({});
+  const [selectedPortfolio, setSelectedPortfolio] =
+    useState<LeaderboardEntry | null>(null);
   const [timeFrame, setTimeFrame] = useState<TimeFrame>("1D");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -286,18 +290,25 @@ function SoloLeaderboardPage() {
     const portfolioId = Number(entry.portfolio_id);
     const baseline = baselinesByPortfolioId[portfolioId];
     const previousClose = Number(entry.previous_close_value ?? 0);
+    const liveValue = Number(entry.live_value ?? previousClose);
+
+    const normalizeBaseline = (value: number) => {
+      if (value > 0) return value;
+      if (liveValue > 0) return liveValue;
+      return previousClose;
+    };
 
     if (selectedTimeFrame === "1M") {
-      return Number(baseline?.oneMonth ?? previousClose);
+      return normalizeBaseline(Number(baseline?.oneMonth ?? previousClose));
     }
     if (selectedTimeFrame === "1Y") {
-      return Number(baseline?.oneYear ?? previousClose);
+      return normalizeBaseline(Number(baseline?.oneYear ?? previousClose));
     }
     if (selectedTimeFrame === "ALL") {
-      return Number(baseline?.allTime ?? previousClose);
+      return normalizeBaseline(Number(baseline?.allTime ?? previousClose));
     }
 
-    return previousClose;
+    return normalizeBaseline(previousClose);
   };
 
   const sortedEntries = useMemo(() => {
@@ -361,9 +372,37 @@ function SoloLeaderboardPage() {
           <Leaderboard
             entries={sortedEntries}
             currentUserId={profile?.id}
+            onPortfolioClick={(portfolioId) => {
+              const selectedEntry = sortedEntries.find(
+                (entry) => entry.portfolio_id === portfolioId,
+              );
+              if (selectedEntry) {
+                setSelectedPortfolio(selectedEntry);
+              }
+            }}
             showDateStarted
             valueColumnLabel={valueColumnLabel}
             tickerPreviousValuesByPortfolioId={tickerPreviousValuesByPortfolioId}
+          />
+
+          <MemberPortfolioModal
+            open={Boolean(selectedPortfolio)}
+            portfolioId={selectedPortfolio?.portfolio_id ?? null}
+            memberName={selectedPortfolio?.Profiles?.username ?? "Solo Player"}
+            memberAvatarUrl={selectedPortfolio?.Profiles?.avatar_url}
+            memberUserId={selectedPortfolio?.user_id}
+            badges={selectedPortfolio?.badges}
+            joinedDate={selectedPortfolio?.Profiles?.created_at}
+            fallbackNetValue={
+              selectedPortfolio
+                ? calculatePortfolioValue({
+                    netValue:
+                      selectedPortfolio.live_value ??
+                      selectedPortfolio.previous_close_value,
+                  })
+                : undefined
+            }
+            onClose={() => setSelectedPortfolio(null)}
           />
         </>
       )}
