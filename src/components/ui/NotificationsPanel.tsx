@@ -203,7 +203,6 @@ export default function NotificationsPanel() {
   const handleDeleteAllNotifications = async () => {
     if (!user || notifications.length === 0) return;
     try {
-      const unreadCount = notifications.filter((n) => !n.was_viewed).length;
       const { error } = await supabase
         .from("Notifications")
         .update({ is_hidden: true })
