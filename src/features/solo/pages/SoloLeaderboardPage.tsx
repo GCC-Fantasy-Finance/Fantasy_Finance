@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import { buildSortedLeaderboardEntries } from "@/lib/leagues";
 import { getBadgesbyUserBadges } from "@/lib/userBadges";
 import TimeFrameSelector from "@/components/ui/TimeFrameSelector";
+import Spinner from "@/components/ui/spinner";
 
 const SOLO_LEADERBOARD_CACHE_TTL_MS = 15_000;
 
@@ -29,8 +30,17 @@ const TIMEFRAME_OPTIONS = [
   { value: "1M", label: "1M" },
   { value: "1Y", label: "1Y" },
   { value: "ALL", label: "ALL" },
-  { value: "TOTAL", label: "TOT" },
+  { value: "TOTAL", label: "TOT ($)" },
 ];
+
+const TIMEFRAME_DESCRIPTIONS: Record<TimeFrame, string> = {
+  "1D": "Ranked by percentage gain since the previous market close.",
+  "1M": "Ranked by percentage gain over the last month.",
+  "1Y": "Ranked by percentage gain over the last year.",
+  ALL: "Ranked by percentage gain since your portfolio's earliest recorded value.",
+  TOTAL:
+    "Ranked by current total portfolio value, regardless of performance period.",
+};
 
 type HistoryRow = {
   portfolio_id: number;
@@ -38,7 +48,10 @@ type HistoryRow = {
   timestamp_of: string;
 };
 
-function pickBaselineForCutoff(rows: HistoryRow[], cutoffMs: number): number | null {
+function pickBaselineForCutoff(
+  rows: HistoryRow[],
+  cutoffMs: number,
+): number | null {
   if (rows.length === 0) return null;
 
   let candidate: HistoryRow | null = null;
@@ -65,7 +78,7 @@ const inFlightSoloLeaderboardRequests = new Map<
 >();
 
 function getCachedSoloLeaderboard(
-  userId: number
+  userId: number,
 ): SoloLeaderboardCacheValue | null {
   const cached = soloLeaderboardCache.get(userId);
   if (!cached) return null;
@@ -78,7 +91,7 @@ function getCachedSoloLeaderboard(
 
 function setCachedSoloLeaderboard(
   userId: number,
-  value: SoloLeaderboardCacheValue
+  value: SoloLeaderboardCacheValue,
 ) {
   soloLeaderboardCache.set(userId, {
     value,
@@ -109,9 +122,7 @@ async function fetchSoloLeaderboardData(): Promise<SoloLeaderboardCacheValue> {
   if (error) throw error;
 
   const portfolios =
-    (data as Array<
-      LeaderboardEntry & { reserve_value?: number | null }
-    >) ?? [];
+    (data as Array<LeaderboardEntry & { reserve_value?: number | null }>) ?? [];
 
   const sorted = await buildSortedLeaderboardEntries(portfolios);
 
@@ -120,7 +131,7 @@ async function fetchSoloLeaderboardData(): Promise<SoloLeaderboardCacheValue> {
     sorted.map(async (entry) => ({
       ...entry,
       badges: await getBadgesbyUserBadges(entry.user_id),
-    }))
+    })),
   );
 
   const portfolioIds = sorted.map((entry) => Number(entry.portfolio_id));
@@ -169,7 +180,8 @@ async function fetchSoloLeaderboardData(): Promise<SoloLeaderboardCacheValue> {
   const oneMonthCutoffMs = new Date(oneMonthAgoIso).getTime();
   const oneYearCutoffMs = new Date(oneYearAgoIso).getTime();
 
-  const baselinesByPortfolioId: SoloLeaderboardCacheValue["baselinesByPortfolioId"] = {};
+  const baselinesByPortfolioId: SoloLeaderboardCacheValue["baselinesByPortfolioId"] =
+    {};
 
   for (const entry of sorted) {
     const portfolioId = Number(entry.portfolio_id);
@@ -206,7 +218,7 @@ async function fetchSoloLeaderboardData(): Promise<SoloLeaderboardCacheValue> {
 
 async function getSoloLeaderboard(
   userId: number,
-  options?: { forceRefresh?: boolean }
+  options?: { forceRefresh?: boolean },
 ): Promise<SoloLeaderboardCacheValue> {
   if (!options?.forceRefresh) {
     const cached = getCachedSoloLeaderboard(userId);
@@ -302,8 +314,12 @@ function SoloLeaderboardPage() {
 
   const sortedEntries = useMemo(() => {
     return [...entries].sort((left, right) => {
-      const leftLive = Number(left.live_value ?? left.previous_close_value ?? 0);
-      const rightLive = Number(right.live_value ?? right.previous_close_value ?? 0);
+      const leftLive = Number(
+        left.live_value ?? left.previous_close_value ?? 0,
+      );
+      const rightLive = Number(
+        right.live_value ?? right.previous_close_value ?? 0,
+      );
 
       if (timeFrame === "TOTAL") {
         return rightLive - leftLive;
@@ -344,9 +360,15 @@ function SoloLeaderboardPage() {
         ? "Portfolio Value (All Time)"
         : `Portfolio Value (${timeFrame})`;
 
+  const timeFrameDescription = TIMEFRAME_DESCRIPTIONS[timeFrame];
+
   return (
     <div className="max-w-3xl">
-      {loading && <p className="text-gray-600">Loading leaderboard…</p>}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Spinner />
+        </div>
+      )}
       {error && <p className="text-red-600">{error}</p>}
 
       {!loading && !error && (
@@ -358,15 +380,22 @@ function SoloLeaderboardPage() {
             className="justify-start"
           />
 
+          <p className="text-sm text-muted-foreground mb-6">
+            {timeFrameDescription}
+          </p>
+
           <Leaderboard
             entries={sortedEntries}
             currentUserId={profile?.id}
             showDateStarted
             valueColumnLabel={valueColumnLabel}
-            tickerPreviousValuesByPortfolioId={tickerPreviousValuesByPortfolioId}
+            tickerPreviousValuesByPortfolioId={
+              tickerPreviousValuesByPortfolioId
+            }
           />
         </>
       )}
+      <div className="h-16" />
     </div>
   );
 }

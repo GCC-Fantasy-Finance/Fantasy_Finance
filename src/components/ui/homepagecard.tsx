@@ -30,7 +30,7 @@ function formatPlace(rank?: number | null) {
 export default function HomePageCard(portfolio: PortfolioCard) {
   const navigate = useNavigate();
   const [hasSeenModal, setHasSeenModal] = useState(true);
-  
+
   useEffect(() => {
     // Check if modal has been seen for this league
     if (portfolio.league_id && portfolio.is_league_ended) {
@@ -39,7 +39,7 @@ export default function HomePageCard(portfolio: PortfolioCard) {
       setHasSeenModal(seen);
     }
   }, [portfolio.league_id, portfolio.is_league_ended]);
-  
+
   const netValue = Number(
     portfolio.net_value ?? portfolio.previous_close_value ?? 0,
   );
@@ -59,7 +59,7 @@ export default function HomePageCard(portfolio: PortfolioCard) {
       className={`group w-full text-left rounded-md p-2 cursor-pointer border 
         ${
           isLeagueEnded
-            ? "border-gray-300 bg-white hover:bg-gray-100"
+            ? `  ${hasSeenModal ? "bg-white border-gray-300 hover:bg-gray-100" : "bg-green-600/8 border-green-600 hover:bg-green-600/12"}`
             : isLeagueUp
               ? "border-green-800/10 bg-green-600/8 hover:bg-green-600/12"
               : isLeagueDown
@@ -97,17 +97,17 @@ export default function HomePageCard(portfolio: PortfolioCard) {
           </span>
         ) : null}
       </div>
-      <div className="w-full mt-3 space-y-3">
+      <div className="w-full mt-3 space-y-2">
         {isLeagueEnded ? (
           <>
             {!hasSeenModal ? (
               <div className="rounded-md px-2 pb-2 flex items-center justify-start transition-colors">
-                <div className="text-sm font-medium text-gray-700">
+                <div className="text-sm font-medium text-green-700">
                   View Results <span className="ml-1">›</span>
                 </div>
               </div>
             ) : (
-              <div className="rounded-md px-2 pb-2 flex items-center justify-between transition-colors">
+              <div className="rounded px-2 pb-2 flex items-center justify-between transition-colors">
                 {portfolio.rank === 1 ? (
                   <div className="text-sm font-medium flex gap-1.5 items-center text-yellow-600">
                     <img
@@ -130,7 +130,7 @@ export default function HomePageCard(portfolio: PortfolioCard) {
           </>
         ) : null}
         {!isLeagueEnded ? (
-          <div className="rounded-md bg-white  px-3 py-3 flex items-center justify-between transition-colors">
+          <div className="rounded bg-white  px-3 py-3 flex items-center justify-between transition-colors">
             <div className="text-lg text-black">
               ${netValue.toFixed(2)}
               <div className="text-xs text-gray-500 font-normal uppercase tracking-wide">
@@ -149,8 +149,8 @@ export default function HomePageCard(portfolio: PortfolioCard) {
           </div>
         ) : null}
         {!isLeagueEnded ? (
-          <div className="grid grid-cols-2 gap-3 w-full">
-            <div className=" rounded-md bg-white  px-3 py-1 text-center flex flex-col justify-center transition-colors">
+          <div className="grid grid-cols-2 gap-2 w-full">
+            <div className=" rounded bg-white  px-3 py-1 text-center flex flex-col justify-center transition-colors">
               <div className="text-md text-black">
                 ${amountInvested.toFixed(2)}
               </div>

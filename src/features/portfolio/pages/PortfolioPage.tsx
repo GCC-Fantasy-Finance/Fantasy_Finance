@@ -26,6 +26,7 @@ import PageContent from "@/layouts/components/PageContent";
 import PortfolioHoldingCard from "@/features/portfolio/components/PortfolioHoldingCard";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import Ticker from "@/components/ui/ticker";
+import Spinner from "@/components/ui/spinner";
 
 type DraftedStockItem = {
   stockId: number;
@@ -644,7 +645,7 @@ export default function PortfolioPage({
 
   const content = loading ? (
     <div className="flex items-center justify-center py-12 mb-8">
-      <p className="text-gray-600">Loading portfolio...</p>
+      <Spinner />
     </div>
   ) : (
     <div className="mb-18">

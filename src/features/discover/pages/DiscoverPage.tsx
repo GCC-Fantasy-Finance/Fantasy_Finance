@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { getAllStocks } from "@/lib/stocks";
 import { calculateStockPercentChange } from "@/lib/utils";
 import StockDetailsModal from "@/components/ui/stockDetailsModal";
+import Spinner from "@/components/ui/spinner";
 import {
   Building2,
   Cpu,
@@ -156,7 +157,7 @@ function Discover() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {loading ? (
               <div className="md:col-span-3 flex items-center justify-center py-12">
-                <p className="text-gray-600">Loading trending stocks...</p>
+                <Spinner />
               </div>
             ) : trendingStocks.length === 0 ? (
               <div className="md:col-span-3 border border-gray-300 rounded-md px-4 py-6 text-center text-gray-600 bg-white">
@@ -211,7 +212,7 @@ function Discover() {
           <div className="ff-discover-sectors-grid grid grid-cols-1 gap-3">
             {loading ? (
               <div className="col-span-full flex items-center justify-center py-12">
-                <p className="text-gray-600">Loading sectors...</p>
+                <Spinner />
               </div>
             ) : sectors.length === 0 ? (
               <div className="col-span-full border border-gray-300 rounded-lg px-4 py-4 text-sm text-gray-600 bg-white">

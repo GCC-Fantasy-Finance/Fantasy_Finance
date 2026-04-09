@@ -11,6 +11,7 @@ import {
   type LeagueOwner,
   type LeagueView,
 } from "@/hooks/fetchLeagueView";
+import Spinner from "@/components/ui/spinner";
 
 export default function LeagueDetailPage() {
   const { leagueId } = useParams<{ leagueId: string }>();
@@ -96,7 +97,9 @@ export default function LeagueDetailPage() {
   if (loading) {
     return (
       <PageContent>
-        <p className="text-gray-600">Loading league…</p>
+        <div className="flex min-h-[40vh] items-center justify-center">
+          <Spinner />
+        </div>
       </PageContent>
     );
   }

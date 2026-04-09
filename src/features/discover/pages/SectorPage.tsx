@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import StockDetailsModal from "@/components/ui/stockDetailsModal";
 import { getSearchScore } from "@/lib/searchUtils";
 import Ticker from "@/components/ui/ticker";
+import Spinner from "@/components/ui/spinner";
 
 interface RawSectorStock extends Omit<StockRow, "sector"> {
   sector?: string | null;
@@ -208,7 +209,7 @@ function SectorPage() {
             <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
               {loading ? (
                 <div className="md:col-span-3 flex items-center justify-center py-12">
-                  <p className="text-gray-600">Loading trending stocks...</p>
+                  <Spinner />
                 </div>
               ) : trendingStocks.length === 0 ? (
                 <div className="md:col-span-3 border border-gray-300 rounded-md px-4 py-6 text-center text-gray-600 bg-white">
@@ -276,8 +277,8 @@ function SectorPage() {
                   </div>
 
                   {loading ? (
-                    <div className="px-3 py-12 text-center text-gray-600">
-                      Loading stocks...
+                    <div className="px-3 py-12 text-center">
+                      <Spinner className="w-full" />
                     </div>
                   ) : visibleStocks.length === 0 ? (
                     <div className="px-3 py-6 text-center text-gray-600">

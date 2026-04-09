@@ -22,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Ticker from "@/components/ui/ticker";
+import Spinner from "@/components/ui/spinner";
 import { Grid, Rows3 } from "lucide-react";
 
 type PortfolioCard = {
@@ -384,7 +385,7 @@ function Home() {
       </div>
       {loading ? (
         <div className="flex items-center justify-center py-12 mb-8">
-          <p className="text-gray-600">Loading...</p>
+          <Spinner />
         </div>
       ) : portfolios.length === 0 ? (
         <p className="text-gray-600">No portfolios yet.</p>
@@ -411,13 +412,11 @@ function Home() {
                     Personal
                   </p>
                   {viewMode === "cards" ? (
-                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-                      <div className="xl:col-span-2">
-                        <HomePageCard
-                          key={soloPortfolio.portfolio_id}
-                          {...soloPortfolio}
-                        />
-                      </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                      <HomePageCard
+                        key={soloPortfolio.portfolio_id}
+                        {...soloPortfolio}
+                      />
                     </div>
                   ) : (
                     <PortfolioTable portfolios={[soloPortfolio]} />

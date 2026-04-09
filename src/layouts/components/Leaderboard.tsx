@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Table,
   TableBody,
@@ -44,7 +44,21 @@ type Props = {
   tickerPreviousValuesByPortfolioId?: Record<number, number>;
 };
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 20;
+
+function getPortfolioValue(entry: LeaderboardEntry) {
+  return calculatePortfolioValue({
+    netValue: entry.live_value ?? entry.previous_close_value,
+  });
+}
+
+function getComparableValueInCents(value: number) {
+  return Math.round(value * 100);
+}
+
+function getUsername(entry: LeaderboardEntry) {
+  return entry.Profiles?.username ?? "Unknown User";
+}
 
 function formatDateStarted(value?: string | null) {
   if (!value) return "-";
@@ -67,26 +81,86 @@ export default function Leaderboard({
 }: Props) {
   const [currentPage, setCurrentPage] = useState(1);
 
-  const totalPages = Math.ceil(entries.length / ITEMS_PER_PAGE);
+  const rankedEntries = useMemo(() => {
+    const entriesWithValues = entries.map((entry) => ({
+      entry,
+      portfolioValue: getPortfolioValue(entry),
+    }));
+
+    // Preserve incoming order except inside ties, where we sort alphabetically.
+    const orderedEntries: typeof entriesWithValues = [];
+    for (let index = 0; index < entriesWithValues.length; ) {
+      const tieValue = getComparableValueInCents(
+        entriesWithValues[index].portfolioValue,
+      );
+      const tieGroup = [entriesWithValues[index]];
+      let cursor = index + 1;
+
+      while (cursor < entriesWithValues.length) {
+        const cursorValue = getComparableValueInCents(
+          entriesWithValues[cursor].portfolioValue,
+        );
+        if (cursorValue !== tieValue) break;
+        tieGroup.push(entriesWithValues[cursor]);
+        cursor += 1;
+      }
+
+      tieGroup.sort((left, right) =>
+        getUsername(left.entry).localeCompare(
+          getUsername(right.entry),
+          undefined,
+          {
+            sensitivity: "base",
+          },
+        ),
+      );
+
+      orderedEntries.push(...tieGroup);
+      index = cursor;
+    }
+
+    let previousRankValue: number | null = null;
+    let currentRank = 0;
+
+    return orderedEntries.map((item, index) => {
+      const rankValue = getComparableValueInCents(item.portfolioValue);
+      if (rankValue !== previousRankValue) {
+        currentRank = index + 1;
+        previousRankValue = rankValue;
+      }
+
+      return {
+        ...item,
+        rank: currentRank,
+      };
+    });
+  }, [entries]);
+
+  const totalPages = Math.ceil(rankedEntries.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedEntries = entries.slice(
+  const paginatedEntries = rankedEntries.slice(
     startIndex,
     startIndex + ITEMS_PER_PAGE,
   );
 
   const currentUserRank = currentUserId
-    ? entries.findIndex((entry) => entry.user_id === currentUserId) + 1
+    ? (rankedEntries.find((item) => item.entry.user_id === currentUserId)
+        ?.rank ?? null)
     : null;
   return (
     <section>
-      <h2 className="text-xl font-semibold mb-3">Leaderboard</h2>
-      {currentUserRank && (
-        <div className="mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
-          <p className="text-sm font-medium text-green-900">
-            Your Rank: {currentUserRank}
-          </p>
-        </div>
-      )}
+      <div className="flex min-[450px]:flex-row flex-col min-[450px]:items-center mb-2 justify-between">
+        <h2 className="text-xl font-semibold mb-2 min-[450px]:mb-0">
+          Leaderboard
+        </h2>
+        {currentUserRank && (
+          <div className="bg-green-700/5 py-1 px-3 rounded-md border border-green-700/25 ">
+            <p className="text-green-900">
+              Your Rank: <span className="font-bold">{currentUserRank}</span>
+            </p>
+          </div>
+        )}
+      </div>
 
       <div className="border rounded-lg overflow-hidden">
         <Table>
@@ -112,12 +186,8 @@ export default function Leaderboard({
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedEntries.map((entry, index) => {
-                const absoluteIndex = startIndex + index;
+              paginatedEntries.map(({ entry, portfolioValue, rank }) => {
                 const isFallbackValue = entry.live_value == null;
-                const portfolioValue = calculatePortfolioValue({
-                  netValue: entry.live_value ?? entry.previous_close_value,
-                });
                 const tickerPreviousValue =
                   tickerPreviousValuesByPortfolioId?.[entry.portfolio_id] ??
                   entry.previous_close_value;
@@ -133,7 +203,7 @@ export default function Leaderboard({
                     } ${onPortfolioClick ? "cursor-pointer" : ""}`}
                   >
                     <TableCell className="font-bold text-lg px-4 pl-7 text-green-700">
-                      {absoluteIndex + 1}
+                      {rank}
                     </TableCell>
 
                     <TableCell className="px-4 py-3">
@@ -178,7 +248,7 @@ export default function Leaderboard({
       </div>
 
       {/* Pagination controls */}
-      {entries.length > ITEMS_PER_PAGE && (
+      {rankedEntries.length > ITEMS_PER_PAGE && (
         <div className="mt-4">
           <Pagination>
             <PaginationContent>
