@@ -179,6 +179,7 @@ export default function Header({ title }: HeaderProps) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => setIsSearchFocused(true)}
+              maxLength={30}
             />
             <button
               type="button"
@@ -250,6 +251,7 @@ export default function Header({ title }: HeaderProps) {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onFocus={() => setIsSearchFocused(true)}
+                  maxLength={30}
                 />
                 {query && (
                   <button

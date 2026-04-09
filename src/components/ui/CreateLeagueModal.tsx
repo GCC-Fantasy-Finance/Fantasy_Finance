@@ -193,8 +193,13 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
       return;
     }
     if (Number(draftTime) < 10 || Number(draftTime) > 600) {
-      setError("Draft time must be between 10 seconds and 10 minutes.");
+      setError("Draft time must be between 10 seconds and 10 minutes (600 seconds).");
       setErrorField("time");
+      return;
+    }
+    if (maxMembers < 2) {
+      setError("Minimum two members.");
+      setErrorField("members");
       return;
     }
 
@@ -346,7 +351,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
             className={`w-full rounded border px-3 py-2 text-sm ${errorField === "startDate" || errorField === "dates" ? "border-2 border-red-500" : ""}`}
           />
 
-          <label className="text-sm">League End Date (4:30 PM)</label>
+          <label className="text-sm">League End Date (4:30 PM EST)</label>
           <input
             ref={endDateRef}
             type="date"
@@ -399,7 +404,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
                 setErrorField(null);
               }
             }}
-            className={`w-full rounded border px-3 py-2 text-sm ${errorField === "rounds" ? "border-2 border-red-500" : ""}`}
+            className={`w-full rounded border px-3 py-2 text-sm ${errorField === "rounds" || errorField === "members" ? "border-2 border-red-500" : ""}`}
           />
 
           <div className="text-sm">
@@ -445,7 +450,7 @@ export default function CreateLeagueModal({ open, onClose }: Props) {
                 e.stopPropagation();
                 setShowDropdown((v) => !v);
               }}
-              className="w-full rounded border px-3 py-2 text-sm flex justify-between items-center"
+              className={`w-full rounded border px-3 py-2 text-sm flex justify-between items-center ${errorField === "members" ? "border-2 border-red-500" : ""}`}
             >
               {sectorSummaryLabel}
               <ChevronDown className="w-4 h-4" />

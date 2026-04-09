@@ -101,6 +101,7 @@ export default function LoginPage() {
             type="email"
             autoComplete="email"
             required
+            maxLength={100}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -129,6 +130,7 @@ export default function LoginPage() {
               type={showPassword ? "text" : "password"}
               autoComplete="current-password"
               required
+              maxLength={100}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
