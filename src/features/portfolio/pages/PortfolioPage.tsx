@@ -84,7 +84,9 @@ export default function PortfolioPage({
   const [savedStocks, setSavedStocks] = useState<SavedStockItem[]>([]);
   const [stockDetailsModalOpen, setStockDetailsModalOpen] = useState(false);
   const [selectedStock, setSelectedStock] = useState<StockRow | null>(null);
-  const [sortColumn, setSortColumn] = useState<"symbol" | "name" | "price" | "change" | "total">("symbol");
+  const [sortColumn, setSortColumn] = useState<
+    "symbol" | "name" | "price" | "change" | "total"
+  >("symbol");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   const isLeagueMode = mode === "league";
@@ -148,7 +150,9 @@ export default function PortfolioPage({
 
       const { data: stockRows, error } = await supabase
         .from("Stocks")
-        .select("stock_id,stock_symbol,name,current_price,previous_close,logo_url")
+        .select(
+          "stock_id,stock_symbol,name,current_price,previous_close,logo_url",
+        )
         .in("stock_id", uniqueStockIds);
 
       if (error) {
@@ -309,7 +313,9 @@ export default function PortfolioPage({
 
         const { data: stockRows, error: stockError } = await supabase
           .from("Stocks")
-          .select("stock_id,stock_symbol,name,current_price,previous_close,logo_url")
+          .select(
+            "stock_id,stock_symbol,name,current_price,previous_close,logo_url",
+          )
           .in("stock_id", stockIds);
 
         if (stockError) {
@@ -329,7 +335,8 @@ export default function PortfolioPage({
               (stockRow as { stock_symbol?: string | null }).stock_symbol ??
               null,
             name: (stockRow as { name?: string | null }).name ?? null,
-            logo_url: (stockRow as { logo_url?: string | null }).logo_url ?? null,
+            logo_url:
+              (stockRow as { logo_url?: string | null }).logo_url ?? null,
             current_price:
               currentPrice === null || currentPrice === undefined
                 ? null
@@ -623,11 +630,11 @@ export default function PortfolioPage({
 
   const sortedHoldingListItems = useMemo<HoldingListItem[]>(() => {
     const sorted = [...holdingListItems];
-    
+
     sorted.sort((a, b) => {
       let aValue: string | number = 0;
       let bValue: string | number = 0;
-      
+
       if (sortColumn === "symbol") {
         aValue = a.holding.stock?.stock_symbol ?? "";
         bValue = b.holding.stock?.stock_symbol ?? "";
@@ -641,7 +648,7 @@ export default function PortfolioPage({
         const aPrice = Number(a.holding.stock?.current_price ?? 0);
         const aPrev = Number(a.holding.stock?.previous_close ?? 0);
         aValue = aPrev > 0 ? ((aPrice - aPrev) / aPrev) * 100 : 0;
-        
+
         const bPrice = Number(b.holding.stock?.current_price ?? 0);
         const bPrev = Number(b.holding.stock?.previous_close ?? 0);
         bValue = bPrev > 0 ? ((bPrice - bPrev) / bPrev) * 100 : 0;
@@ -649,25 +656,25 @@ export default function PortfolioPage({
         const aQty = Number(a.holding.quantity ?? 0);
         const aPrice = Number(a.holding.stock?.current_price ?? 0);
         aValue = aQty * aPrice;
-        
+
         const bQty = Number(b.holding.quantity ?? 0);
         const bPrice = Number(b.holding.stock?.current_price ?? 0);
         bValue = bQty * bPrice;
       }
-      
+
       if (typeof aValue === "string" && typeof bValue === "string") {
-        return sortDirection === "asc" 
+        return sortDirection === "asc"
           ? aValue.localeCompare(bValue)
           : bValue.localeCompare(aValue);
       }
-      
+
       if (typeof aValue === "number" && typeof bValue === "number") {
         return sortDirection === "asc" ? aValue - bValue : bValue - aValue;
       }
-      
+
       return 0;
     });
-    
+
     return sorted;
   }, [holdingListItems, sortColumn, sortDirection]);
 
@@ -706,8 +713,8 @@ export default function PortfolioPage({
       <Spinner />
     </div>
   ) : (
-    <div className="mb-18">
-      <div className="mb-6 grid grid-cols-1 gap-6 min-[950px]:grid-cols-2">
+    <div className="ff-portfolio-page mb-18">
+      <div className="ff-portfolio-summary-grid mb-6 grid grid-cols-1 gap-6">
         <div className="w-full rounded-md border border-gray-300 bg-white px-6 py-5">
           <p className="text-sm text-gray-500">TOTAL PORTFOLIO VALUE</p>
 
@@ -810,7 +817,11 @@ export default function PortfolioPage({
             <span className="flex items-center whitespace-nowrap">
               Symbol
               <span className="ml-1 w-3 inline-block text-gray-500">
-                {sortColumn === "symbol" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                {sortColumn === "symbol"
+                  ? sortDirection === "asc"
+                    ? "▲"
+                    : "▼"
+                  : ""}
               </span>
             </span>
           </div>
@@ -828,7 +839,11 @@ export default function PortfolioPage({
             <span className="flex items-center whitespace-nowrap">
               Name
               <span className="ml-1 w-3 inline-block text-gray-500">
-                {sortColumn === "name" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                {sortColumn === "name"
+                  ? sortDirection === "asc"
+                    ? "▲"
+                    : "▼"
+                  : ""}
               </span>
             </span>
           </div>
@@ -846,7 +861,11 @@ export default function PortfolioPage({
             <span className="flex items-center whitespace-nowrap">
               Price
               <span className="ml-1 w-3 inline-block text-gray-500">
-                {sortColumn === "price" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                {sortColumn === "price"
+                  ? sortDirection === "asc"
+                    ? "▲"
+                    : "▼"
+                  : ""}
               </span>
             </span>
           </div>
@@ -864,7 +883,11 @@ export default function PortfolioPage({
             <span className="flex items-center whitespace-nowrap">
               Day %
               <span className="ml-1 w-3 inline-block text-gray-500">
-                {sortColumn === "change" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                {sortColumn === "change"
+                  ? sortDirection === "asc"
+                    ? "▲"
+                    : "▼"
+                  : ""}
               </span>
             </span>
           </div>
@@ -882,7 +905,11 @@ export default function PortfolioPage({
             <span className="flex items-center whitespace-nowrap">
               Total
               <span className="ml-1 w-3 inline-block text-gray-500">
-                {sortColumn === "total" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                {sortColumn === "total"
+                  ? sortDirection === "asc"
+                    ? "▲"
+                    : "▼"
+                  : ""}
               </span>
             </span>
           </div>
@@ -910,7 +937,9 @@ export default function PortfolioPage({
                   muted={item.isDraftedUnowned}
                   showBottomBorder={index === sortedHoldingListItems.length - 1}
                   showTopRounded={index === 0}
-                  showBottomRounded={index === sortedHoldingListItems.length - 1}
+                  showBottomRounded={
+                    index === sortedHoldingListItems.length - 1
+                  }
                 />
               );
             })}

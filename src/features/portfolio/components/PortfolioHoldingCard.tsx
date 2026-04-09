@@ -44,10 +44,10 @@ export default function PortfolioHoldingCard({
       role="button"
       tabIndex={0}
       className={cn(
-        "grid w-full cursor-pointer items-center justify-items-start gap-4 border-x border-t border-gray-300 bg-white px-4 py-4 transition-all hover:bg-gray-50 max-[540px]:grid-cols-2 rounded-none",
+        "ff-portfolio-holding-card grid w-full cursor-pointer items-center justify-items-start gap-4 border-x border-t border-gray-300 bg-white px-4 py-4 transition-all hover:bg-gray-50 rounded-none",
         showHoldingValue
-          ? "grid-cols-[20%_minmax(0,200px)_minmax(0,200px)_auto]"
-          : "grid-cols-[20%_minmax(0,200px)_auto]",
+          ? "ff-portfolio-holding-card--with-holding grid-cols-[20%_minmax(0,200px)_minmax(0,200px)_auto]"
+          : "ff-portfolio-holding-card--without-holding grid-cols-[20%_minmax(0,200px)_auto]",
         showBottomBorder ? "border-b" : "border-b-0",
         showTopRounded && "rounded-t-lg",
         showBottomRounded && "rounded-b-lg",
@@ -61,15 +61,15 @@ export default function PortfolioHoldingCard({
       }}
     >
       {/* Symbol */}
-      <div className="relative z-10 text-left flex min-w-0 items-center gap-2 font-medium max-[540px]:col-span-2">
+      <div className="ff-portfolio-holding-card__symbol relative z-10 text-left flex min-w-0 items-center gap-2 font-medium">
         {holding.stock?.logo_url ? (
           <img
             src={holding.stock.logo_url}
             alt={holding.stock.stock_symbol ?? ""}
-            className="h-[1lh] w-[1lh] shrink-0 object-contain"
+            className="h-lh w-lh shrink-0 object-contain"
           />
         ) : (
-          <div className="h-[1lh] w-[1lh] shrink-0 bg-gray-200 flex items-center justify-center text-gray-500 text-xs rounded-sm">
+          <div className="h-lh w-lh shrink-0 bg-gray-200 flex items-center justify-center text-gray-500 text-xs rounded-sm">
             {holding.stock?.stock_symbol?.[0]}
           </div>
         )}
@@ -109,12 +109,12 @@ export default function PortfolioHoldingCard({
       )}
 
       {/* Buttons */}
-      <div className="relative z-10 ml-auto flex items-center gap-2 justify-self-end max-[540px]:col-span-2 max-[540px]:ml-0 max-[540px]:w-full max-[540px]:justify-self-stretch">
+      <div className="ff-portfolio-holding-card__actions relative z-10 ml-auto flex items-center gap-2 justify-self-end">
         {showUnsaveButton && (
           <Button
             variant="outline"
             size="xs"
-            className="border-gray-600 text-gray-700 hover:bg-gray-100 max-[540px]:flex-1"
+            className="ff-portfolio-holding-card__action border-gray-600 text-gray-700 hover:bg-gray-100"
             onClick={(event) => {
               event.stopPropagation();
               onUnsave?.(holding);
@@ -128,7 +128,7 @@ export default function PortfolioHoldingCard({
           <Button
             variant="outline"
             size="xs"
-            className="border-red-600 text-red-700 hover:bg-red-50 max-[540px]:flex-1"
+            className="ff-portfolio-holding-card__action border-red-600 text-red-700 hover:bg-red-50"
             onClick={(event) => {
               event.stopPropagation();
               onSell(holding);
@@ -141,7 +141,7 @@ export default function PortfolioHoldingCard({
         <Button
           variant="outline"
           size="xs"
-          className="w-20 justify-center border-green-600 text-green-700 hover:bg-green-50 max-[540px]:flex-1"
+          className="ff-portfolio-holding-card__action w-20 justify-center border-green-600 text-green-700 hover:bg-green-50"
           onClick={(event) => {
             event.stopPropagation();
             onBuy(holding);
