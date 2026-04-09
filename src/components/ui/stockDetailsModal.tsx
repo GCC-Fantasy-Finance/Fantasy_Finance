@@ -96,11 +96,15 @@ const StockHeader = ({
     <div className="flex justify-between items-end lg:items-center">
       <div className="flex flex-col gap-2 mb-1">
         <div className="flex gap-2 items-center mr-6">
-          <img
-            src={stock.logo_url}
-            alt={`${stock.stock_symbol} logo`}
-            className="w-7 h-7 object-cover rounded-sm"
-          />
+          {stock.logo_url ? (
+            <img
+              src={stock.logo_url}
+              alt={`${stock.stock_symbol} logo`}
+              className="w-7 h-7 object-cover rounded-sm"
+            />
+          ) : (
+            <div className="w-7 h-7 rounded-sm bg-gray-200" aria-hidden="true" />
+          )}
           <p className="text-gray-600 flex items-center gap-2 flex-wrap">
             <span>{stock.stock_symbol}</span>
           </p>
@@ -645,6 +649,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
         stock_symbol: stock.stock_symbol ?? "",
         name: stock.name ?? "",
         current_price: stockPrice,
+        logo_url: stock.logo_url ?? null,
       },
       portfolio: {
         portfolio_id: portfolio.portfolio_id,
@@ -662,6 +667,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
         stock_symbol: stock.stock_symbol ?? "",
         name: stock.name ?? "",
         current_price: stockPrice,
+        logo_url: stock.logo_url ?? null,
       },
       portfolio: {
         portfolio_id: portfolio.portfolio_id,

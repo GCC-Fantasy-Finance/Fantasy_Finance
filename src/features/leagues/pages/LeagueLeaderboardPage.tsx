@@ -7,9 +7,10 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import SearchIcon from "@/components/ui/search-icon";
 import Leaderboard from "@/layouts/components/Leaderboard";
-import LeagueMemberPortfolioModal from "@/components/ui/LeagueMemberPortfolioModal";
+import MemberPortfolioModal from "@/components/ui/LeagueMemberPortfolioModal";
 import InviteMembersModal from "@/components/ui/InviteMembersModal";
 import { calculatePortfolioValue } from "@/lib/portfolioValue";
+import Spinner from "@/components/ui/spinner";
 import {
   fetchLeagueView,
   getCachedLeagueView,
@@ -149,7 +150,9 @@ export default function LeagueLeaderboardPage() {
   if (loading) {
     return (
       <PageContent>
-        <p className="text-gray-600">Loading leaderboard...</p>
+        <div className="flex min-h-[40vh] items-center justify-center">
+          <Spinner />
+        </div>
       </PageContent>
     );
   }
@@ -198,7 +201,7 @@ export default function LeagueLeaderboardPage() {
           />
         </div>
 
-        <LeagueMemberPortfolioModal
+        <MemberPortfolioModal
           open={Boolean(selectedPortfolio)}
           portfolioId={selectedPortfolio?.portfolio_id ?? null}
           memberName={selectedPortfolio?.Profiles?.username ?? "Unknown User"}

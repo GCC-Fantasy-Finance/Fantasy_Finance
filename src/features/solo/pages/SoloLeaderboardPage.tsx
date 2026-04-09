@@ -3,10 +3,14 @@ import { supabase } from "@/lib/supabase";
 import Leaderboard, {
   type LeaderboardEntry,
 } from "@/layouts/components/Leaderboard";
+import MemberPortfolioModal from "@/components/ui/LeagueMemberPortfolioModal";
 import { useAuth } from "@/context/AuthContext";
 import { buildSortedLeaderboardEntries } from "@/lib/leagues";
 import { getBadgesbyUserBadges } from "@/lib/userBadges";
 import TimeFrameSelector from "@/components/ui/TimeFrameSelector";
+import LeaderboardSkeleton from "@/components/ui/LeaderboardSkeleton";
+import SoloPortfolioModal from "@/components/ui/SoloPortfolioModal";
+import { calculatePortfolioValue } from "@/lib/portfolioValue";
 
 const SOLO_LEADERBOARD_CACHE_TTL_MS = 15_000;
 
@@ -22,15 +26,21 @@ type SoloLeaderboardCacheValue = {
   >;
 };
 
-type TimeFrame = "1D" | "1M" | "1Y" | "ALL" | "TOTAL";
+type TimeFrame = "1D" | "1M" | "1Y" | "ALL";
 
 const TIMEFRAME_OPTIONS = [
   { value: "1D", label: "1D" },
   { value: "1M", label: "1M" },
   { value: "1Y", label: "1Y" },
   { value: "ALL", label: "ALL" },
-  { value: "TOTAL", label: "TOT" },
 ];
+
+const TIMEFRAME_DESCRIPTIONS: Record<TimeFrame, string> = {
+  "1D": "Ranked by percentage gain since the previous market close.",
+  "1M": "Ranked by percentage gain over the last month.",
+  "1Y": "Ranked by percentage gain over the last year.",
+  "ALL": "Ranked by percentage gain since your portfolio's earliest recorded value.",
+};
 
 type HistoryRow = {
   portfolio_id: number;
@@ -38,7 +48,10 @@ type HistoryRow = {
   timestamp_of: string;
 };
 
-function pickBaselineForCutoff(rows: HistoryRow[], cutoffMs: number): number | null {
+function pickBaselineForCutoff(
+  rows: HistoryRow[],
+  cutoffMs: number,
+): number | null {
   if (rows.length === 0) return null;
 
   let candidate: HistoryRow | null = null;
@@ -65,7 +78,7 @@ const inFlightSoloLeaderboardRequests = new Map<
 >();
 
 function getCachedSoloLeaderboard(
-  userId: number
+  userId: number,
 ): SoloLeaderboardCacheValue | null {
   const cached = soloLeaderboardCache.get(userId);
   if (!cached) return null;
@@ -78,7 +91,7 @@ function getCachedSoloLeaderboard(
 
 function setCachedSoloLeaderboard(
   userId: number,
-  value: SoloLeaderboardCacheValue
+  value: SoloLeaderboardCacheValue,
 ) {
   soloLeaderboardCache.set(userId, {
     value,
@@ -109,9 +122,7 @@ async function fetchSoloLeaderboardData(): Promise<SoloLeaderboardCacheValue> {
   if (error) throw error;
 
   const portfolios =
-    (data as Array<
-      LeaderboardEntry & { reserve_value?: number | null }
-    >) ?? [];
+    (data as Array<LeaderboardEntry & { reserve_value?: number | null }>) ?? [];
 
   const sorted = await buildSortedLeaderboardEntries(portfolios);
 
@@ -120,7 +131,7 @@ async function fetchSoloLeaderboardData(): Promise<SoloLeaderboardCacheValue> {
     sorted.map(async (entry) => ({
       ...entry,
       badges: await getBadgesbyUserBadges(entry.user_id),
-    }))
+    })),
   );
 
   const portfolioIds = sorted.map((entry) => Number(entry.portfolio_id));
@@ -169,7 +180,8 @@ async function fetchSoloLeaderboardData(): Promise<SoloLeaderboardCacheValue> {
   const oneMonthCutoffMs = new Date(oneMonthAgoIso).getTime();
   const oneYearCutoffMs = new Date(oneYearAgoIso).getTime();
 
-  const baselinesByPortfolioId: SoloLeaderboardCacheValue["baselinesByPortfolioId"] = {};
+  const baselinesByPortfolioId: SoloLeaderboardCacheValue["baselinesByPortfolioId"] =
+    {};
 
   for (const entry of sorted) {
     const portfolioId = Number(entry.portfolio_id);
@@ -206,7 +218,7 @@ async function fetchSoloLeaderboardData(): Promise<SoloLeaderboardCacheValue> {
 
 async function getSoloLeaderboard(
   userId: number,
-  options?: { forceRefresh?: boolean }
+  options?: { forceRefresh?: boolean },
 ): Promise<SoloLeaderboardCacheValue> {
   if (!options?.forceRefresh) {
     const cached = getCachedSoloLeaderboard(userId);
@@ -240,6 +252,8 @@ function SoloLeaderboardPage() {
   const [timeFrame, setTimeFrame] = useState<TimeFrame>("1D");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedPortfolio, setSelectedPortfolio] =
+    useState<LeaderboardEntry | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -286,31 +300,58 @@ function SoloLeaderboardPage() {
     const portfolioId = Number(entry.portfolio_id);
     const baseline = baselinesByPortfolioId[portfolioId];
     const previousClose = Number(entry.previous_close_value ?? 0);
+    const liveValue = Number(entry.live_value ?? previousClose);
+
+    const normalizeBaseline = (value: number) => {
+      if (value > 0) return value;
+      if (liveValue > 0) return liveValue;
+      return previousClose;
+    };
 
     if (selectedTimeFrame === "1M") {
-      return Number(baseline?.oneMonth ?? previousClose);
+      return normalizeBaseline(Number(baseline?.oneMonth ?? previousClose));
     }
     if (selectedTimeFrame === "1Y") {
-      return Number(baseline?.oneYear ?? previousClose);
+      return normalizeBaseline(Number(baseline?.oneYear ?? previousClose));
     }
     if (selectedTimeFrame === "ALL") {
-      return Number(baseline?.allTime ?? previousClose);
+      return 10000;
     }
 
-    return previousClose;
+    return normalizeBaseline(previousClose);
   };
 
   const sortedEntries = useMemo(() => {
     return [...entries].sort((left, right) => {
-      const leftLive = Number(left.live_value ?? left.previous_close_value ?? 0);
-      const rightLive = Number(right.live_value ?? right.previous_close_value ?? 0);
+      const leftLive = Number(
+        left.live_value ?? left.previous_close_value ?? 0,
+      );
+      const rightLive = Number(
+        right.live_value ?? right.previous_close_value ?? 0,
+      );
 
-      if (timeFrame === "TOTAL") {
-        return rightLive - leftLive;
+      // Calculate cutoff dates for each timeframe
+      const now = new Date();
+      let cutoffDate: Date | null = null;
+
+      if (timeFrame === "1D") {
+        cutoffDate = new Date(now);
+        cutoffDate.setDate(cutoffDate.getDate() - 1);
+      } else if (timeFrame === "1M") {
+        cutoffDate = new Date(now);
+        cutoffDate.setMonth(cutoffDate.getMonth() - 1);
+      } else if (timeFrame === "1Y") {
+        cutoffDate = new Date(now);
+        cutoffDate.setFullYear(cutoffDate.getFullYear() - 1);
       }
 
-      const leftBaseline = getBaselineForEntry(left, timeFrame);
-      const rightBaseline = getBaselineForEntry(right, timeFrame);
+      // Check if portfolios were created after the timeframe cutoff
+      const leftCreatedAfterCutoff = cutoffDate && left.created_at ? new Date(left.created_at) > cutoffDate : false;
+      const rightCreatedAfterCutoff = cutoffDate && right.created_at ? new Date(right.created_at) > cutoffDate : false;
+
+      // For new accounts (created after cutoff), use 10,000 as baseline
+      const leftBaseline = leftCreatedAfterCutoff ? 10000 : getBaselineForEntry(left, timeFrame);
+      const rightBaseline = rightCreatedAfterCutoff ? 10000 : getBaselineForEntry(right, timeFrame);
 
       const leftScore =
         leftBaseline > 0
@@ -321,32 +362,61 @@ function SoloLeaderboardPage() {
           ? (rightLive - rightBaseline) / rightBaseline
           : rightLive - rightBaseline;
 
+      // First, compare scores (percent change)
       if (rightScore !== leftScore) {
         return rightScore - leftScore;
       }
 
+      // Tiebreaker: compare by absolute portfolio value
       return rightLive - leftLive;
     });
   }, [entries, timeFrame, baselinesByPortfolioId]);
 
   const tickerPreviousValuesByPortfolioId = useMemo(() => {
     const values: Record<number, number> = {};
+    
+    // Calculate cutoff dates for each timeframe
+    const now = new Date();
+    let cutoffDate: Date | null = null;
+
+    if (timeFrame === "1D") {
+      cutoffDate = new Date(now);
+      cutoffDate.setDate(cutoffDate.getDate() - 1);
+    } else if (timeFrame === "1M") {
+      cutoffDate = new Date(now);
+      cutoffDate.setMonth(cutoffDate.getMonth() - 1);
+    } else if (timeFrame === "1Y") {
+      cutoffDate = new Date(now);
+      cutoffDate.setFullYear(cutoffDate.getFullYear() - 1);
+    }
+    
     for (const entry of sortedEntries) {
-      values[entry.portfolio_id] = getBaselineForEntry(entry, timeFrame);
+      // Check if portfolio was created after the timeframe cutoff
+      const createdAfterCutoff = cutoffDate && entry.created_at ? new Date(entry.created_at) > cutoffDate : false;
+      values[entry.portfolio_id] = createdAfterCutoff ? 10000 : getBaselineForEntry(entry, timeFrame);
     }
     return values;
   }, [sortedEntries, timeFrame, baselinesByPortfolioId]);
 
   const valueColumnLabel =
-    timeFrame === "TOTAL"
-      ? "Portfolio Value (Total)"
-      : timeFrame === "ALL"
-        ? "Portfolio Value (All Time)"
-        : `Portfolio Value (${timeFrame})`;
+    timeFrame === "ALL"
+      ? "Portfolio Value (All Time)"
+      : `Portfolio Value (${timeFrame})`;
+
+  const timeFrameDescription = TIMEFRAME_DESCRIPTIONS[timeFrame];
 
   return (
     <div className="max-w-3xl">
-      {loading && <p className="text-gray-600">Loading leaderboard…</p>}
+      {loading && (
+        <LeaderboardSkeleton
+          showDateStarted
+          showTimeFrameSelector
+          timeFrameOptions={TIMEFRAME_OPTIONS}
+        />
+        // <div className="flex items-center justify-center py-12">
+        //   <Spinner />
+        // </div>
+      )}
       {error && <p className="text-red-600">{error}</p>}
 
       {!loading && !error && (
@@ -358,15 +428,70 @@ function SoloLeaderboardPage() {
             className="justify-start"
           />
 
+          <p className="text-sm text-muted-foreground mb-6">
+            {timeFrameDescription}
+          </p>
+
           <Leaderboard
             entries={sortedEntries}
             currentUserId={profile?.id}
+            onPortfolioClick={(portfolioId) => {
+              const selectedEntry = sortedEntries.find(
+                (entry) => entry.portfolio_id === portfolioId,
+              );
+              if (selectedEntry) {
+                setSelectedPortfolio(selectedEntry);
+              }
+            }}
             showDateStarted
             valueColumnLabel={valueColumnLabel}
-            tickerPreviousValuesByPortfolioId={tickerPreviousValuesByPortfolioId}
+            tickerPreviousValuesByPortfolioId={
+              tickerPreviousValuesByPortfolioId
+            }
+          />
+
+          <MemberPortfolioModal
+            open={Boolean(selectedPortfolio)}
+            portfolioId={selectedPortfolio?.portfolio_id ?? null}
+            memberName={selectedPortfolio?.Profiles?.username ?? "Solo Player"}
+            memberAvatarUrl={selectedPortfolio?.Profiles?.avatar_url}
+            memberUserId={selectedPortfolio?.user_id}
+            badges={selectedPortfolio?.badges}
+            joinedDate={selectedPortfolio?.Profiles?.created_at}
+            fallbackNetValue={
+              selectedPortfolio
+                ? calculatePortfolioValue({
+                    netValue:
+                      selectedPortfolio.live_value ??
+                      selectedPortfolio.previous_close_value,
+                  })
+                : undefined
+            }
+            onClose={() => setSelectedPortfolio(null)}
           />
         </>
       )}
+
+      <SoloPortfolioModal
+        open={Boolean(selectedPortfolio)}
+        portfolioId={selectedPortfolio?.portfolio_id ?? null}
+        memberName={selectedPortfolio?.Profiles?.username ?? "Unknown User"}
+        memberAvatarUrl={selectedPortfolio?.Profiles?.avatar_url}
+        badges={selectedPortfolio?.badges}
+        joinedDate={selectedPortfolio?.Profiles?.created_at}
+        fallbackNetValue={
+          selectedPortfolio
+            ? calculatePortfolioValue({
+                netValue:
+                  selectedPortfolio.live_value ??
+                  selectedPortfolio.previous_close_value,
+              })
+            : undefined
+        }
+        onClose={() => setSelectedPortfolio(null)}
+      />
+
+      <div className="h-16" />
     </div>
   );
 }

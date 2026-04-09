@@ -26,6 +26,7 @@ import PageContent from "@/layouts/components/PageContent";
 import PortfolioHoldingCard from "@/features/portfolio/components/PortfolioHoldingCard";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import Ticker from "@/components/ui/ticker";
+import Spinner from "@/components/ui/spinner";
 
 type DraftedStockItem = {
   stockId: number;
@@ -83,6 +84,8 @@ export default function PortfolioPage({
   const [savedStocks, setSavedStocks] = useState<SavedStockItem[]>([]);
   const [stockDetailsModalOpen, setStockDetailsModalOpen] = useState(false);
   const [selectedStock, setSelectedStock] = useState<StockRow | null>(null);
+  const [sortColumn, setSortColumn] = useState<"symbol" | "name" | "price" | "change" | "total">("symbol");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   const isLeagueMode = mode === "league";
 
@@ -145,7 +148,7 @@ export default function PortfolioPage({
 
       const { data: stockRows, error } = await supabase
         .from("Stocks")
-        .select("stock_id,stock_symbol,name,current_price,previous_close")
+        .select("stock_id,stock_symbol,name,current_price,previous_close,logo_url")
         .in("stock_id", uniqueStockIds);
 
       if (error) {
@@ -166,6 +169,7 @@ export default function PortfolioPage({
           stock_symbol:
             (stockRow as { stock_symbol?: string | null }).stock_symbol ?? null,
           name: (stockRow as { name?: string | null }).name ?? null,
+          logo_url: (stockRow as { logo_url?: string | null }).logo_url ?? null,
           current_price:
             currentPrice === null || currentPrice === undefined
               ? null
@@ -188,6 +192,7 @@ export default function PortfolioPage({
             stock_id: stockId,
             stock_symbol: null,
             name: `Stock #${stockId}`,
+            logo_url: null,
             current_price: null,
             previous_close: null,
           },
@@ -304,7 +309,7 @@ export default function PortfolioPage({
 
         const { data: stockRows, error: stockError } = await supabase
           .from("Stocks")
-          .select("stock_id,stock_symbol,name,current_price,previous_close")
+          .select("stock_id,stock_symbol,name,current_price,previous_close,logo_url")
           .in("stock_id", stockIds);
 
         if (stockError) {
@@ -324,6 +329,7 @@ export default function PortfolioPage({
               (stockRow as { stock_symbol?: string | null }).stock_symbol ??
               null,
             name: (stockRow as { name?: string | null }).name ?? null,
+            logo_url: (stockRow as { logo_url?: string | null }).logo_url ?? null,
             current_price:
               currentPrice === null || currentPrice === undefined
                 ? null
@@ -342,6 +348,7 @@ export default function PortfolioPage({
               stock_id: stockId,
               stock_symbol: null,
               name: `Stock #${stockId}`,
+              logo_url: null,
               current_price: null,
               previous_close: null,
             },
@@ -436,6 +443,7 @@ export default function PortfolioPage({
         stock_symbol: holding.stock.stock_symbol ?? "",
         name: holding.stock.name ?? "",
         current_price: Number(holding.stock.current_price ?? 0),
+        logo_url: holding.stock.logo_url ?? null,
       },
       portfolio: {
         portfolio_id: portfolio.portfolio_id,
@@ -462,6 +470,7 @@ export default function PortfolioPage({
         stock_symbol: holding.stock.stock_symbol ?? "",
         name: holding.stock.name ?? "",
         current_price: Number(holding.stock.current_price ?? 0),
+        logo_url: holding.stock.logo_url ?? null,
       },
       portfolio: {
         portfolio_id: portfolio.portfolio_id,
@@ -612,6 +621,56 @@ export default function PortfolioPage({
     return mergedItems;
   }, [draftedStocks, holdings, isLeagueMode, portfolio?.portfolio_id]);
 
+  const sortedHoldingListItems = useMemo<HoldingListItem[]>(() => {
+    const sorted = [...holdingListItems];
+    
+    sorted.sort((a, b) => {
+      let aValue: string | number = 0;
+      let bValue: string | number = 0;
+      
+      if (sortColumn === "symbol") {
+        aValue = a.holding.stock?.stock_symbol ?? "";
+        bValue = b.holding.stock?.stock_symbol ?? "";
+      } else if (sortColumn === "name") {
+        aValue = a.holding.stock?.name ?? "";
+        bValue = b.holding.stock?.name ?? "";
+      } else if (sortColumn === "price") {
+        aValue = Number(a.holding.stock?.current_price ?? 0);
+        bValue = Number(b.holding.stock?.current_price ?? 0);
+      } else if (sortColumn === "change") {
+        const aPrice = Number(a.holding.stock?.current_price ?? 0);
+        const aPrev = Number(a.holding.stock?.previous_close ?? 0);
+        aValue = aPrev > 0 ? ((aPrice - aPrev) / aPrev) * 100 : 0;
+        
+        const bPrice = Number(b.holding.stock?.current_price ?? 0);
+        const bPrev = Number(b.holding.stock?.previous_close ?? 0);
+        bValue = bPrev > 0 ? ((bPrice - bPrev) / bPrev) * 100 : 0;
+      } else if (sortColumn === "total") {
+        const aQty = Number(a.holding.quantity ?? 0);
+        const aPrice = Number(a.holding.stock?.current_price ?? 0);
+        aValue = aQty * aPrice;
+        
+        const bQty = Number(b.holding.quantity ?? 0);
+        const bPrice = Number(b.holding.stock?.current_price ?? 0);
+        bValue = bQty * bPrice;
+      }
+      
+      if (typeof aValue === "string" && typeof bValue === "string") {
+        return sortDirection === "asc" 
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      }
+      
+      if (typeof aValue === "number" && typeof bValue === "number") {
+        return sortDirection === "asc" ? aValue - bValue : bValue - aValue;
+      }
+      
+      return 0;
+    });
+    
+    return sorted;
+  }, [holdingListItems, sortColumn, sortDirection]);
+
   const savedHoldingListItems = useMemo<HoldingListItem[]>(() => {
     if (isLeagueMode || !portfolio?.portfolio_id || savedStocks.length === 0) {
       return [];
@@ -644,7 +703,7 @@ export default function PortfolioPage({
 
   const content = loading ? (
     <div className="flex items-center justify-center py-12 mb-8">
-      <p className="text-gray-600">Loading portfolio...</p>
+      <Spinner />
     </div>
   ) : (
     <div className="mb-18">
@@ -734,7 +793,101 @@ export default function PortfolioPage({
         )}
       </div>
 
-      <h2 className="mb-2 text-lg font-semibold">My Stocks</h2>
+      <h2 className="mb-2 text-lg font-semibold flex items-center justify-between">
+        <span>My Stocks</span>
+        <div className="flex gap-4 text-xs font-semibold text-gray-700">
+          <div
+            onClick={() => {
+              if (sortColumn === "symbol") {
+                setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+              } else {
+                setSortColumn("symbol");
+                setSortDirection("asc");
+              }
+            }}
+            className="cursor-pointer flex items-center hover:text-gray-900"
+          >
+            <span className="flex items-center whitespace-nowrap">
+              Symbol
+              <span className="ml-1 w-3 inline-block text-gray-500">
+                {sortColumn === "symbol" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+              </span>
+            </span>
+          </div>
+          <div
+            onClick={() => {
+              if (sortColumn === "name") {
+                setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+              } else {
+                setSortColumn("name");
+                setSortDirection("asc");
+              }
+            }}
+            className="cursor-pointer flex items-center hover:text-gray-900"
+          >
+            <span className="flex items-center whitespace-nowrap">
+              Name
+              <span className="ml-1 w-3 inline-block text-gray-500">
+                {sortColumn === "name" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+              </span>
+            </span>
+          </div>
+          <div
+            onClick={() => {
+              if (sortColumn === "price") {
+                setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+              } else {
+                setSortColumn("price");
+                setSortDirection("desc");
+              }
+            }}
+            className="cursor-pointer flex items-center hover:text-gray-900"
+          >
+            <span className="flex items-center whitespace-nowrap">
+              Price
+              <span className="ml-1 w-3 inline-block text-gray-500">
+                {sortColumn === "price" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+              </span>
+            </span>
+          </div>
+          <div
+            onClick={() => {
+              if (sortColumn === "change") {
+                setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+              } else {
+                setSortColumn("change");
+                setSortDirection("desc");
+              }
+            }}
+            className="cursor-pointer flex items-center hover:text-gray-900"
+          >
+            <span className="flex items-center whitespace-nowrap">
+              Day %
+              <span className="ml-1 w-3 inline-block text-gray-500">
+                {sortColumn === "change" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+              </span>
+            </span>
+          </div>
+          <div
+            onClick={() => {
+              if (sortColumn === "total") {
+                setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+              } else {
+                setSortColumn("total");
+                setSortDirection("desc");
+              }
+            }}
+            className="cursor-pointer flex items-center hover:text-gray-900"
+          >
+            <span className="flex items-center whitespace-nowrap">
+              Total
+              <span className="ml-1 w-3 inline-block text-gray-500">
+                {sortColumn === "total" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+              </span>
+            </span>
+          </div>
+        </div>
+      </h2>
 
       <div className="">
         {holdingListItems.length === 0 ? (
@@ -745,7 +898,7 @@ export default function PortfolioPage({
           </div>
         ) : (
           <>
-            {holdingListItems.map((item, index) => {
+            {sortedHoldingListItems.map((item, index) => {
               return (
                 <PortfolioHoldingCard
                   key={item.key}
@@ -755,9 +908,9 @@ export default function PortfolioPage({
                   onBuy={handleBuy}
                   buyButtonLabel={item.buyButtonLabel}
                   muted={item.isDraftedUnowned}
-                  showBottomBorder={index === holdingListItems.length - 1}
+                  showBottomBorder={index === sortedHoldingListItems.length - 1}
                   showTopRounded={index === 0}
-                  showBottomRounded={index === holdingListItems.length - 1}
+                  showBottomRounded={index === sortedHoldingListItems.length - 1}
                 />
               );
             })}

@@ -1,20 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom";
-import { X, ChevronUp, ChevronDown } from "lucide-react";
+import { X } from "lucide-react";
 import { Button } from "./button";
 import { useTradeModal } from "@/context/TradeModalContext";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { sellStock } from "@/hooks/sellStock";
 import { invalidateCachedPortfolioView } from "@/hooks/fetchPortfolio";
-import { truncateCurrency } from "@/lib/utils";
+import { roundShareQuantity, truncateCurrency } from "@/lib/utils";
 
 export default function SellStockModal() {
   const { sellOpen, stock, portfolio, holdingQty, closeSell } = useTradeModal();
   const { user } = useAuth();
   const modalRef = useRef<HTMLDivElement | null>(null);
 
-  const [mode, setMode] = useState<"custom" | "all">("all");
+  const [mode, setMode] = useState<"custom" | "all">("custom");
   const [amount, setAmount] = useState<string>(""); // dollar amount when in custom mode
   const [submitting, setSubmitting] = useState(false);
 
@@ -33,6 +33,30 @@ export default function SellStockModal() {
     const q = price > 0 ? parsedAmount / price : 0;
     return Number.isFinite(q) ? q : 0;
   }, [mode, parsedAmount, price, availableShares]);
+
+  const handleAmountChange = (value: string) => {
+    // Allow empty string
+    if (value === "") {
+      setAmount("");
+      return;
+    }
+
+    // Only allow digits and single decimal point
+    if (!/^\d*\.?\d*$/.test(value)) {
+      return; // Reject if contains invalid characters
+    }
+
+    // Prevent multiple decimal points
+    if ((value.match(/\./g) || []).length > 1) {
+      return;
+    }
+
+    // Parse and validate it's a positive number
+    const parsed = parseFloat(value);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      setAmount(value);
+    }
+  };
 
   const valid = useMemo(() => {
     if (!sellOpen || !stock || !portfolio) return false;
@@ -74,7 +98,7 @@ export default function SellStockModal() {
   useEffect(() => {
     if (!sellOpen) {
       setAmount("");
-      setMode("all");
+      setMode("custom");
       setSubmitting(false);
     }
   }, [sellOpen]);
@@ -94,7 +118,7 @@ export default function SellStockModal() {
         userId: user.id,
         stockId: stock!.stock_id,
         price,
-        quantity: Number(quantityToSell.toFixed(6)),
+        quantity: roundShareQuantity(quantityToSell),
         portfolioId: portfolio!.portfolio_id,
       });
       if (!res.success) {
@@ -111,18 +135,6 @@ export default function SellStockModal() {
       setSubmitting(false);
     }
   }
-
-  const step = 1; // $1 increments for custom amount
-  const onStepUp = () =>
-    setAmount((prev) => {
-      const v = Number(prev) || 0;
-      return String(v + step);
-    });
-  const onStepDown = () =>
-    setAmount((prev) => {
-      const v = Number(prev) || 0;
-      return String(Math.max(0, v - step));
-    });
 
   const sellLabel = valid ? `Sell $${truncateCurrency(proceeds)}` : "Sell";
 
@@ -162,10 +174,23 @@ export default function SellStockModal() {
         {/* Body */}
         <div className="px-4 pb-4">
           {/* Stock box */}
-          <div className="mt-3 rounded border bg-white px-4 py-3">
-            <div className="font-medium">{stock.name}</div>
-            <div className="mt-1 text-green-700 font-semibold">
-              ${truncateCurrency(price)}
+          <div className="mt-3 rounded border bg-white px-4 py-3 flex items-center gap-3">
+            {stock.logo_url ? (
+              <img
+                src={stock.logo_url}
+                alt={stock.stock_symbol}
+                className="h-10 w-10 shrink-0 object-contain"
+              />
+            ) : (
+              <div className="h-10 w-10 shrink-0 rounded bg-gray-200 flex items-center justify-center text-gray-500 text-sm font-medium">
+                {stock.stock_symbol[0]}
+              </div>
+            )}
+            <div>
+              <div className="font-medium">{stock.name}</div>
+              <div className="mt-1 text-green-700 font-semibold">
+                ${truncateCurrency(price)} / Share
+              </div>
             </div>
           </div>
 
@@ -179,34 +204,18 @@ export default function SellStockModal() {
                 onChange={() => setMode("custom")}
               />
               <label htmlFor="sell-custom" className="text-sm text-gray-700">
-                Sell custom amt.
+                Sell custom amount ($)
               </label>
             </div>
             {mode === "custom" && (
               <div className="mt-2 flex items-center gap-2">
                 <input
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={(e) => handleAmountChange(e.target.value)}
                   placeholder="0"
                   inputMode="decimal"
                   className="w-full rounded border px-3 py-2 text-sm"
                 />
-                <div className="flex flex-col">
-                  <button
-                    type="button"
-                    onClick={onStepUp}
-                    className="border rounded-t px-2 py-1 bg-white hover:bg-gray-50"
-                  >
-                    <ChevronUp className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onStepDown}
-                    className="border rounded-b px-2 py-1 bg-white hover:bg-gray-50"
-                  >
-                    <ChevronDown className="w-4 h-4" />
-                  </button>
-                </div>
               </div>
             )}
 

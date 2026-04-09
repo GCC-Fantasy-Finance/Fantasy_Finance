@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { getAllStocks } from "@/lib/stocks";
 import { calculateStockPercentChange } from "@/lib/utils";
 import StockDetailsModal from "@/components/ui/stockDetailsModal";
+import Spinner from "@/components/ui/spinner";
 import {
   Building2,
   Cpu,
@@ -30,6 +31,7 @@ type StockWithSector = {
   name: string;
   current_price: number;
   previous_close: number;
+  logo_url?: string | null;
   sector?: string;
 };
 
@@ -156,7 +158,7 @@ function Discover() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {loading ? (
               <div className="md:col-span-3 flex items-center justify-center py-12">
-                <p className="text-gray-600">Loading trending stocks...</p>
+                <Spinner />
               </div>
             ) : trendingStocks.length === 0 ? (
               <div className="md:col-span-3 border border-gray-300 rounded-md px-4 py-6 text-center text-gray-600 bg-white">
@@ -177,27 +179,42 @@ function Discover() {
                       setSelectedStock(stock);
                       setShowStockModal(true);
                     }}
-                    className="cursor-pointer border border-gray-300 rounded-md px-4 py-3 text-left bg-white hover:bg-gray-50 transition-colors"
+                    className="cursor-pointer border border-gray-300 rounded-md px-4 py-3 text-left bg-white hover:bg-gray-50 transition-colors flex items-center justify-between gap-3"
                   >
-                    <p className="font-semibold  truncate">{stock.name}</p>
-                    <p className="text-sm text-gray-600">
-                      {stock.stock_symbol}
-                    </p>
-                    <p className="text-sm  mt-2">
-                      ${stock.current_price.toFixed(2)}
-                    </p>
-                    <p
-                      className={`text-sm font-semibold ${
-                        percentChange < 0
-                          ? "text-red-700"
-                          : percentChange > 0
-                            ? "text-green-700"
-                            : "text-gray-700"
-                      }`}
-                    >
-                      {percentChange > 0 ? "+" : ""}
-                      {percentChange.toFixed(2)}%
-                    </p>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold truncate">{stock.name}</p>
+                      <p className="text-sm text-gray-600">
+                        {stock.stock_symbol}
+                      </p>
+                      <p className="text-sm mt-2">
+                        ${stock.current_price.toFixed(2)}
+                      </p>
+                      <p
+                        className={`text-sm font-semibold ${
+                          percentChange < 0
+                            ? "text-red-700"
+                            : percentChange > 0
+                              ? "text-green-700"
+                              : "text-gray-700"
+                        }`}
+                      >
+                        {percentChange > 0 ? "+" : ""}
+                        {percentChange.toFixed(2)}%
+                      </p>
+                    </div>
+                    <div className="shrink-0">
+                      {stock.logo_url ? (
+                        <img
+                          src={stock.logo_url}
+                          alt={stock.stock_symbol}
+                          className="h-12 w-12 object-contain"
+                        />
+                      ) : (
+                        <div className="h-12 w-12 rounded bg-gray-200 flex items-center justify-center text-gray-500 text-sm font-medium">
+                          {stock.stock_symbol[0]}
+                        </div>
+                      )}
+                    </div>
                   </button>
                 );
               })
@@ -211,7 +228,7 @@ function Discover() {
           <div className="ff-discover-sectors-grid grid grid-cols-1 gap-3">
             {loading ? (
               <div className="col-span-full flex items-center justify-center py-12">
-                <p className="text-gray-600">Loading sectors...</p>
+                <Spinner />
               </div>
             ) : sectors.length === 0 ? (
               <div className="col-span-full border border-gray-300 rounded-lg px-4 py-4 text-sm text-gray-600 bg-white">

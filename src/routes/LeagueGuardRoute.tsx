@@ -56,7 +56,8 @@ export default function LeagueRoute({ children }: LeagueRouteProps) {
   if (loading || checking) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <p className="text-gray-600">Checking league access...</p>
+        {/* <p className="text-gray-600">Checking league access...</p> */}
+        {/* <Spinner /> */}
       </div>
     );
   }

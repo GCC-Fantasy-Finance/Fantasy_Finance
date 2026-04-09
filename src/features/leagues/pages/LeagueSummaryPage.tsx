@@ -9,7 +9,7 @@ import SummaryPageLeaderboard from "@/layouts/components/SummaryPageLeaderboard"
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import LeaguePortfolioChart from "@/components/ui/leaguePortfolioChart";
-import LeagueMemberPortfolioModal from "@/components/ui/LeagueMemberPortfolioModal";
+import MemberPortfolioModal from "@/components/ui/LeagueMemberPortfolioModal";
 import { calculatePortfolioValue } from "@/lib/portfolioValue";
 import { getLeagueById } from "@/lib/leagues";
 import { getPortfoliosByLeague } from "@/lib/portfolios";
@@ -19,6 +19,7 @@ import { getDraftPicksByLeague } from "@/lib/draftpicks";
 import StockDetailsModal from "@/components/ui/stockDetailsModal";
 import { getStockById, type StockRow } from "@/lib/stocks";
 import { toast } from "sonner";
+import Spinner from "@/components/ui/spinner";
 
 import { getCachedLeagueView } from "@/hooks/fetchLeagueView";
 
@@ -159,7 +160,9 @@ export default function LeagueSummaryPage() {
   const [loading, setLoading] = useState(true);
   const [showResultsModal, setShowResultsModal] = useState(false);
   const [hasSeenModal, setHasSeenModal] = useState(false);
-  const [draftedStocks, setDraftedStocks] = useState<{ stockId: number; label: string }[]>([]);
+  const [draftedStocks, setDraftedStocks] = useState<
+    { stockId: number; label: string }[]
+  >([]);
   const [stockDetailsModalOpen, setStockDetailsModalOpen] = useState(false);
   const [selectedStock, setSelectedStock] = useState<StockRow | null>(null);
   const { profile } = useAuth();
@@ -175,7 +178,7 @@ export default function LeagueSummaryPage() {
   const handleCloseModal = () => {
     // Save to localStorage so modal doesn't show again for this league
     const hasSeenKey = `league_${leagueId}_seen_modal`;
-    localStorage.setItem(hasSeenKey, 'true');
+    localStorage.setItem(hasSeenKey, "true");
     setShowResultsModal(false);
     setHasSeenModal(true);
   };
@@ -197,13 +200,13 @@ export default function LeagueSummaryPage() {
   useEffect(() => {
     // Prevent body scroll when stock details modal is open
     if (stockDetailsModalOpen) {
-      document.body.style.overflow = 'hidden';
+      document.body.style.overflow = "hidden";
     } else {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = "unset";
     }
-    
+
     return () => {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = "unset";
     };
   }, [stockDetailsModalOpen]);
 
@@ -254,7 +257,7 @@ export default function LeagueSummaryPage() {
 
       try {
         const currentUserPortfolio = standings.find(
-          (entry) => entry.user_id === profile?.id
+          (entry) => entry.user_id === profile?.id,
         );
         if (!currentUserPortfolio) return;
 
@@ -271,11 +274,13 @@ export default function LeagueSummaryPage() {
         // Get all draft picks for this league
         const picks = await getDraftPicksByLeague(leagueIdAsNumber);
         const myPickStockIds = picks
-          .filter((pick) => pick.portfolio_id === currentUserPortfolio.portfolio_id)
+          .filter(
+            (pick) => pick.portfolio_id === currentUserPortfolio.portfolio_id,
+          )
           .map((pick) => Number(pick.stock_id));
 
         const uniqueStockIds = Array.from(
-          new Set(myPickStockIds.filter((stockId) => Number.isFinite(stockId)))
+          new Set(myPickStockIds.filter((stockId) => Number.isFinite(stockId))),
         );
 
         if (uniqueStockIds.length === 0) {
@@ -303,12 +308,13 @@ export default function LeagueSummaryPage() {
             (stockRow as { name?: string | null }).name?.trim() ||
             `Stock #${stockId}`;
           const stockSymbol =
-            (stockRow as { stock_symbol?: string | null }).stock_symbol?.trim() ||
-            "";
+            (
+              stockRow as { stock_symbol?: string | null }
+            ).stock_symbol?.trim() || "";
 
           stockNameById.set(
             stockId,
-            stockSymbol ? `${stockSymbol} - ${stockName}` : stockName
+            stockSymbol ? `${stockSymbol} - ${stockName}` : stockName,
           );
         }
 
@@ -335,10 +341,14 @@ export default function LeagueSummaryPage() {
   }, [leagueId, standings, profile?.id]);
 
   // Calculate values BEFORE early returns to maintain hook order
-  const chartPortfolios = useMemo(() => standings.map((entry) => ({
-    portfolio_id: Number(entry.portfolio_id),
-    username: entry.Profiles?.username ?? `Portfolio ${entry.portfolio_id}`,
-  })), [standings]);
+  const chartPortfolios = useMemo(
+    () =>
+      standings.map((entry) => ({
+        portfolio_id: Number(entry.portfolio_id),
+        username: entry.Profiles?.username ?? `Portfolio ${entry.portfolio_id}`,
+      })),
+    [standings],
+  );
 
   const currentUserPortfolioId = standings.find(
     (entry) => entry.user_id === profile?.id,
@@ -346,13 +356,22 @@ export default function LeagueSummaryPage() {
 
   const hasWon = standings[0]?.portfolio_id === currentUserPortfolioId;
 
-  const leaderboardData = useMemo(() => standings.map((entry) => ({
-    portfolio_id: Number(entry.portfolio_id),
-    username: entry.Profiles?.username ?? `Portfolio ${entry.portfolio_id}`,
-    live_value: entry.live_value ?? entry.previous_close_value ?? 0,
-  })), [standings]);
+  const leaderboardData = useMemo(
+    () =>
+      standings.map((entry) => ({
+        portfolio_id: Number(entry.portfolio_id),
+        username: entry.Profiles?.username ?? `Portfolio ${entry.portfolio_id}`,
+        live_value: entry.live_value ?? entry.previous_close_value ?? 0,
+      })),
+    [standings],
+  );
 
-  if (loading) return <p>Loading league summary...</p>;
+  if (loading)
+    return (
+      <div className="flex min-h-[60vh] w-full items-center justify-center">
+        <Spinner />
+      </div>
+    );
   if (!league) return <p>League not found.</p>;
 
   const selectedEntry = standings.find(
@@ -363,14 +382,17 @@ export default function LeagueSummaryPage() {
     <div className="w-full relative">
       {/* Results Modal */}
       {showResultsModal && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-start pt-24 pointer-events-none\">
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-start pt-24 pointer-events-none animate-in fade-in-0 duration-300">
           {/* Overlay */}
-          <div className="absolute inset-0 bg-black/20 pointer-events-auto" onClick={handleCloseModal} />
+          <div
+            className="absolute inset-0 bg-white/50 backdrop-blur-xs pointer-events-auto animate-in fade-in-0 duration-300"
+            onClick={handleCloseModal}
+          />
 
           {/* Modal Container */}
-          <div className="relative z-10 max-w-md w-full mx-4 pointer-events-auto">
+          <div className="relative z-10 max-w-md w-full mx-4 pointer-events-auto animate-in fade-in-0 zoom-in-95 duration-300">
             {/* Modal */}
-            <div className="rounded-lg p-8 shadow-lg bg-white border-2 border-green-500">
+            <div className="rounded-lg p-8 shadow-lg bg-white border border-green-700">
               {/* Logo */}
               <div className="flex justify-center mb-6">
                 <img
@@ -404,7 +426,9 @@ export default function LeagueSummaryPage() {
 
       <div className="mx-auto max-w-full px-2 md:px-4 lg:px-6 py-4 md:py-6">
         {/* Results Banner */}
-        <div className={`mb-6 flex flex-col justify-center items-center transition-opacity duration-500 ${showResultsModal ? 'opacity-0' : 'opacity-100'}`}>
+        <div
+          className={`mb-6 flex flex-col justify-center items-center transition-opacity duration-500 ${showResultsModal ? "opacity-100" : "opacity-100"}`}
+        >
           {hasWon && (
             <img
               src="/crown.png"
@@ -413,20 +437,20 @@ export default function LeagueSummaryPage() {
             />
           )}
           {standings[0]?.portfolio_id === currentUserPortfolioId ? (
-            <div className="w-full rounded-lg p-8 bg-green-50 border-2 border-green-500 max-w-md">
+            <div className="w-full rounded-lg p-8 bg-green-50 border border-green-600 max-w-md">
               <p className="text-sm font-medium text-green-700 text-center mb-4">
                 The {league?.name} league has ended
               </p>
-              <h2 className="text-2xl font-bold text-green-600 text-center">
+              <h2 className="text-2xl font-bold text-green-700 text-center">
                 You are the champion!
               </h2>
             </div>
           ) : (
-            <div className="w-full rounded-lg p-8 bg-red-50 border-2 border-red-500 max-w-md">
+            <div className="w-full rounded-lg p-8 bg-red-50 border border-red-600 max-w-md">
               <p className="text-sm font-medium text-red-700 text-center mb-4">
                 The {league?.name} league has ended
               </p>
-              <h2 className="text-2xl font-bold text-red-600 text-center">
+              <h2 className="text-2xl font-bold text-red-700 text-center">
                 Better luck next time!
               </h2>
             </div>
@@ -434,7 +458,9 @@ export default function LeagueSummaryPage() {
         </div>
 
         {/* Main Content */}
-        <div className={`mb-18 transition-opacity duration-500 ${showResultsModal ? 'opacity-0' : 'opacity-100'}`}>
+        <div
+          className={`mb-18 transition-opacity duration-500 ${showResultsModal ? "opacity-100" : "opacity-100"}`}
+        >
           {/* Leaderboard and Graph - Two Column Grid */}
           <div className="mb-6 grid grid-cols-1 gap-6 min-[1200px]:grid-cols-2">
             {/* Leaderboard Column */}
@@ -443,18 +469,24 @@ export default function LeagueSummaryPage() {
                 <SummaryPageLeaderboard
                   entries={standings}
                   currentUserId={profile?.id}
-                  onPortfolioClick={(portfolioId) => setSelectedPortfolioId(portfolioId)}
+                  onPortfolioClick={(portfolioId) =>
+                    setSelectedPortfolioId(portfolioId)
+                  }
                 />
               </div>
             </div>
 
             {/* Graph Column */}
             <div className="w-full">
-              <LeaguePortfolioChart 
-                portfolios={chartPortfolios} 
+              <LeaguePortfolioChart
+                portfolios={chartPortfolios}
                 currentUserPortfolioId={Number(currentUserPortfolioId)}
                 leaderboard={leaderboardData}
-                endDate={league?.finish_time ? new Date(league.finish_time).toISOString().split('T')[0] : undefined}
+                endDate={
+                  league?.finish_time
+                    ? new Date(league.finish_time).toISOString().split("T")[0]
+                    : undefined
+                }
               />
             </div>
           </div>
@@ -492,12 +524,20 @@ export default function LeagueSummaryPage() {
           </div>
         </div>
 
-        <LeagueMemberPortfolioModal
+        <MemberPortfolioModal
           open={selectedPortfolioId != null}
           portfolioId={selectedPortfolioId}
           memberName={selectedEntry?.Profiles?.username ?? "Unknown User"}
           memberAvatarUrl={selectedEntry?.Profiles?.avatar_url}
-          memberUserId={selectedEntry ? (console.log("DEBUG LeagueSummaryPage selectedEntry:", selectedEntry), selectedEntry.user_id) : undefined}
+          memberUserId={
+            selectedEntry
+              ? (console.log(
+                  "DEBUG LeagueSummaryPage selectedEntry:",
+                  selectedEntry,
+                ),
+                selectedEntry.user_id)
+              : undefined
+          }
           leagueOwnerId={league?.owner_id}
           isLeagueOwner={profile?.id === league?.owner_id}
           badges={selectedEntry?.badges}
@@ -508,7 +548,8 @@ export default function LeagueSummaryPage() {
             selectedEntry
               ? calculatePortfolioValue({
                   netValue:
-                    selectedEntry.live_value ?? selectedEntry.previous_close_value,
+                    selectedEntry.live_value ??
+                    selectedEntry.previous_close_value,
                 })
               : undefined
           }
