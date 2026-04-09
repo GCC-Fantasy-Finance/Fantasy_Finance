@@ -35,12 +35,21 @@ export default function LeaderboardSkeleton({
         </div>
       )}
 
-      <h2 className="text-xl font-semibold mb-3">Leaderboard</h2>
-
-      <div className="mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
-        <p className="text-sm font-medium text-green-900">
-          <span className="inline-block h-4 w-24 bg-green-200 rounded animate-pulse" />
+      {showTimeFrameSelector && (
+        <p className="text-sm text-muted-foreground mb-6">
+          <span className="inline-block h-4 w-full max-w-md bg-gray-200 rounded animate-pulse" />
         </p>
+      )}
+
+      <div className="flex min-[450px]:flex-row flex-col min-[450px]:items-center mb-2 justify-between">
+        <h2 className="text-xl font-semibold mb-2 min-[450px]:mb-0">
+          Leaderboard
+        </h2>
+        <div className="bg-green-700/5 py-1 px-3 rounded-md border border-green-700/25">
+          <p className="text-green-900">
+            Your Rank: <span className="inline-block h-4 w-8 bg-green-200 rounded animate-pulse align-middle" />
+          </p>
+        </div>
       </div>
 
       <div className="border rounded-lg overflow-hidden">

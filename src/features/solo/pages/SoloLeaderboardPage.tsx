@@ -8,7 +8,7 @@ import { buildSortedLeaderboardEntries } from "@/lib/leagues";
 import { getBadgesbyUserBadges } from "@/lib/userBadges";
 import TimeFrameSelector from "@/components/ui/TimeFrameSelector";
 import LeaderboardSkeleton from "@/components/ui/LeaderboardSkeleton";
-import Spinner from "@/components/ui/spinner";
+// import Spinner from "@/components/ui/spinner";
 
 const SOLO_LEADERBOARD_CACHE_TTL_MS = 15_000;
 
@@ -31,16 +31,13 @@ const TIMEFRAME_OPTIONS = [
   { value: "1M", label: "1M" },
   { value: "1Y", label: "1Y" },
   { value: "ALL", label: "ALL" },
-  { value: "TOTAL", label: "TOT ($)" },
 ];
 
 const TIMEFRAME_DESCRIPTIONS: Record<TimeFrame, string> = {
   "1D": "Ranked by percentage gain since the previous market close.",
   "1M": "Ranked by percentage gain over the last month.",
   "1Y": "Ranked by percentage gain over the last year.",
-  ALL: "Ranked by percentage gain since your portfolio's earliest recorded value.",
-  TOTAL:
-    "Ranked by current total portfolio value, regardless of performance period.",
+  "ALL": "Ranked by percentage gain since your portfolio's earliest recorded value.",
 };
 
 type HistoryRow = {
@@ -400,14 +397,14 @@ function SoloLeaderboardPage() {
   return (
     <div className="max-w-3xl">
       {loading && (
-        // <LeaderboardSkeleton
-        //   showDateStarted
-        //   showTimeFrameSelector
-        //   timeFrameOptions={TIMEFRAME_OPTIONS}
-        // />
-        <div className="flex items-center justify-center py-12">
-          <Spinner />
-        </div>
+        <LeaderboardSkeleton
+          showDateStarted
+          showTimeFrameSelector
+          timeFrameOptions={TIMEFRAME_OPTIONS}
+        />
+        // <div className="flex items-center justify-center py-12">
+        //   <Spinner />
+        // </div>
       )}
       {error && <p className="text-red-600">{error}</p>}
 
