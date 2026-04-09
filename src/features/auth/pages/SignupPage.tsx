@@ -12,7 +12,6 @@ export default function SignupPage() {
   // const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [username, setUsername] = useState("");
   const [error, setError] = useState("");
-  const [errorField, setErrorField] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { signUp, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -28,33 +27,28 @@ export default function SignupPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
-    setErrorField(null);
     setLoading(true);
 
     if (email.length > 100) {
       setError("Email must be 100 characters or less");
-      setErrorField("email");
       setLoading(false);
       return;
     }
 
     if (password.length > 100) {
       setError("Password must be 100 characters or less");
-      setErrorField("password");
       setLoading(false);
       return;
     }
 
     if (password !== confirmPassword) {
       setError("Passwords do not match");
-      setErrorField("password");
       setLoading(false);
       return;
     }
 
     if (password.length < 6) {
       setError("Password must be at least 6 characters");
-      setErrorField("password");
       setLoading(false);
       return;
     }
