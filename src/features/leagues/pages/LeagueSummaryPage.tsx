@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 import { useAuth } from "@/context/AuthContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
@@ -146,7 +146,7 @@ async function getLeagueSummary(
 
 export default function LeagueSummaryPage() {
   const { leagueId } = useParams<{ leagueId: string }>();
-  const navigate = useNavigate();
+  
   const numericLeagueId = Number(leagueId);
   const cachedLeagueName = Number.isFinite(numericLeagueId)
     ? (getCachedLeagueSummary(numericLeagueId)?.league?.name ??

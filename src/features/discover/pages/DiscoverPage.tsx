@@ -263,7 +263,7 @@ function Discover() {
 
       <StockDetailsModal
         open={showStockModal}
-        stock={selectedStock}
+        stock={selectedStock as any}
         onClose={() => setShowStockModal(false)}
       />
       <div className="h-16" />
