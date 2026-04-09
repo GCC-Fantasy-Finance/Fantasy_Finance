@@ -160,7 +160,7 @@ export async function fetchPortfolioHoldingsWithStocks(
     if (stockIds.length > 0) {
       const { data: stockRows, error: stockError } = await supabase
         .from("Stocks")
-        .select("stock_id,stock_symbol,name,current_price,previous_close")
+        .select("*")
         .in("stock_id", stockIds);
 
       if (stockError) {

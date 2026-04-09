@@ -16,6 +16,7 @@ import { useAuth } from "@/context/AuthContext";
 import ReportUserModal from "./ReportUserModal";
 import { kickMember } from "./kickMember";
 import UserBadgeHover from "./UserBadgeHover";
+import StockDetailsModal from "./stockDetailsModal";
 import type { UserBadgeView } from "@/lib/userBadges";
 import { getDraftPicksByLeague } from "@/lib/draftpicks";
 
@@ -68,6 +69,7 @@ export default function LeagueMemberPortfolioModal({
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [draftedStocks, setDraftedStocks] = useState<DraftedStockInfo[]>([]);
+  const [selectedStock, setSelectedStock] = useState<HoldingView | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -220,7 +222,7 @@ export default function LeagueMemberPortfolioModal({
   if (!open || portfolioId == null) return null;
   if (typeof document === "undefined") return null;
 
-  return ReactDOM.createPortal(
+  const portal = ReactDOM.createPortal(
     <div className="ff-modal-viewport fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onMouseDown={onClose} />
 
@@ -363,7 +365,8 @@ export default function LeagueMemberPortfolioModal({
                   return (
                     <div
                       key={holding.portfolio_holding_id}
-                      className="flex items-center justify-between rounded-lg border shadow-sm w-full px-4 py-3 bg-white"
+                      className="flex items-center justify-between rounded-lg border shadow-sm w-full px-4 py-3 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
+                      onClick={() => setSelectedStock(holding)}
                     >
                       <div className="flex items-center gap-3">
                         <div className="flex flex-col min-w-[120px]">
@@ -416,5 +419,16 @@ export default function LeagueMemberPortfolioModal({
       />
     </div>,
     document.body,
+  );
+
+  return (
+    <>
+      {portal}
+      <StockDetailsModal
+        open={!!selectedStock}
+        stock={(selectedStock?.stock as any) ?? null}
+        onClose={() => setSelectedStock(null)}
+      />
+    </>
   );
 }

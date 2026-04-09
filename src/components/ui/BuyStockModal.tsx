@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom";
-import { X, ChevronUp, ChevronDown } from "lucide-react";
+import { X } from "lucide-react";
 import { Button } from "./button";
 import { useTradeModal } from "@/context/TradeModalContext";
 import { useAuth } from "@/context/AuthContext";
@@ -26,6 +26,30 @@ export default function BuyStockModal() {
 
   const canBuy =
     buyOpen && price > 0 && parsedAmount > 0 && parsedAmount <= reserve;
+
+  const handleAmountChange = (value: string) => {
+    // Allow empty string
+    if (value === "") {
+      setAmount("");
+      return;
+    }
+
+    // Only allow digits and single decimal point
+    if (!/^\d*\.?\d*$/.test(value)) {
+      return; // Reject if contains invalid characters
+    }
+
+    // Prevent multiple decimal points
+    if ((value.match(/\./g) || []).length > 1) {
+      return;
+    }
+
+    // Parse and validate it's a positive number
+    const parsed = parseFloat(value);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      setAmount(value);
+    }
+  };
 
   // ESC + outside click
   useEffect(() => {
@@ -83,18 +107,6 @@ export default function BuyStockModal() {
     }
   }
 
-  const step = 1; // $1 increments
-  const onStepUp = () =>
-    setAmount((prev) => {
-      const v = Number(prev) || 0;
-      return String(v + step);
-    });
-  const onStepDown = () =>
-    setAmount((prev) => {
-      const v = Number(prev) || 0;
-      return String(Math.max(0, v - step));
-    });
-
   const buyLabel = canBuy ? `Buy $${truncateCurrency(parsedAmount)}` : "Buy";
 
   const modal = (
@@ -146,27 +158,11 @@ export default function BuyStockModal() {
             <div className="mt-2 flex items-center gap-2">
               <input
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => handleAmountChange(e.target.value)}
                 placeholder="0"
                 inputMode="decimal"
                 className="w-full rounded border px-3 py-2 text-sm"
               />
-              <div className="flex flex-col">
-                <button
-                  type="button"
-                  onClick={onStepUp}
-                  className="border rounded-t px-2 py-1 bg-white hover:bg-gray-50"
-                >
-                  <ChevronUp className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={onStepDown}
-                  className="border rounded-b px-2 py-1 bg-white hover:bg-gray-50"
-                >
-                  <ChevronDown className="w-4 h-4" />
-                </button>
-              </div>
             </div>
           </div>
 

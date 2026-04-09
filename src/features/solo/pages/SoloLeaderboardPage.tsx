@@ -8,6 +8,8 @@ import { buildSortedLeaderboardEntries } from "@/lib/leagues";
 import { getBadgesbyUserBadges } from "@/lib/userBadges";
 import TimeFrameSelector from "@/components/ui/TimeFrameSelector";
 import LeaderboardSkeleton from "@/components/ui/LeaderboardSkeleton";
+import SoloPortfolioModal from "@/components/ui/SoloPortfolioModal";
+import { calculatePortfolioValue } from "@/lib/portfolioValue";
 // import Spinner from "@/components/ui/spinner";
 
 const SOLO_LEADERBOARD_CACHE_TTL_MS = 15_000;
@@ -250,6 +252,8 @@ function SoloLeaderboardPage() {
   const [timeFrame, setTimeFrame] = useState<TimeFrame>("1D");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedPortfolio, setSelectedPortfolio] =
+    useState<LeaderboardEntry | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -429,9 +433,37 @@ function SoloLeaderboardPage() {
             tickerPreviousValuesByPortfolioId={
               tickerPreviousValuesByPortfolioId
             }
+            onPortfolioClick={(portfolioId) => {
+              const selectedEntry = sortedEntries.find(
+                (entry) => entry.portfolio_id === portfolioId,
+              );
+              if (selectedEntry) {
+                setSelectedPortfolio(selectedEntry);
+              }
+            }}
           />
         </>
       )}
+
+      <SoloPortfolioModal
+        open={Boolean(selectedPortfolio)}
+        portfolioId={selectedPortfolio?.portfolio_id ?? null}
+        memberName={selectedPortfolio?.Profiles?.username ?? "Unknown User"}
+        memberAvatarUrl={selectedPortfolio?.Profiles?.avatar_url}
+        badges={selectedPortfolio?.badges}
+        joinedDate={selectedPortfolio?.Profiles?.created_at}
+        fallbackNetValue={
+          selectedPortfolio
+            ? calculatePortfolioValue({
+                netValue:
+                  selectedPortfolio.live_value ??
+                  selectedPortfolio.previous_close_value,
+              })
+            : undefined
+        }
+        onClose={() => setSelectedPortfolio(null)}
+      />
+
       <div className="h-16" />
     </div>
   );
