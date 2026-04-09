@@ -147,7 +147,7 @@ export default function PortfolioPage({
 
       const { data: stockRows, error } = await supabase
         .from("Stocks")
-        .select("stock_id,stock_symbol,name,current_price,previous_close")
+        .select("stock_id,stock_symbol,name,current_price,previous_close,logo_url")
         .in("stock_id", uniqueStockIds);
 
       if (error) {
@@ -168,6 +168,7 @@ export default function PortfolioPage({
           stock_symbol:
             (stockRow as { stock_symbol?: string | null }).stock_symbol ?? null,
           name: (stockRow as { name?: string | null }).name ?? null,
+          logo_url: (stockRow as { logo_url?: string | null }).logo_url ?? null,
           current_price:
             currentPrice === null || currentPrice === undefined
               ? null
@@ -190,6 +191,7 @@ export default function PortfolioPage({
             stock_id: stockId,
             stock_symbol: null,
             name: `Stock #${stockId}`,
+            logo_url: null,
             current_price: null,
             previous_close: null,
           },
@@ -306,7 +308,7 @@ export default function PortfolioPage({
 
         const { data: stockRows, error: stockError } = await supabase
           .from("Stocks")
-          .select("stock_id,stock_symbol,name,current_price,previous_close")
+          .select("stock_id,stock_symbol,name,current_price,previous_close,logo_url")
           .in("stock_id", stockIds);
 
         if (stockError) {
@@ -326,6 +328,7 @@ export default function PortfolioPage({
               (stockRow as { stock_symbol?: string | null }).stock_symbol ??
               null,
             name: (stockRow as { name?: string | null }).name ?? null,
+            logo_url: (stockRow as { logo_url?: string | null }).logo_url ?? null,
             current_price:
               currentPrice === null || currentPrice === undefined
                 ? null
@@ -344,6 +347,7 @@ export default function PortfolioPage({
               stock_id: stockId,
               stock_symbol: null,
               name: `Stock #${stockId}`,
+              logo_url: null,
               current_price: null,
               previous_close: null,
             },

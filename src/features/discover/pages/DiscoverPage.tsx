@@ -30,6 +30,7 @@ type StockWithSector = {
   name: string;
   current_price: number;
   previous_close: number;
+  logo_url?: string | null;
   sector?: string;
 };
 
