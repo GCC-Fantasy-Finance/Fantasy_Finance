@@ -487,35 +487,7 @@ export default function LeagueSummaryPage() {
           <div className="flex items-center gap-4">
             <div className="flex flex-col gap-2">
               <p className="text-xs text-gray-500">Finished at: {new Date(league.finish_time).toLocaleString()}</p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-fit text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700"
-                onClick={() => {
-                  if (window.confirm("Are you sure you want to leave this league?")) {
-                    supabase
-                      .from("Portfolios")
-                      .delete()
-                      .eq("league_id", leagueId)
-                      .eq("user_id", profile?.id)
-                      .then(({ error }) => {
-                        if (error) {
-                          alert("Failed to leave league: " + error.message);
-                        } else {
-                          leagueSummaryCache.delete(Number(leagueId));
-                          window.dispatchEvent(
-                            new CustomEvent("ff:leagues-updated", {
-                              detail: { leagueId: Number(leagueId) },
-                            })
-                          );
-                          navigate("/");
-                        }
-                      });
-                  }
-                }}
-              >
-                Leave League
-              </Button>
+              
             </div>
           </div>
         </div>

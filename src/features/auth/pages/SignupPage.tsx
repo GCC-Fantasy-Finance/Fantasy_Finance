@@ -12,6 +12,7 @@ export default function SignupPage() {
   // const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [username, setUsername] = useState("");
   const [error, setError] = useState("");
+  const [errorField, setErrorField] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { signUp, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -27,16 +28,33 @@ export default function SignupPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
+    setErrorField(null);
     setLoading(true);
+
+    if (email.length > 100) {
+      setError("Email must be 100 characters or less");
+      setErrorField("email");
+      setLoading(false);
+      return;
+    }
+
+    if (password.length > 100) {
+      setError("Password must be 100 characters or less");
+      setErrorField("password");
+      setLoading(false);
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError("Passwords do not match");
+      setErrorField("password");
       setLoading(false);
       return;
     }
 
     if (password.length < 6) {
       setError("Password must be at least 6 characters");
+      setErrorField("password");
       setLoading(false);
       return;
     }
@@ -84,6 +102,7 @@ export default function SignupPage() {
             type="email"
             autoComplete="email"
             required
+            maxLength={100}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -103,6 +122,7 @@ export default function SignupPage() {
             type="text"
             autoComplete="username"
             required
+            maxLength={100}
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -123,6 +143,7 @@ export default function SignupPage() {
               type={showPassword ? "text" : "password"}
               autoComplete="new-password"
               required
+              maxLength={100}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -154,6 +175,7 @@ export default function SignupPage() {
             type="password"
             autoComplete="new-password"
             required
+            maxLength={100}
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"

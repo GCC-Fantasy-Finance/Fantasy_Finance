@@ -42,6 +42,7 @@ interface Stock {
   market_cap?: any;
   volume?: any;
   logo_url?: string;
+  description?: string;
 }
 
 interface PortfolioWithLeague {
@@ -269,6 +270,7 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
   const [yearRangeDisplay, setYearRangeDisplay] = useState<string>("-");
   const [activeTab, setActiveTab] = useState<"details" | "trade">("details");
   const [isSavingSoloWishlist, setIsSavingSoloWishlist] = useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [savingSoloWishlistAction, setSavingSoloWishlistAction] = useState<
     "save" | "unsave" | null
   >(null);
@@ -901,6 +903,22 @@ export default function StockDetailsModal({ open, stock, onClose }: Props) {
                   </div>
                 </TooltipProvider>
               </div>
+
+              {/* Description */}
+              {stock.description && (
+                <div className="rounded-lg border border-gray-200 bg-white p-4 mb-6">
+                  <h4 className="font-medium mb-2">About</h4>
+                  <p className="text-sm text-gray-700 leading-relaxed">
+                    {isDescriptionExpanded ? stock.description : `${stock.description.substring(0, 300)}...`}
+                  </p>
+                  <button
+                    onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                    className="text-xs font-medium text-gray-600 hover:text-gray-800 hover:underline mt-2 cursor-pointer"
+                  >
+                    {isDescriptionExpanded ? "Read less" : "Read more"}
+                  </button>
+                </div>
+              )}
 
               {/* AI questions */}
               <div className="mb-10">
