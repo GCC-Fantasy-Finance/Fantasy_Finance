@@ -7,14 +7,14 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { sellStock } from "@/hooks/sellStock";
 import { invalidateCachedPortfolioView } from "@/hooks/fetchPortfolio";
-import { truncateCurrency } from "@/lib/utils";
+import { roundShareQuantity, truncateCurrency } from "@/lib/utils";
 
 export default function SellStockModal() {
   const { sellOpen, stock, portfolio, holdingQty, closeSell } = useTradeModal();
   const { user } = useAuth();
   const modalRef = useRef<HTMLDivElement | null>(null);
 
-  const [mode, setMode] = useState<"custom" | "all">("all");
+  const [mode, setMode] = useState<"custom" | "all">("custom");
   const [amount, setAmount] = useState<string>(""); // dollar amount when in custom mode
   const [submitting, setSubmitting] = useState(false);
 
@@ -98,7 +98,7 @@ export default function SellStockModal() {
   useEffect(() => {
     if (!sellOpen) {
       setAmount("");
-      setMode("all");
+      setMode("custom");
       setSubmitting(false);
     }
   }, [sellOpen]);
@@ -118,7 +118,7 @@ export default function SellStockModal() {
         userId: user.id,
         stockId: stock!.stock_id,
         price,
-        quantity: Number(quantityToSell.toFixed(6)),
+        quantity: roundShareQuantity(quantityToSell),
         portfolioId: portfolio!.portfolio_id,
       });
       if (!res.success) {
@@ -174,10 +174,23 @@ export default function SellStockModal() {
         {/* Body */}
         <div className="px-4 pb-4">
           {/* Stock box */}
-          <div className="mt-3 rounded border bg-white px-4 py-3">
-            <div className="font-medium">{stock.name}</div>
-            <div className="mt-1 text-green-700 font-semibold">
-              ${truncateCurrency(price)}
+          <div className="mt-3 rounded border bg-white px-4 py-3 flex items-center gap-3">
+            {stock.logo_url ? (
+              <img
+                src={stock.logo_url}
+                alt={stock.stock_symbol}
+                className="h-10 w-10 shrink-0 object-contain"
+              />
+            ) : (
+              <div className="h-10 w-10 shrink-0 rounded bg-gray-200 flex items-center justify-center text-gray-500 text-sm font-medium">
+                {stock.stock_symbol[0]}
+              </div>
+            )}
+            <div>
+              <div className="font-medium">{stock.name}</div>
+              <div className="mt-1 text-green-700 font-semibold">
+                ${truncateCurrency(price)} / Share
+              </div>
             </div>
           </div>
 
@@ -191,7 +204,7 @@ export default function SellStockModal() {
                 onChange={() => setMode("custom")}
               />
               <label htmlFor="sell-custom" className="text-sm text-gray-700">
-                Sell custom amt.
+                Sell custom amount ($)
               </label>
             </div>
             {mode === "custom" && (

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "./button";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
@@ -16,6 +17,7 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
   const nameRef = useRef<HTMLInputElement | null>(null);
   const { user } = useAuth();
   const [joinCode, setJoinCode] = useState<string>("");
+  const navigate = useNavigate();
 
   // --- ESC key + auto-focus handling ---
   useEffect(() => {
@@ -95,7 +97,7 @@ export default function JoinLeagueModal({ open, onClose }: Props) {
 
       toast.success("Joined league successfully!");
       onClose();
-      window.location.href = `/league/${leagueData.league_id}`;
+      navigate(`/league/${leagueData.league_id}`);
     } catch (err: any) {
       console.error("Error joining league:", err);
       const msg = err?.message || "Failed to join league";

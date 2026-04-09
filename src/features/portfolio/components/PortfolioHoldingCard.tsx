@@ -61,11 +61,24 @@ export default function PortfolioHoldingCard({
       }}
     >
       {/* Symbol */}
-      <div className="relative z-10 text-left flex min-w-0 flex-col font-medium max-[540px]:col-span-2">
-        {holding.stock?.stock_symbol}
-        <span className="text-sm font-normal text-gray-500">
-          {holding.stock?.name}
-        </span>
+      <div className="relative z-10 text-left flex min-w-0 items-center gap-2 font-medium max-[540px]:col-span-2">
+        {holding.stock?.logo_url ? (
+          <img
+            src={holding.stock.logo_url}
+            alt={holding.stock.stock_symbol ?? ""}
+            className="h-[1lh] w-[1lh] shrink-0 object-contain"
+          />
+        ) : (
+          <div className="h-[1lh] w-[1lh] shrink-0 bg-gray-200 flex items-center justify-center text-gray-500 text-xs rounded-sm">
+            {holding.stock?.stock_symbol?.[0]}
+          </div>
+        )}
+        <div className="flex min-w-0 flex-col">
+          {holding.stock?.stock_symbol}
+          <span className="text-sm font-normal text-gray-500 truncate">
+            {holding.stock?.name}
+          </span>
+        </div>
       </div>
 
       {/* Current Price and Percent Change */}

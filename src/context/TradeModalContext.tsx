@@ -6,6 +6,7 @@ export interface TradeStock {
   stock_symbol: string;
   name: string;
   current_price: number;
+  logo_url?: string | null;
 }
 
 export interface TradePortfolio {

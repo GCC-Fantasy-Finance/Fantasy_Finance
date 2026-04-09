@@ -37,3 +37,24 @@ export function calculateStockPercentChange(
 
   return (delta / previous) * 100
 }
+
+const SHARE_QUANTITY_DECIMALS = 8
+
+export function roundShareQuantity(quantity: number): number {
+  if (!Number.isFinite(quantity)) {
+    return 0
+  }
+
+  return Number(quantity.toFixed(SHARE_QUANTITY_DECIMALS))
+}
+
+export function calculateShareQuantityForAmount(
+  amount: number,
+  price: number,
+): number {
+  if (!Number.isFinite(amount) || !Number.isFinite(price) || price <= 0) {
+    return 0
+  }
+
+  return roundShareQuantity(amount / price)
+}

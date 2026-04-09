@@ -9,7 +9,7 @@ import SummaryPageLeaderboard from "@/layouts/components/SummaryPageLeaderboard"
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import LeaguePortfolioChart from "@/components/ui/leaguePortfolioChart";
-import LeagueMemberPortfolioModal from "@/components/ui/LeagueMemberPortfolioModal";
+import MemberPortfolioModal from "@/components/ui/LeagueMemberPortfolioModal";
 import { calculatePortfolioValue } from "@/lib/portfolioValue";
 import { getLeagueById } from "@/lib/leagues";
 import { getPortfoliosByLeague } from "@/lib/portfolios";
@@ -558,7 +558,7 @@ export default function LeagueSummaryPage() {
           </div>
         </div>
 
-        <LeagueMemberPortfolioModal
+        <MemberPortfolioModal
           open={selectedPortfolioId != null}
           portfolioId={selectedPortfolioId}
           memberName={selectedEntry?.Profiles?.username ?? "Unknown User"}

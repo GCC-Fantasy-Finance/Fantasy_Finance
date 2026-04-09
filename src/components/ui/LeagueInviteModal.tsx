@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
+import { useNavigate } from "react-router-dom";
 import { X } from "lucide-react";
 import { Button } from "./button";
 import { supabase } from "@/lib/supabase";
@@ -27,6 +28,7 @@ export default function LeagueInviteModal({
   onResponseComplete,
 }: Props) {
   const modalRef = useRef<HTMLDivElement | null>(null);
+  const navigate = useNavigate();
   const [leagueDetails, setLeagueDetails] = useState<{
     name?: string;
     owner_id?: string;
@@ -143,11 +145,7 @@ export default function LeagueInviteModal({
       onClose();
       onResponseComplete?.();
       
-      // Redirect to league page
-      setTimeout(() => {
-        console.log("Redirecting to league:", leagueId);
-        window.location.href = `/league/${leagueId}`;
-      }, 500);
+      navigate(`/league/${leagueId}`);
     } catch (err) {
       console.error("Error accepting invite:", err);
       toast.error("Failed to join league");

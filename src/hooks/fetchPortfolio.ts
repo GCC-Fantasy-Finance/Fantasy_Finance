@@ -24,6 +24,7 @@ export interface StockRow {
   name: string | null;
   current_price: number | null;
   previous_close: number | null;
+  logo_url: string | null;
 }
 
 export interface HoldingView {
