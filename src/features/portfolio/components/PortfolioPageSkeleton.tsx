@@ -2,7 +2,7 @@ export default function PortfolioPageSkeleton() {
   const SKELETON_ROWS = 5;
 
   return (
-    <div className="ff-portfolio-page-skeleton mb-18">
+    <div className="ff-portfolio-page ff-portfolio-page-skeleton mb-18">
       {/* Summary Box and Chart Grid */}
       <div className="ff-portfolio-summary-grid mb-6 grid grid-cols-1 gap-6">
         {/* Summary Box */}
