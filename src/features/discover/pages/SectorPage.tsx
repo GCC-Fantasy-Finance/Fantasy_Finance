@@ -250,10 +250,10 @@ function SectorPage() {
                         <img
                           src={stock.logo_url}
                           alt={stock.stock_symbol}
-                          className="h-12 w-12 object-contain"
+                          className="h-12 w-12 object-contain rounded-md"
                         />
                       ) : (
-                        <div className="h-12 w-12 rounded bg-gray-200 flex items-center justify-center text-gray-500 text-sm font-medium">
+                        <div className="h-12 w-12 rounded-md bg-gray-200 flex items-center justify-center text-gray-500 text-sm font-medium">
                           {stock.stock_symbol[0]}
                         </div>
                       )}
@@ -313,10 +313,10 @@ function SectorPage() {
                           <img
                             src={stock.logo_url}
                             alt={stock.stock_symbol}
-                            className="w-7 h-7 object-contain"
+                            className="w-7 h-7 object-contain rounded-sm"
                           />
                         ) : (
-                          <div className="w-7 h-7 bg-gray-200 flex items-center justify-center text-gray-500 text-xs">
+                          <div className="w-7 h-7 bg-gray-200 flex items-center justify-center text-gray-500 text-xs rounded-sm">
                             {stock.stock_symbol[0]}
                           </div>
                         )}

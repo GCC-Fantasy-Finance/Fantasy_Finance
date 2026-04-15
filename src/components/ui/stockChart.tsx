@@ -16,6 +16,7 @@ import {
 type PricePoint = {
   date: number; // timestamp in ms
   close: number;
+  isPreviousClose?: boolean;
 };
 
 export default function StockChart({
@@ -121,6 +122,67 @@ export default function StockChart({
                 { date: nowTs - 60_000, close },
                 { date: nowTs, close },
               ];
+              
+              // Try to add previous close even when market is closed
+              try {
+                const { data: stock, error: stockError } = await supabase
+                  .from("Stocks")
+                  .select("previous_close")
+                  .eq("stock_id", id)
+                  .maybeSingle();
+
+                console.log("Stock data:", stock, "Error:", stockError);
+
+                if (!stockError && stock?.previous_close != null) {
+                  const prevClose = Number(Number(stock.previous_close).toFixed(2));
+                  console.log("Adding previous close:", prevClose);
+                  const avgInterval = (finalData[finalData.length - 1].date - finalData[0].date) / (finalData.length - 1 || 1);
+                  const prevPointDate = finalData[0].date - avgInterval;
+                  
+                  finalData = [
+                    {
+                      date: prevPointDate,
+                      close: prevClose,
+                      isPreviousClose: true,
+                    },
+                    ...finalData,
+                  ];
+                }
+              } catch (err) {
+                console.error("Error fetching previous close:", err);
+              }
+            }
+          } else {
+            // Add previous day's close equally spaced with other points
+            try {
+              const { data: stock, error: stockError } = await supabase
+                .from("Stocks")
+                .select("previous_close")
+                .eq("stock_id", id)
+                .maybeSingle();
+
+              console.log("Stock data (intraday):", stock, "Error:", stockError, "finalData length:", finalData.length);
+
+              if (!stockError && stock?.previous_close != null && finalData.length > 0) {
+                const prevClose = Number(Number(stock.previous_close).toFixed(2));
+                console.log("Adding previous close (intraday):", prevClose);
+                
+                // Calculate average interval between points
+                const avgInterval = (finalData[finalData.length - 1].date - finalData[0].date) / (finalData.length - 1 || 1);
+                
+                // Place previous close at equally spaced interval before first point
+                const prevPointDate = finalData[0].date - avgInterval;
+                
+                const prevPoint = {
+                  date: prevPointDate,
+                  close: prevClose,
+                  isPreviousClose: true,
+                };
+
+                finalData = [prevPoint, ...finalData];
+              }
+            } catch (err) {
+              console.error("Error fetching previous close:", err);
             }
           }
 
@@ -203,7 +265,8 @@ export default function StockChart({
                 let next = [] as typeof prev;
                 if (exists >= 0) {
                   next = prev.slice();
-                  next[exists] = point;
+                  // Preserve the isPreviousClose flag if it exists
+                  next[exists] = { ...prev[exists], ...point };
                 } else {
                   next = prev.concat(point).sort((a, b) => a.date - b.date);
                 }
@@ -229,6 +292,10 @@ export default function StockChart({
 
   const seenYears = new Set<number>();
   const tickFormatter = (value: number) => {
+    const point = data.find(p => p.date === value);
+    if (point?.isPreviousClose) {
+      return "Previous Close";
+    }
     const d = new Date(value);
     if (timeFrame === "1D") {
       return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
@@ -284,6 +351,10 @@ export default function StockChart({
         <YAxis domain={["auto", "auto"]} tick={{ fontSize: 13 }} />
         <Tooltip
           labelFormatter={(val: any) => {
+            const point = data.find(p => p.date === val);
+            if (point?.isPreviousClose) {
+              return "Previous Close";
+            }
             const d = new Date(val as number);
             if (timeFrame === "1D")
               return `${d.getHours()}:${d.getMinutes().toString().padStart(2, "0")}`;

@@ -58,6 +58,7 @@ const DraftHeader = () => {
   const [nextAutoSource, setNextAutoSource] = useState<
     "queue" | "market_cap" | null
   >(null);
+  const [isStartingDraft, setIsStartingDraft] = useState(false);
 
   // Fetch league info
   useEffect(() => {
@@ -322,8 +323,16 @@ const DraftHeader = () => {
       )}
 
       {showStartDraftButton && (
-        <Button onClick={startDraft} size="sm">
-          Start Draft
+        <Button 
+          onClick={async () => {
+            setIsStartingDraft(true);
+            await startDraft();
+            // Keep disabled until draftStarted updates
+          }} 
+          size="sm"
+          disabled={isStartingDraft || draftStarted}
+        >
+          {isStartingDraft ? "Starting..." : "Start Draft"}
         </Button>
       )}
     </>
