@@ -390,10 +390,11 @@ def insert_portfolio_history():
 
     print("Portfolio value update complete.")
 
-# updates the Stocks.previous_close with yesterdays price
+# updates the Stocks.previous_close with yesterdays price from Stock Histories
 def update_stock_previous_close():
+    # Get all stocks
     stocks_resp = supabase.table("Stocks") \
-        .select("stock_id, stock_symbol") \
+        .select("stock_id") \
         .execute()
 
     stocks = stocks_resp.data or []
@@ -401,30 +402,41 @@ def update_stock_previous_close():
         print("No stocks found.")
         return
 
-    for stock in stocks:
-        stock_id = stock["stock_id"]
-        symbol = stock["stock_symbol"]
+    stock_ids = [s["stock_id"] for s in stocks]
 
+    # Get the most recent price from Stock Histories for each stock
+    prices_resp = supabase.table("Stock Histories") \
+        .select("stock_id, price") \
+        .in_("stock_id", stock_ids) \
+        .order("timestamp_of", desc=True) \
+        .execute()
+
+    # Map stock_id to its most recent price
+    prices_map = {}
+    seen_stocks = set()
+    for p in (prices_resp.data or []):
+        stock_id = p["stock_id"]
+        if stock_id not in seen_stocks:
+            prices_map[stock_id] = float(p["price"])
+            seen_stocks.add(stock_id)
+
+    if not prices_map:
+        print("No prices found in Stock Histories.")
+        return
+
+    # Update previous_close for each stock
+    updated_count = 0
+    for stock_id, price in prices_map.items():
         try:
-            ticker = yf.Ticker(symbol)
-            hist = ticker.history(period="2d")
-
-            if hist.empty or len(hist) < 2:
-                continue
-
-            latest_close = float(hist["Close"].dropna().iloc[-2])
-
             supabase.table("Stocks") \
-                .update({
-                    "previous_close": latest_close
-                }) \
+                .update({"previous_close": price}) \
                 .eq("stock_id", stock_id) \
                 .execute()
-
+            updated_count += 1
         except Exception as e:
-            print(f"Error updating {symbol}: {e}")
+            print(f"Error updating stock {stock_id}: {e}")
 
-    print("Stock previous_close update complete.")
+    print(f"Updated {updated_count} stock previous_close values from Stock Histories.")
 
 # inserts into "Stock Histories" table with new day and removes old day
 def insert_stock_history():
