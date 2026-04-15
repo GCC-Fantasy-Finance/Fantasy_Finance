@@ -7,6 +7,9 @@ from datetime import datetime, timezone, time as dt_time, timedelta
 import pytz
 import plotly.graph_objs as go
 from zoneinfo import ZoneInfo
+import math
+import pandas as pd
+import numpy as np
 
 load_dotenv()
 
@@ -19,6 +22,19 @@ eastern = pytz.timezone("US/Eastern")
 
 MARKET_OPEN = dt_time(9, 30)
 MARKET_CLOSE = dt_time(16, 0)
+
+def is_valid_price(price):
+    """Check if price is a valid number (not NaN, not None, not infinite)"""
+    if price is None:
+        return False
+    try:
+        # Handle pandas/numpy NaN
+        if pd.isna(price) or np.isnan(float(price)):
+            return False
+        p = float(price)
+        return not (math.isnan(p) or math.isinf(p)) and p > 0
+    except (ValueError, TypeError):
+        return False
 
 # gets the current price of a given stock
 def get_current_price(ticker):
@@ -49,55 +65,104 @@ def update_all_stock_prices():
 
     print(f"Fetching prices for {len(ticker_list)} tickers...")
 
-    # -----------------------------
-    # 2. Fetch all tickers in parallel
-    # -----------------------------
-    try:
-        data = yf.download(
-            tickers=ticker_list,
-            period="1d",
-            group_by="ticker",
-            threads=True,
-            progress=False
-        )
-    except Exception as e:
-        print("Error fetching data:", e)
-        return
-
     now_iso = datetime.now(timezone.utc).isoformat()
-
-    # -----------------------------
-    # 3. Update each stock
-    # -----------------------------
     updated_count = 0
+    failed_tickers = []
 
-    for symbol, stock_id in ticker_map.items():
-        try:
-            price = None
+    # Process in batches to handle rate limiting gracefully
+    BATCH_SIZE = 100
+    MAX_RETRIES = 2
+    
+    for batch_start in range(0, len(ticker_list), BATCH_SIZE):
+        batch_end = min(batch_start + BATCH_SIZE, len(ticker_list))
+        batch = ticker_list[batch_start:batch_end]
+        
+        for attempt in range(MAX_RETRIES):
+            try:
+                # Fetch batch with retry
+                data = yf.download(
+                    tickers=batch,
+                    period="1d",
+                    group_by="ticker",
+                    threads=True,
+                    progress=False,
+                    timeout=10
+                )
+                
+                # Process batch
+                for symbol in batch:
+                    try:
+                        price = None
 
-            # Single ticker case
-            if len(ticker_list) == 1:
-                if not data.empty:
-                    price = float(data["Close"].iloc[-1])
-            else:
-                if symbol in data and not data[symbol].empty:
-                    price = float(data[symbol]["Close"].iloc[-1])
+                        # Single ticker case
+                        if len(batch) == 1:
+                            if not data.empty and "Close" in data:
+                                close_val = data["Close"].iloc[-1]
+                                if is_valid_price(close_val):
+                                    price = float(close_val)
+                        else:
+                            if symbol in data and not data[symbol].empty:
+                                close_val = data[symbol]["Close"].iloc[-1]
+                                if is_valid_price(close_val):
+                                    price = float(close_val)
 
-            if price is None:
-                print(f"Failed: {symbol}")
-                continue
+                        # Fallback: try fast_info if batch download returned NaN
+                        if price is None:
+                            try:
+                                ticker = yf.Ticker(symbol)
+                                fallback_price = ticker.fast_info.get("lastPrice")
+                                if is_valid_price(fallback_price):
+                                    price = float(fallback_price)
+                            except:
+                                pass
+                        
+                        # Final fallback: try historical data
+                        if price is None:
+                            try:
+                                ticker = yf.Ticker(symbol)
+                                hist = ticker.history(period="5d")
+                                if not hist.empty:
+                                    fallback_price = hist["Close"].iloc[-1]
+                                    if is_valid_price(fallback_price):
+                                        price = float(fallback_price)
+                            except:
+                                pass
 
-            supabase.table("Stocks").update({
-                "current_price": price,
-                "last_updated": now_iso
-            }).eq("stock_id", stock_id).execute()
+                        if price is None:
+                            failed_tickers.append(symbol)
+                            continue
 
-            updated_count += 1
+                        supabase.table("Stocks").update({
+                            "current_price": price,
+                            "last_updated": now_iso
+                        }).eq("stock_symbol", symbol).execute()
 
-        except Exception as e:
-            print(f"{symbol} error: {e}")
+                        updated_count += 1
+
+                    except Exception as e:
+                        print(f"{symbol} error: {e}")
+                        failed_tickers.append(symbol)
+                
+                break  # Success, exit retry loop
+                
+            except Exception as e:
+                print(f"Batch error on attempt {attempt + 1}/{MAX_RETRIES}: {e}")
+                if attempt < MAX_RETRIES - 1:
+                    wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
+                    print(f"Retrying in {wait_time}s...")
+                    time.sleep(wait_time)
+                else:
+                    failed_tickers.extend(batch)
+        
+        # Minimal delay between batches (100 tickers shouldn't need aggressive throttling)
+        if batch_end < len(ticker_list):
+            time.sleep(0.5)
 
     print(f"Updated {updated_count} stocks.")
+    
+    if failed_tickers:
+        print(f"\n{len(failed_tickers)} Failed downloads:")
+        print(f"{failed_tickers}: {'NaN/Invalid prices'}")
 
 # returns the number of seconds until the next market open
 def seconds_until_next_market_open():
@@ -701,7 +766,8 @@ def insert_stock_intraday_snapshot(now_iso: str):
     for stock in stocks:
         price = stock.get("current_price")
 
-        if price is None:
+        # Skip invalid prices (None, NaN, infinite)
+        if not is_valid_price(price):
             continue
 
         rows_to_insert.append({
