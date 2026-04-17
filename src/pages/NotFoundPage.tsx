@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 export default function NotFoundPage() {
   const navigate = useNavigate();
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
+    <div className="min-h-dvh flex items-center justify-center px-4">
       <div className="text-center max-w-md space-y-10">
         <div className="space-y-2">
           <h1 className="text-8xl font-bold text-green-700">404</h1>
