@@ -236,7 +236,8 @@ export default function LeaguePortfolioChart({
             height={70}
             tickFormatter={xAxisTickFormatter}
             tickMargin={12}
-            tick={{ fontSize: 13 }}
+            tick={{ fontSize: 13 }}            
+            interval={Math.max(0, Math.floor(data.length / 5) - 1)}            
           />
           <YAxis domain={["auto", "auto"]} tick={{ fontSize: 13 }} />
           <Tooltip content={<RankedTooltip />} />
