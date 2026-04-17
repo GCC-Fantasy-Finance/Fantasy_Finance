@@ -452,7 +452,7 @@ export default function Sidebar() {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-60 h-screen bg-gray-100 border-r border-gray-300 flex flex-col transform transition-transform duration-200 md:static md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-60 h-dvh bg-gray-100 border-r border-gray-300 flex flex-col transform transition-transform duration-200 md:static md:h-dvh md:translate-x-0 ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >

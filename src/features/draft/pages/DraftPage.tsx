@@ -156,7 +156,7 @@ const DraftPageContent = () => {
     <div
       id="draft-container"
       ref={draftContainerRef}
-      className="h-screen flex flex-col overflow-hidden"
+      className="h-dvh flex flex-col overflow-hidden"
     >
       <DraftHeader />
 
