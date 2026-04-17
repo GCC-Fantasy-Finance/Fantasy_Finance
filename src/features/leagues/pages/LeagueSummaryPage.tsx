@@ -159,7 +159,8 @@ export default function LeagueSummaryPage() {
   );
   const [loading, setLoading] = useState(true);
   const [showResultsModal, setShowResultsModal] = useState(false);
-  const [hasSeenModal, setHasSeenModal] = useState(false);
+  const [, setHasSeenModal] = useState(false);
+  const [modalStateReady, setModalStateReady] = useState(false);
   const [draftedStocks, setDraftedStocks] = useState<
     { stockId: number; label: string }[]
   >([]);
@@ -211,14 +212,17 @@ export default function LeagueSummaryPage() {
   }, [stockDetailsModalOpen]);
 
   useEffect(() => {
-    // Check if user has already seen modal for this league
-    if (leagueId && !hasSeenModal && !loading) {
-      const hasSeenKey = `league_${leagueId}_seen_modal`;
-      if (!localStorage.getItem(hasSeenKey)) {
-        setShowResultsModal(true);
-      }
+    if (!leagueId) {
+      setModalStateReady(true);
+      return;
     }
-  }, [leagueId, hasSeenModal, loading]);
+
+    const hasSeenKey = `league_${leagueId}_seen_modal`;
+    const hasSeen = Boolean(localStorage.getItem(hasSeenKey));
+    setHasSeenModal(hasSeen);
+    setShowResultsModal(!hasSeen);
+    setModalStateReady(true);
+  }, [leagueId]);
 
   useEffect(() => {
     const fetchSummary = async () => {
@@ -366,7 +370,7 @@ export default function LeagueSummaryPage() {
     [standings],
   );
 
-  if (loading)
+  if (loading || !modalStateReady)
     return (
       <div className="flex min-h-[60vh] w-full items-center justify-center">
         <Spinner />
@@ -424,7 +428,8 @@ export default function LeagueSummaryPage() {
         </div>
       )}
 
-      <div className="mx-auto max-w-full px-2 md:px-4 lg:px-6 py-4 md:py-6">
+      {!showResultsModal && (
+        <div className="mx-auto max-w-full px-2 md:px-4 lg:px-6 py-4 md:py-6">
         {/* Results Banner */}
         <div
           className={`mb-6 flex flex-col justify-center items-center transition-opacity duration-500 ${showResultsModal ? "opacity-100" : "opacity-100"}`}
@@ -561,7 +566,8 @@ export default function LeagueSummaryPage() {
           stock={selectedStock}
           onClose={() => setStockDetailsModalOpen(false)}
         />
-      </div>
+        </div>
+      )}
     </div>
   );
 }

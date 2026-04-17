@@ -55,6 +55,11 @@ function formatPlace(rank?: number | null) {
   return `${rank}th`;
 }
 
+function hasSeenLeagueResultsModal(leagueId?: number | null) {
+  if (!leagueId || typeof window === "undefined") return true;
+  return Boolean(localStorage.getItem(`league_${leagueId}_seen_modal`));
+}
+
 type PortfolioTableProps = {
   portfolios: PortfolioCard[];
   isEndedSection?: boolean;
@@ -103,11 +108,21 @@ function PortfolioTable({
             const amountInvested = netValue - reserveValue;
             const isLeagueEnded =
               !portfolio.is_solo && Boolean(portfolio.is_league_ended);
+            const hasSeenResultsModal = isLeagueEnded
+              ? hasSeenLeagueResultsModal(portfolio.league_id)
+              : true;
+            const hideEndedResults = isLeagueEnded && !hasSeenResultsModal;
 
             return (
               <TableRow
                 key={portfolio.portfolio_id}
-                className={`cursor-pointer ${index % 2 === 1 ? "bg-gray-50" : ""}`}
+                className={`cursor-pointer ${
+                  isLeagueEnded && !hasSeenResultsModal
+                    ? "bg-green-600/8 hover:bg-green-600/12"
+                    : index % 2 === 1
+                      ? "bg-gray-50"
+                      : ""
+                }`}
                 onClick={() => {
                   if (portfolio.is_solo) {
                     navigate("/solo");
@@ -133,7 +148,7 @@ function PortfolioTable({
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-3 w-[16%] ">
-                  {portfolio.rank == 1 ? (
+                  {hideEndedResults ? null : portfolio.rank == 1 ? (
                     <div className="text-md font-medium flex gap-1.5 items-center text-yellow-600">
                       <img
                         src="/crown.png"
@@ -151,24 +166,30 @@ function PortfolioTable({
                     showInvestedReserve ? "w-[26%]" : "w-[50%]"
                   }`}
                 >
-                  <div className="flex items-center gap-1 font-medium">
-                    <span
-                      className={
-                        !isEndedSection && !isLeagueEnded
-                          ? isUp
-                            ? "text-green-700"
-                            : isDown
-                              ? "text-red-700"
-                              : "text-gray-500"
-                          : "text-gray-800"
-                      }
-                    >
-                      $
-                      {netValue.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </span>
+                  <div className="flex items-center justify-between gap-2 font-medium">
+                    {!hideEndedResults ? (
+                      <span
+                        className={
+                          !isEndedSection && !isLeagueEnded
+                            ? isUp
+                              ? "text-green-700"
+                              : isDown
+                                ? "text-red-700"
+                                : "text-gray-500"
+                            : "text-gray-800"
+                        }
+                      >
+                        ${netValue.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                    ) : null}
+                    {hideEndedResults ? (
+                      <span className="text-green-700 font-medium whitespace-nowrap">
+                        View Results <span aria-hidden="true">›</span>
+                      </span>
+                    ) : null}
                     {!isEndedSection && !isLeagueEnded ? (
                       <Ticker
                         currentValue={netValue}
