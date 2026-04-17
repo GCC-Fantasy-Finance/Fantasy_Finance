@@ -570,9 +570,11 @@ export default function PortfolioChart({
           <XAxis
             dataKey="date"
             tickFormatter={xAxisTickFormatter}
+            
             tickMargin={12}
             height={42}
             tick={{ fontSize: 13 }}
+            interval={Math.max(0, Math.floor(data.length / 5) - 1)}   
           />
           <YAxis domain={["auto", "auto"]} tick={{ fontSize: 13 }} />
           <CartesianGrid strokeDasharray="3 3" />
