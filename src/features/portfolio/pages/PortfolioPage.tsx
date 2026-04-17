@@ -250,8 +250,8 @@ export default function PortfolioPage({
           isSolo: true,
         };
 
-    const useCache = !isLeagueMode;
-    const cached = useCache ? getCachedPortfolioView(params) : null;
+    const useCache = true;
+    const cached = getCachedPortfolioView(params);
 
     if (cached) {
       applyPortfolioState(cached);

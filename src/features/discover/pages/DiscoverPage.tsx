@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import PageContent from "../../../layouts/components/PageContent";
 import { useNavigate } from "react-router-dom";
-import { getAllStocks } from "@/lib/stocks";
 import { calculateStockPercentChange } from "@/lib/utils";
 import StockDetailsModal from "@/components/ui/stockDetailsModal";
 import Spinner from "@/components/ui/spinner";
 import { useStockPrices } from "@/context/StockPriceContext";
+import { fetchDiscoverStocks } from "@/hooks/fetchDiscoverStocks";
 import {
   Building2,
   Cpu,
@@ -91,13 +91,9 @@ function Discover() {
     async function loadStocks() {
       setLoading(true);
       try {
-        const allStocks = (await getAllStocks()) as RawStockWithSector[];
-        const normalizedStocks: StockWithSector[] = allStocks.map((stock) => ({
-          ...stock,
-          sector: stock.sector ?? undefined,
-        }));
+        const result = await fetchDiscoverStocks();
         if (mounted) {
-          setStocks(normalizedStocks);
+          setStocks(result.stocks);
         }
       } catch (error) {
         console.error("Failed to load stocks for sectors:", error);
