@@ -9,7 +9,7 @@ export default function AppLayout() {
   const { isPinned: isChatbotPinned, setIsPinned, isDisabled } = useChatbot();
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-dvh overflow-hidden">
       {/* Page Layout (MainLayout or DraftLayout) */}
       <div className="flex-1 min-w-0 flex flex-col">
         <Outlet />

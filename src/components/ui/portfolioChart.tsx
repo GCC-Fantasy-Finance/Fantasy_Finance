@@ -148,6 +148,12 @@ export default function PortfolioChart({
 
   // Fetch holdings for the hovered date in tooltip
   useEffect(() => {
+    // Immediately reset holdings when hovering a new point to show skeleton
+    if (hoveredIndex !== null && data[hoveredIndex]) {
+      setDayHoldings([]);
+      setIsLoadingHoldings(true);
+    }
+
     const fetchHoldingsForHoveredDate = async () => {
       if (hoveredIndex === null || !data[hoveredIndex]) {
         setDayHoldings([]);
@@ -158,8 +164,6 @@ export default function PortfolioChart({
       // Increment request ID for this fetch
       requestIdRef.current += 1;
       const currentRequestId = requestIdRef.current;
-
-      setIsLoadingHoldings(true);
       const hoveredPoint = data[hoveredIndex];
 
       try {
@@ -489,13 +493,16 @@ export default function PortfolioChart({
               {[1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  className="flex justify-between items-center gap-2"
+                  className="flex justify-between items-baseline gap-2"
                 >
-                  <div className="h-3 bg-gray-200 rounded flex-1"></div>
-                  <div className="h-3 bg-gray-200 rounded w-12"></div>
+                  <div className="h-4 bg-gray-200 rounded w-10"></div>
+                  <div className="h-4 bg-gray-200 rounded w-20"></div>
                 </div>
               ))}
             </div>
+            <p className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200">
+              Click to see more
+            </p>
           </div>
         ) : (
           <div>

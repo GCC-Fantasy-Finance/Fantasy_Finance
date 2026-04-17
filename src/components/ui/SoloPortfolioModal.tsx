@@ -216,11 +216,22 @@ export default function SoloPortfolioModal({
                   return (
                     <div
                       key={holding.portfolio_holding_id}
-                      className="flex items-center justify-between rounded-lg border shadow-sm w-full px-4 py-3 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
+                      className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-lg border shadow-sm w-full px-4 py-3 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
                       onClick={() => setSelectedStock(holding)}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="flex flex-col min-w-[120px]">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {holding.stock?.logo_url ? (
+                          <img
+                            src={holding.stock.logo_url}
+                            alt={holding.stock?.stock_symbol ?? ""}
+                            className="h-8 w-8 shrink-0 object-contain"
+                          />
+                        ) : (
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-gray-200 text-xs text-gray-500">
+                            {holding.stock?.stock_symbol?.[0] ?? "—"}
+                          </div>
+                        )}
+                        <div className="flex flex-col min-w-0 sm:min-w-[120px]">
                           <span className="text-sm font-semibold">
                             {holding.stock?.stock_symbol ?? "—"}
                           </span>
@@ -228,7 +239,7 @@ export default function SoloPortfolioModal({
                             {holding.stock?.name ?? "Unknown stock"}
                           </span>
                         </div>
-                        <div className="flex flex-col items-end min-w-24">
+                        <div className="flex flex-col items-end sm:min-w-24">
                           <span className="text-sm">
                             ${truncateCurrency(currentPrice)}
                           </span>

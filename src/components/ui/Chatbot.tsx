@@ -813,12 +813,10 @@ export default function Chatbot({
 
   useLayoutEffect(() => {
     if (isMobileViewport && isPinned) {
+      // On mobile, unpin but keep the floating state active
       onPinnedChange?.(false);
-      if (state !== "closed") {
-        setState("closed");
-      }
     }
-  }, [isMobileViewport, isPinned, onPinnedChange, setState, state]);
+  }, [isMobileViewport, isPinned, onPinnedChange]);
 
   useEffect(() => {
     if (isResizing) {
@@ -2375,7 +2373,7 @@ export default function Chatbot({
             type="button"
             aria-label="Close chatbot"
             onClick={handleClose}
-            className={`fixed inset-0 bg-black/30 z-80 transition-opacity duration-300 ${
+            className={`fixed inset-0 bg-black/30 z-[80] transition-opacity duration-300 ${
               state === "closed"
                 ? "opacity-0 pointer-events-none"
                 : "opacity-100 pointer-events-auto"
@@ -2383,7 +2381,7 @@ export default function Chatbot({
           />
 
           <div
-            className={`fixed inset-y-0 right-0 z-90 w-[88vw] max-w-sm bg-white border-l border-gray-300 flex flex-col transform transition-transform duration-300 ${
+            className={`fixed inset-y-0 right-0 z-[90] w-[88vw] max-w-sm bg-white border-l border-gray-300 flex flex-col transform transition-transform duration-300 ${
               state === "closed" ? "translate-x-full" : "translate-x-0"
             }`}
           >
@@ -2405,7 +2403,7 @@ export default function Chatbot({
             type="button"
             aria-label="Open AI assistant"
             onClick={handleToggle}
-            className={`fixed bottom-6 right-6 z-90 py-2 px-4 cursor-pointer rounded-full shadow-lg flex items-center justify-center transition-all duration-200 bg-green-700 hover:bg-green-800 ${
+            className={`fixed bottom-6 right-6 z-[90] py-2 px-4 cursor-pointer rounded-full shadow-lg flex items-center justify-center transition-all duration-200 bg-green-700 hover:bg-green-800 ${
               state === "closed"
                 ? "opacity-100 pointer-events-auto"
                 : "opacity-0 pointer-events-none"
@@ -2419,7 +2417,7 @@ export default function Chatbot({
           </button>
         </div>
       ) : (
-        <div ref={chatbotRef} className="fixed bottom-6 right-6 z-60">
+        <div ref={chatbotRef} className="fixed bottom-6 right-6 z-[60]">
           {/* Floating Window */}
           {state !== "closed" && (
             <div

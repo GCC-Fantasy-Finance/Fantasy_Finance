@@ -26,7 +26,7 @@ import PageContent from "@/layouts/components/PageContent";
 import PortfolioHoldingCard from "@/features/portfolio/components/PortfolioHoldingCard";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import Ticker from "@/components/ui/ticker";
-import Spinner from "@/components/ui/spinner";
+import PortfolioPageSkeleton from "@/features/portfolio/components/PortfolioPageSkeleton";
 
 type DraftedStockItem = {
   stockId: number;
@@ -709,9 +709,7 @@ export default function PortfolioPage({
   const showDiscoverButton = !isLeagueMode || !isLeagueDraftEnded;
 
   const content = loading ? (
-    <div className="flex items-center justify-center py-12 mb-8">
-      <Spinner />
-    </div>
+    <PortfolioPageSkeleton />
   ) : (
     <div className="ff-portfolio-page mb-18">
       <div className="ff-portfolio-summary-grid mb-6 grid grid-cols-1 gap-6">
