@@ -8,15 +8,18 @@ import { toast } from "sonner";
 import { buyStock } from "@/hooks/buyStock";
 import { invalidateCachedPortfolioView } from "@/hooks/fetchPortfolio";
 import { calculateShareQuantityForAmount, truncateCurrency } from "@/lib/utils";
+import { useStockPrices } from "@/context/StockPriceContext";
 
 export default function BuyStockModal() {
   const { buyOpen, stock, portfolio, closeBuy } = useTradeModal();
   const { user } = useAuth();
+  const stockPrices = useStockPrices();
   const modalRef = useRef<HTMLDivElement | null>(null);
   const [amount, setAmount] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
 
-  const price = Number(stock?.current_price ?? 0);
+  const livePrice = stock?.stock_id ? (stockPrices[stock.stock_id] ?? null) : null;
+  const price = Number(livePrice ?? stock?.current_price ?? 0);
   const reserve = Number(portfolio?.reserve_value ?? 0);
 
   const parsedAmount = useMemo(() => {

@@ -6,6 +6,7 @@ import StockDetailsModal from "@/components/ui/stockDetailsModal";
 import PortfolioChart from "@/components/ui/portfolioChart";
 import { useAuth } from "@/context/AuthContext";
 import { useTradeModal } from "@/context/TradeModalContext";
+import { useStockPrices } from "@/context/StockPriceContext";
 import {
   fetchPortfolioView,
   getCachedPortfolioView,
@@ -72,6 +73,7 @@ export default function PortfolioPage({
   const auth = useAuth();
   const navigate = useNavigate();
   const { openSell, openBuy } = useTradeModal();
+  const stockPrices = useStockPrices();
 
   const [loading, setLoading] = useState(true);
   const [holdings, setHoldings] = useState<HoldingView[]>([]);
@@ -90,6 +92,21 @@ export default function PortfolioPage({
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   const isLeagueMode = mode === "league";
+
+  const holdingsWithLivePrices = useMemo(() => {
+    return holdings.map((holding) => {
+      const stock = holding.stock;
+      if (!stock) return holding;
+      return {
+        ...holding,
+        stock: {
+          ...stock,
+          current_price:
+            stockPrices[stock.stock_id] ?? stock.current_price,
+        },
+      };
+    });
+  }, [holdings, stockPrices]);
 
   const resetPortfolioState = useCallback(() => {
     setHoldings([]);
@@ -531,8 +548,8 @@ export default function PortfolioPage({
   };
 
   const reserveValue = Number(totals?.reserve_value ?? 0);
-  const investedValue = calculateInvestedValue(holdings);
-  const netValue = calculatePortfolioValue({ holdings, reserveValue });
+  const investedValue = calculateInvestedValue(holdingsWithLivePrices);
+  const netValue = calculatePortfolioValue({ holdings: holdingsWithLivePrices, reserveValue });
   const rawPreviousCloseValue = Number(totals?.previous_close_value ?? 0);
   const previousCloseValue =
     rawPreviousCloseValue > 0 ? rawPreviousCloseValue : netValue;
@@ -559,7 +576,7 @@ export default function PortfolioPage({
 
   const holdingListItems = useMemo<HoldingListItem[]>(() => {
     if (!isLeagueMode || draftedStocks.length === 0) {
-      return holdings.map((holding) => {
+      return holdingsWithLivePrices.map((holding) => {
         const qty = Number(holding.quantity ?? 0);
         return {
           key: `holding-${holding.portfolio_holding_id}`,
@@ -571,7 +588,7 @@ export default function PortfolioPage({
     }
 
     const holdingByStockId = new Map<number, HoldingView>();
-    for (const holding of holdings) {
+    for (const holding of holdingsWithLivePrices) {
       const stockId = Number(holding.stock_id);
       if (Number.isFinite(stockId) && !holdingByStockId.has(stockId)) {
         holdingByStockId.set(stockId, holding);
@@ -613,7 +630,7 @@ export default function PortfolioPage({
       });
     }
 
-    for (const holding of holdings) {
+    for (const holding of holdingsWithLivePrices) {
       const stockId = Number(holding.stock_id);
       if (Number.isFinite(stockId) && seenStockIds.has(stockId)) continue;
       const qty = Number(holding.quantity ?? 0);
@@ -626,7 +643,7 @@ export default function PortfolioPage({
     }
 
     return mergedItems;
-  }, [draftedStocks, holdings, isLeagueMode, portfolio?.portfolio_id]);
+  }, [draftedStocks, holdingsWithLivePrices, isLeagueMode, portfolio?.portfolio_id]);
 
   const sortedHoldingListItems = useMemo<HoldingListItem[]>(() => {
     const sorted = [...holdingListItems];

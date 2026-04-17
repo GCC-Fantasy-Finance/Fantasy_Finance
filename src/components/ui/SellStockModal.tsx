@@ -8,17 +8,20 @@ import { toast } from "sonner";
 import { sellStock } from "@/hooks/sellStock";
 import { invalidateCachedPortfolioView } from "@/hooks/fetchPortfolio";
 import { roundShareQuantity, truncateCurrency } from "@/lib/utils";
+import { useStockPrices } from "@/context/StockPriceContext";
 
 export default function SellStockModal() {
   const { sellOpen, stock, portfolio, holdingQty, closeSell } = useTradeModal();
   const { user } = useAuth();
+  const stockPrices = useStockPrices();
   const modalRef = useRef<HTMLDivElement | null>(null);
 
   const [mode, setMode] = useState<"custom" | "all">("custom");
   const [amount, setAmount] = useState<string>(""); // dollar amount when in custom mode
   const [submitting, setSubmitting] = useState(false);
 
-  const price = Number(stock?.current_price ?? 0);
+  const livePrice = stock?.stock_id ? (stockPrices[stock.stock_id] ?? null) : null;
+  const price = Number(livePrice ?? stock?.current_price ?? 0);
   const reserve = Number(portfolio?.reserve_value ?? 0);
   const availableShares = Number(holdingQty ?? 0);
 

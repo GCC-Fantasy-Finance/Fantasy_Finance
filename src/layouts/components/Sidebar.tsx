@@ -25,6 +25,7 @@ import { supabase } from "@/lib/supabase";
 import { calculatePortfolioValue } from "@/lib/portfolioValue";
 import { prefetchLeagueView } from "@/hooks/fetchLeagueView";
 import { useLayout } from "@/context/LayoutContext";
+import { useStockPrices } from "@/context/StockPriceContext";
 
 type NavItem = {
   name: string;
@@ -399,6 +400,14 @@ export default function Sidebar() {
       }
     }
   }, [leagues]);
+
+  // Refresh portfolio values when stock prices update
+  const stockPrices = useStockPrices();
+  useEffect(() => {
+    // Silently reload to update portfolio values when prices change
+    void reloadLeagues({ silent: true });
+    void reloadSoloTicker();
+  }, [stockPrices, reloadLeagues, reloadSoloTicker]);
 
   const handlePrefetchLeague = (leagueId?: number | null) => {
     const numericLeagueId = Number(leagueId);

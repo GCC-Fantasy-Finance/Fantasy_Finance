@@ -31,6 +31,7 @@ import { AuthProvider } from "../context/AuthContext";
 import { ChatbotProvider } from "../context/ChatbotContext";
 import { NotificationsProvider } from "../context/NotificationsContext";
 import { TradeModalProvider } from "@/context/TradeModalContext";
+import { StockPriceProvider } from "@/context/StockPriceContext";
 
 import SoloLayout from "@/features/solo/SoloLayout";
 import SoloLeaderboardPage from "@/features/solo/pages/SoloLeaderboardPage";
@@ -132,7 +133,9 @@ export default function AppRouter() {
   return (
     <>
       <AuthProvider>
-        <RouterProvider router={router} />
+        <StockPriceProvider>
+          <RouterProvider router={router} />
+        </StockPriceProvider>
       </AuthProvider>
       <Toaster />
     </>

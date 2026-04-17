@@ -6,6 +6,7 @@ import { getAllStocks } from "@/lib/stocks";
 import { calculateStockPercentChange } from "@/lib/utils";
 import StockDetailsModal from "@/components/ui/stockDetailsModal";
 import Spinner from "@/components/ui/spinner";
+import { useStockPrices } from "@/context/StockPriceContext";
 import {
   Building2,
   Cpu,
@@ -76,6 +77,7 @@ function getSectorIcon(sector: string): LucideIcon {
 function Discover() {
   usePageTitle("Discover");
   const navigate = useNavigate();
+  const stockPrices = useStockPrices();
   const [stocks, setStocks] = useState<StockWithSector[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStock, setSelectedStock] = useState<StockWithSector | null>(
@@ -128,8 +130,16 @@ function Discover() {
     );
   }, [stocks]);
 
+  // Apply live stock prices to stocks array when prices update
+  const stocksWithLivePrices = useMemo(() => {
+    return stocks.map((stock) => ({
+      ...stock,
+      current_price: stockPrices[stock.stock_id] ?? stock.current_price,
+    }));
+  }, [stocks, stockPrices]);
+
   const trendingStocks = useMemo(() => {
-    return stocks
+    return stocksWithLivePrices
       .map((stock) => ({
         ...stock,
         percentChange: calculateStockPercentChange(
@@ -139,7 +149,7 @@ function Discover() {
       }))
       .sort((left, right) => right.percentChange - left.percentChange)
       .slice(0, 3);
-  }, [stocks]);
+  }, [stocksWithLivePrices]);
 
   const handleSectorClick = (sector: string) => {
     const urlFriendlySector = toSectorSlug(sector);

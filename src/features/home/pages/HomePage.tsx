@@ -11,6 +11,7 @@ import {
   getUserRankInSoloLeaderboard,
   withLiveValues,
 } from "@/lib/leagues";
+import { useStockPrices } from "@/context/StockPriceContext";
 import { getPortfoliosByUser } from "@/lib/portfolios";
 import HomePageCard from "@/components/ui/homepagecard";
 import {
@@ -215,6 +216,7 @@ function Home() {
   usePageTitle("Home");
 
   const { user } = useAuth();
+  const stockPrices = useStockPrices();
   const [loading, setLoading] = useState(true);
   const [portfolios, setPortfolios] = useState<PortfolioCard[]>([]);
   const [viewMode, setViewMode] = useState<"cards" | "table">(() =>
@@ -351,6 +353,37 @@ function Home() {
     }
     load();
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || portfolios.length === 0) return;
+
+    const refreshValues = async () => {
+      try {
+        const portfolioIds = portfolios.map((p) => ({
+          portfolio_id: p.portfolio_id,
+          reserve_value: p.reserve_value ?? 0,
+        }));
+        const portfoliosWithNet = await withLiveValues(portfolioIds);
+        const netValueByPortfolioId = new Map(
+          portfoliosWithNet.map((portfolio) => [
+            Number(portfolio.portfolio_id),
+            Number(portfolio.live_value ?? 0),
+          ]),
+        );
+
+        setPortfolios((prev) =>
+          prev.map((p) => ({
+            ...p,
+            net_value: netValueByPortfolioId.get(p.portfolio_id) ?? p.net_value,
+          })),
+        );
+      } catch (err) {
+        console.error("Failed to refresh portfolio values:", err);
+      }
+    };
+
+    refreshValues();
+  }, [stockPrices, user?.id, portfolios.length]);
 
   return (
     <PageContent>
