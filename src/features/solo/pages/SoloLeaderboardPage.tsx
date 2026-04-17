@@ -9,7 +9,6 @@ import { buildSortedLeaderboardEntries } from "@/lib/leagues";
 import { getBadgesbyUserBadges } from "@/lib/userBadges";
 import TimeFrameSelector from "@/components/ui/TimeFrameSelector";
 import LeaderboardSkeleton from "@/components/ui/LeaderboardSkeleton";
-import SoloPortfolioModal from "@/components/ui/SoloPortfolioModal";
 import { calculatePortfolioValue } from "@/lib/portfolioValue";
 
 const SOLO_LEADERBOARD_CACHE_TTL_MS = 15_000;
@@ -471,25 +470,6 @@ function SoloLeaderboardPage() {
           />
         </>
       )}
-
-      <SoloPortfolioModal
-        open={Boolean(selectedPortfolio)}
-        portfolioId={selectedPortfolio?.portfolio_id ?? null}
-        memberName={selectedPortfolio?.Profiles?.username ?? "Unknown User"}
-        memberAvatarUrl={selectedPortfolio?.Profiles?.avatar_url}
-        badges={selectedPortfolio?.badges}
-        joinedDate={selectedPortfolio?.Profiles?.created_at}
-        fallbackNetValue={
-          selectedPortfolio
-            ? calculatePortfolioValue({
-                netValue:
-                  selectedPortfolio.live_value ??
-                  selectedPortfolio.previous_close_value,
-              })
-            : undefined
-        }
-        onClose={() => setSelectedPortfolio(null)}
-      />
 
       <div className="h-16" />
     </div>

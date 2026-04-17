@@ -93,9 +93,9 @@ const StockHeader = ({
   const showSavedIcon = isSavedInSolo && !isOwnedInSolo;
 
   return (
-    <div className="flex justify-between items-end lg:items-center">
-      <div className="flex flex-col gap-2 mb-1">
-        <div className="flex gap-2 items-center mr-6">
+    <div className="flex justify-between items-end lg:items-center gap-2 flex-wrap">
+      <div className="flex flex-col gap-2 mb-1 min-w-0">
+        <div className="flex gap-2 items-center mr-6 flex-wrap">
           {stock.logo_url ? (
             <img
               src={stock.logo_url}
@@ -127,7 +127,7 @@ const StockHeader = ({
       <TooltipProvider delayDuration={100}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <span>
+            <span className="flex-shrink-0">
               <Button
                 type="button"
                 variant="outline"

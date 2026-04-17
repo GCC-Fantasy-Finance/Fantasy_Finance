@@ -20,10 +20,10 @@ export default function SubNav({ items, rightContent }: SubNavProps) {
 
   return (
     <nav className="sticky top-0 z-30 isolate min-h-12 w-full shrink-0 border-b border-gray-300 bg-white px-6 py-1">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <ul className="flex min-w-0 flex-1 flex-wrap items-center gap-x-8 gap-y-1">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <ul className="flex min-w-0 flex-1 flex-wrap items-center gap-x-8 gap-y-2">
           {items.map((item) => (
-            <li key={item.path}>
+            <li key={item.path} className={item.variant === "cta" ? "flex-shrink-0" : ""}>
               {item.variant === "cta" ? (
                 <Button asChild size="sm" className={` ml-2 `}>
                   <Link

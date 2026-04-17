@@ -21,6 +21,8 @@ const REPORT_REASONS: { value: ReportReason; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
+const MAX_MESSAGE_LENGTH = 500;
+
 export default function ReportUserModal({ open, userName, reportedUserId, onClose }: Props) {
   const { user } = useAuth();
   const [selectedReason, setSelectedReason] = useState<ReportReason | null>(null);
@@ -168,11 +170,15 @@ export default function ReportUserModal({ open, userName, reportedUserId, onClos
             <textarea
               id="custom-message"
               value={customMessage}
-              onChange={(e) => setCustomMessage(e.target.value)}
+              onChange={(e) => setCustomMessage(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}
+              maxLength={MAX_MESSAGE_LENGTH}
               placeholder="Enter additional details..."
               className="w-full px-3 py-2 border border-gray-300 rounded text-sm resize-none focus:outline-none focus:ring-2 focus:ring-green-500"
               rows={4}
             />
+            <p className="text-xs text-gray-500 mt-1">
+              {customMessage.length}/{MAX_MESSAGE_LENGTH} characters
+            </p>
           </div>
         )}
 

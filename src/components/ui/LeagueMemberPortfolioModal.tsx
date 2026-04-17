@@ -393,10 +393,10 @@ export default function MemberPortfolioModal({
                   return (
                     <div
                       key={holding.portfolio_holding_id}
-                      className="flex w-full cursor-pointer items-center justify-between rounded-lg border bg-white px-4 py-3 shadow-sm transition-colors hover:bg-gray-50"
+                      className="flex w-full cursor-pointer flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-lg border bg-white px-4 py-3 shadow-sm transition-colors hover:bg-gray-50"
                       onClick={() => void handleOpenStockDetails(holding.stock?.stock_id)}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
                         {holding.stock?.logo_url ? (
                           <img
                             src={holding.stock.logo_url}
@@ -408,7 +408,7 @@ export default function MemberPortfolioModal({
                             {holding.stock?.stock_symbol?.[0] ?? "—"}
                           </div>
                         )}
-                        <div className="flex min-w-[120px] flex-col">
+                        <div className="flex min-w-0 flex-col sm:min-w-[120px]">
                           <span className="text-sm font-semibold">
                             {holding.stock?.stock_symbol ?? "—"}
                           </span>
@@ -416,7 +416,7 @@ export default function MemberPortfolioModal({
                             {holding.stock?.name ?? "Unknown stock"}
                           </span>
                         </div>
-                        <div className="flex flex-col items-end min-w-24">
+                        <div className="flex flex-col items-end sm:min-w-24">
                           <span className="text-sm">
                             ${truncateCurrency(currentPrice)}
                           </span>
@@ -471,7 +471,7 @@ export default function MemberPortfolioModal({
       {portal}
       <StockDetailsModal
         open={!!selectedStock}
-        stock={(selectedStock?.stock_id as any) ?? null}
+        stock={selectedStock}
         onClose={() => setSelectedStock(null)}
       />
     </>
