@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { getPortfolioHistory } from "@/lib/portfolioHistory";
 import { calculatePortfolioValue } from "@/lib/portfolioValue";
@@ -22,6 +22,7 @@ import {
 } from "recharts";
 
 type Point = {
+  xIndex: number;
   date: string;
   timestamp: string;
   close: number;
@@ -111,7 +112,7 @@ export default function PortfolioChart({
         console.error("Error fetching current portfolio value:", error);
       }
 
-      setData(formatted);
+      setData(formatted.map((point, index) => ({ ...point, xIndex: index })));
     };
     try {
       fetchHistory();
@@ -529,9 +530,12 @@ export default function PortfolioChart({
   };
 
   const seenYears = new Set<number>();
-  const xAxisTickFormatter = (value: string) => {
-    const parsedDate = new Date(value);
-    if (Number.isNaN(parsedDate.getTime())) return value;
+  const xAxisTickFormatter = (value: number) => {
+    const point = data[Math.round(value)];
+    if (!point?.date) return "";
+
+    const parsedDate = new Date(point.date);
+    if (Number.isNaN(parsedDate.getTime())) return point.date;
 
     const monthDay = parsedDate.toLocaleDateString("en-US", {
       month: "short",
@@ -546,6 +550,16 @@ export default function PortfolioChart({
 
     return monthDay;
   };
+
+  const xAxisTicks = useMemo(() => {
+    const targetLabelCount = 6;
+    if (data.length === 0) return [];
+    if (data.length === 1) return [0];
+
+    return Array.from({ length: targetLabelCount }, (_, index) =>
+      (index * (data.length - 1)) / (targetLabelCount - 1),
+    );
+  }, [data]);
 
   return (
     <div ref={containerRef} className="relative w-full cursor-pointer">
@@ -575,13 +589,15 @@ export default function PortfolioChart({
             </linearGradient>
           </defs>
           <XAxis
-            dataKey="date"
+            dataKey="xIndex"
+            type="number"
+            domain={[0, Math.max(0, data.length - 1)]}
             tickFormatter={xAxisTickFormatter}
-            
             tickMargin={12}
             height={42}
             tick={{ fontSize: 13 }}
-            interval={Math.max(0, Math.floor(data.length / 5) - 1)}   
+            ticks={xAxisTicks}
+            interval={0}
           />
           <YAxis domain={["auto", "auto"]} tick={{ fontSize: 13 }} />
           <CartesianGrid strokeDasharray="3 3" />
