@@ -47,6 +47,12 @@ export default function BuyStockModal() {
       return;
     }
 
+    // Limit to 2 decimal places
+    const parts = value.split('.');
+    if (parts.length === 2 && parts[1].length > 2) {
+      return;
+    }
+
     // Parse and validate it's a positive number
     const parsed = parseFloat(value);
     if (Number.isFinite(parsed) && parsed >= 0) {
