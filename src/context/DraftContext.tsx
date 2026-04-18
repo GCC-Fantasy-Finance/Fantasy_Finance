@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
+import { useStockPrices } from "./StockPriceContext";
 import { getPortfoliosByLeague } from "../lib/portfolios";
 import { getDraftByLeague, type Portfolio } from "../lib/drafts";
 import {
@@ -55,6 +56,7 @@ type DraftContextType = {
 const DraftContext = createContext<DraftContextType | undefined>(undefined);
 
 export const DraftProvider = ({ leagueId, children }: { leagueId: number; children: ReactNode }) => {
+  const contextStockPrices = useStockPrices();
   const [users, setUsers] = useState<Portfolio[]>([]);
   const usersRef = useRef<Portfolio[]>([]);
   const [draftPicks, setDraftPicks] = useState<any[]>([]);
@@ -198,7 +200,11 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
     };
   }, [leagueId]);
 
-  // Helper function to determine presence state
+  // Sync stock prices from context
+  useEffect(() => {
+    setStockPrices(contextStockPrices);
+  }, [contextStockPrices]);
+
   const getPresenceState = (userId: string): PresenceState => {
     const presenceArr = activeUsers[userId];
     if (!presenceArr || presenceArr.length === 0) return "offline";
@@ -284,30 +290,9 @@ export const DraftProvider = ({ leagueId, children }: { leagueId: number; childr
   }, [leagueId, tabVisible]);
 
   useEffect(() => {
-    const channel = supabase
-      .channel("live-stock-prices")
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "Stocks" },
-        (payload) => {
-          const updated = payload.new as { stock_id: number; current_price: number };
-          setStockPrices(prev => ({
-            ...prev,
-            [updated.stock_id]: updated.current_price,
-          }));
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  useEffect(() => {
     const loadInitialPrices = async () => {
-      const ids = queuedItems.map(q => q.stock_id);
-      if (ids.length === 0) return;
+      const ids = queuedItems.map((item: WishlistItem) => item.stock_id);
+      if (!ids.length) return;
 
       const { data } = await supabase
         .from("Stocks")
