@@ -36,10 +36,6 @@ type StockWithSector = {
   sector?: string;
 };
 
-type RawStockWithSector = Omit<StockWithSector, "sector"> & {
-  sector?: string | null;
-};
-
 function toSectorSlug(value: string) {
   return value.toLowerCase().trim().replace(/\s+/g, "-");
 }

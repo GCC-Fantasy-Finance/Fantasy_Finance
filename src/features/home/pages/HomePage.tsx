@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import { usePageTitle } from "../../../hooks/usePageTitle";
 import PageContent from "../../../layouts/components/PageContent";
 import { useAuth } from "@/context/AuthContext";
-import { supabase } from "@/lib/supabase";
 import {
   withLiveValues,
 } from "@/lib/leagues";
