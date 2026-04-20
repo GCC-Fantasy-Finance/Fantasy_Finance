@@ -56,5 +56,46 @@ export function calculateShareQuantityForAmount(
     return 0
   }
 
-  return roundShareQuantity(amount / price)
+  // Calculate base quantity (amount / price)
+  let quantity = amount / price
+  quantity = roundShareQuantity(quantity)
+
+  // Check the effective amount when displayed (truncated to 2 decimals)
+  // This is what will actually show up in the portfolio
+  const effectiveAmount = Math.trunc(quantity * price * 100) / 100
+
+  // If there's a gap due to floating point precision, adjust quantity slightly
+  // to get the effective amount as close as possible to the requested amount
+  if (Math.abs(effectiveAmount - amount) > 0.005) {
+    // Try small adjustments to find a better quantity
+    let bestQuantity = quantity
+    let bestDiff = Math.abs(effectiveAmount - amount)
+
+    // Try incrementing and decrementing by small amounts
+    for (let i = 1; i <= 5; i++) {
+      const adj = 1e-8 * i
+      
+      // Try adding
+      const q1 = roundShareQuantity(quantity + adj)
+      const eff1 = Math.trunc(q1 * price * 100) / 100
+      const diff1 = Math.abs(eff1 - amount)
+      if (diff1 < bestDiff) {
+        bestDiff = diff1
+        bestQuantity = q1
+      }
+
+      // Try subtracting
+      const q2 = roundShareQuantity(Math.max(0, quantity - adj))
+      const eff2 = Math.trunc(q2 * price * 100) / 100
+      const diff2 = Math.abs(eff2 - amount)
+      if (diff2 < bestDiff) {
+        bestDiff = diff2
+        bestQuantity = q2
+      }
+    }
+
+    quantity = bestQuantity
+  }
+
+  return quantity
 }

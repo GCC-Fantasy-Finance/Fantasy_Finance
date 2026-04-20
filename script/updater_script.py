@@ -190,93 +190,40 @@ def seconds_until_next_market_open():
 # updates the Portfolios.previous_close column for portfolios in active leagues
 def update_portfolio_previous_close():
 
-    # -----------------------------
-    # 1. Get current stock prices
-    # -----------------------------
-    stocks_resp = supabase.table("Stocks").select("stock_id, current_price").execute()
-    stocks = {s["stock_id"]: float(s["current_price"]) for s in (stocks_resp.data or [])}
+    # Get the most recent Portfolio Histories entry for each portfolio
+    # This guarantees consistency with insert_portfolio_history()
+    
+    histories_resp = supabase.table("Portfolio Histories") \
+        .select("portfolio_id, value") \
+        .order("timestamp_of", desc=True) \
+        .execute()
 
-    if not stocks:
-        print("No stock prices found.")
+    histories = histories_resp.data or []
+    if not histories:
+        print("No Portfolio Histories found.")
         return
 
-    # -----------------------------
-    # 2. Get active leagues
-    # -----------------------------
-    leagues_resp = supabase.table("Leagues") \
-        .select("league_id, finish_time") \
-        .gt("finish_time", datetime.now(timezone.utc).isoformat()) \
-        .execute()
+    # Map portfolio_id to its most recent value
+    latest_values = {}
+    seen_portfolios = set()
+    for h in histories:
+        pid = h["portfolio_id"]
+        if pid not in seen_portfolios:
+            latest_values[pid] = float(h["value"])
+            seen_portfolios.add(pid)
 
-    active_leagues = leagues_resp.data or []
-    league_ids = [l["league_id"] for l in active_leagues]
-
-    print(f"Found {len(league_ids)} active leagues")
-
-    # -----------------------------
-    # 3. Get relevant portfolios
-    #    (active leagues + solo)
-    # -----------------------------
-    if league_ids:
-        league_filter = f"league_id.in.({','.join(map(str, league_ids))}),league_id.is.null"
-    else:
-        league_filter = "league_id.is.null"
-
-    portfolios_resp = supabase.table("Portfolios") \
-        .select("portfolio_id, league_id, reserve_value") \
-        .or_(league_filter) \
-        .execute()
-
-    portfolios = portfolios_resp.data or []
-    if not portfolios:
-        print("No eligible portfolios found.")
+    if not latest_values:
+        print("No portfolio values found in histories.")
         return
 
-    print(f"Found {len(portfolios)} eligible portfolios (active + solo)")
+    print(f"Updating {len(latest_values)} portfolios with their latest history values")
 
-    # -----------------------------
-    # 4. Get holdings for those portfolios
-    # -----------------------------
-    portfolio_ids = [p["portfolio_id"] for p in portfolios]
-
-    holdings_resp = supabase.table("Portfolio Holdings") \
-        .select("portfolio_id, stock_id, quantity") \
-        .in_("portfolio_id", portfolio_ids) \
-        .execute()
-
-    holdings = holdings_resp.data or []
-
-    holdings_by_portfolio = {}
-    for h in holdings:
-        holdings_by_portfolio.setdefault(h["portfolio_id"], []).append(h)
-
-    # -----------------------------
-    # 5. Recalculate portfolio values
-    # -----------------------------
-    history_rows = []
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    for portfolio in portfolios:
-        pid = portfolio["portfolio_id"]
-
-        # Start with reserve cash
-        reserve_value = float(portfolio.get("reserve_value") or 0)
-        total_value = reserve_value
-
-        # Add stock holdings value
-        for h in holdings_by_portfolio.get(pid, []):
-            stock_id = h["stock_id"]
-            qty = float(h["quantity"])
-            price = stocks.get(stock_id)
-
-            if price is None:
-                continue
-
-            total_value += qty * price
-
-        # Update ONLY these eligible portfolios
+    # Update each portfolio with its most recent history value as previous_close_value
+    for pid, value in latest_values.items():
         supabase.table("Portfolios").update({
-            "previous_close_value": total_value,
+            "previous_close_value": value,
             "last_recalculated": now_iso
         }).eq("portfolio_id", pid).execute()
 

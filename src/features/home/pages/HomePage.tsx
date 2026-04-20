@@ -4,14 +4,11 @@ import { useNavigate } from "react-router-dom";
 import { usePageTitle } from "../../../hooks/usePageTitle";
 import PageContent from "../../../layouts/components/PageContent";
 import { useAuth } from "@/context/AuthContext";
-import { supabase } from "@/lib/supabase";
 import {
-  getLeagueById,
-  getUserRankInLeague,
-  getUserRankInSoloLeaderboard,
   withLiveValues,
 } from "@/lib/leagues";
-import { getPortfoliosByUser } from "@/lib/portfolios";
+import { useStockPrices } from "@/context/StockPriceContext";
+import { fetchHomePortfolios, type PortfolioCard } from "@/hooks/fetchHomePortfolios";
 import HomePageCard from "@/components/ui/homepagecard";
 import {
   Table,
@@ -24,18 +21,6 @@ import {
 import Ticker from "@/components/ui/ticker";
 import Spinner from "@/components/ui/spinner";
 import { Grid, Rows3 } from "lucide-react";
-
-type PortfolioCard = {
-  portfolio_id: number;
-  is_solo: boolean;
-  league_id?: number | null;
-  is_league_ended?: boolean;
-  net_value?: number | null;
-  previous_close_value?: number | null;
-  reserve_value?: number | null;
-  name: string;
-  rank?: number | null;
-};
 
 const HOME_VIEW_MODE_COOKIE = "home_view_mode";
 
@@ -236,6 +221,7 @@ function Home() {
   usePageTitle("Home");
 
   const { user } = useAuth();
+  const stockPrices = useStockPrices();
   const [loading, setLoading] = useState(true);
   const [portfolios, setPortfolios] = useState<PortfolioCard[]>([]);
   const [viewMode, setViewMode] = useState<"cards" | "table">(() =>
@@ -256,113 +242,8 @@ function Home() {
 
       setLoading(true);
       try {
-        const data = await getPortfoliosByUser(user.id as unknown as number);
-        const rows = (data ?? []) as any[];
-
-        // Ensure a Solo portfolio exists
-        const hasSolo = rows.some((r) => r.is_solo === true);
-        let working = [...rows];
-        if (!hasSolo) {
-          const { data: inserted, error: insErr } = await supabase
-            .from("Portfolios")
-            .insert({
-              user_id: user.id,
-              is_solo: true,
-              previous_close_value: 10000,
-              reserve_value: 10000,
-              last_recalculated: new Date().toISOString(),
-            })
-            .select(
-              "portfolio_id,is_solo,league_id,previous_close_value,reserve_value",
-            )
-            .maybeSingle();
-
-          if (!insErr && inserted?.portfolio_id) {
-            const { error: historyError } = await supabase
-              .from("Portfolio Histories")
-              .insert([
-                {
-                  portfolio_id: inserted.portfolio_id,
-                  value: 10000,
-                },
-              ]);
-
-            if (historyError) {
-              throw historyError;
-            }
-          }
-
-          if (!insErr && inserted) working.unshift(inserted);
-        }
-
-        // Enrich with display names and ranks (batched in parallel)
-        const leagueIds = Array.from(
-          new Set(
-            working
-              .filter((r) => !r.is_solo && r.league_id)
-              .map((r) => Number(r.league_id))
-              .filter((leagueId) => Number.isFinite(leagueId)),
-          ),
-        );
-
-        const [soloRank, leagueDetails, portfoliosWithNet] = await Promise.all([
-          working.some((r) => r.is_solo)
-            ? getUserRankInSoloLeaderboard(user.id)
-            : Promise.resolve(null),
-          Promise.all(
-            leagueIds.map(async (leagueId) => {
-              const [league, rank] = await Promise.all([
-                getLeagueById(leagueId),
-                getUserRankInLeague(leagueId, user.id),
-              ]);
-              return [
-                leagueId,
-                {
-                  name: league?.name ?? "League",
-                  rank,
-                  isEnded: Boolean(league?.is_ended),
-                },
-              ] as const;
-            }),
-          ),
-          withLiveValues(
-            working.map((r) => ({
-              portfolio_id: Number(r.portfolio_id),
-              reserve_value: r.reserve_value ?? 0,
-            })),
-          ),
-        ]);
-
-        const leagueInfoById = new Map(leagueDetails);
-        const netValueByPortfolioId = new Map(
-          portfoliosWithNet.map((portfolio) => [
-            Number(portfolio.portfolio_id),
-            Number(portfolio.live_value ?? 0),
-          ]),
-        );
-
-        const cards: PortfolioCard[] = working.map((r) => {
-          const isSolo = Boolean(r.is_solo);
-          const leagueId = r.league_id != null ? Number(r.league_id) : null;
-          const leagueInfo =
-            leagueId != null ? leagueInfoById.get(leagueId) : null;
-
-          return {
-            portfolio_id: Number(r.portfolio_id),
-            is_solo: isSolo,
-            league_id: leagueId,
-            is_league_ended: isSolo ? false : Boolean(leagueInfo?.isEnded),
-            net_value:
-              netValueByPortfolioId.get(Number(r.portfolio_id)) ??
-              Number(r.previous_close_value ?? 0),
-            previous_close_value: r.previous_close_value ?? 0,
-            reserve_value: r.reserve_value ?? 0,
-            name: isSolo ? "Solo" : (leagueInfo?.name ?? "League"),
-            rank: isSolo ? soloRank : (leagueInfo?.rank ?? null),
-          };
-        });
-
-        setPortfolios(cards);
+        const result = await fetchHomePortfolios(user.id);
+        setPortfolios(result.portfolios);
       } catch (err) {
         console.error("Failed to load portfolios:", err);
         setPortfolios([]);
@@ -372,6 +253,37 @@ function Home() {
     }
     load();
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || portfolios.length === 0) return;
+
+    const refreshValues = async () => {
+      try {
+        const portfolioIds = portfolios.map((p) => ({
+          portfolio_id: p.portfolio_id,
+          reserve_value: p.reserve_value ?? 0,
+        }));
+        const portfoliosWithNet = await withLiveValues(portfolioIds);
+        const netValueByPortfolioId = new Map(
+          portfoliosWithNet.map((portfolio) => [
+            Number(portfolio.portfolio_id),
+            Number(portfolio.live_value ?? 0),
+          ]),
+        );
+
+        setPortfolios((prev) =>
+          prev.map((p) => ({
+            ...p,
+            net_value: netValueByPortfolioId.get(p.portfolio_id) ?? p.net_value,
+          })),
+        );
+      } catch (err) {
+        console.error("Failed to refresh portfolio values:", err);
+      }
+    };
+
+    refreshValues();
+  }, [stockPrices, user?.id, portfolios.length]);
 
   return (
     <PageContent>

@@ -19,10 +19,12 @@ import {
   type LeagueView,
 } from "@/hooks/fetchLeagueView";
 import type { DraftRow } from "@/lib/drafts";
+import { useStockPrices } from "@/context/StockPriceContext";
 
 export default function LeagueLeaderboardPage() {
   const { leagueId } = useParams<{ leagueId: string }>();
   const { profile } = useAuth();
+  const stockPrices = useStockPrices();
   const numericLeagueId = Number(leagueId);
   const cachedLeagueName = Number.isFinite(numericLeagueId)
     ? getCachedLeagueView(numericLeagueId)?.league?.name
@@ -146,7 +148,26 @@ export default function LeagueLeaderboardPage() {
       channel.unsubscribe();
     };
   }, [leagueId]);
+useEffect(() => {
+    const numericLeagueId = Number(leagueId);
+    if (!leagueId || !Number.isFinite(numericLeagueId) || leaderboard.length === 0) return;
 
+    const refreshLeaderboard = async () => {
+      try {
+        const result = await fetchLeagueView(numericLeagueId, {
+          useCache: false,
+          forceRefresh: true,
+        });
+        setLeaderboard(result.leaderboard);
+      } catch (err) {
+        console.error("Error refreshing leaderboard on price update:", err);
+      }
+    };
+
+    refreshLeaderboard();
+  }, [stockPrices, leagueId, leaderboard.length]);
+
+  
   if (loading) {
     return (
       <PageContent>

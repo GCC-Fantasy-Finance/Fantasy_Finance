@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import PortfolioPage from "@/features/portfolio/pages/PortfolioPage";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { getCachedLeagueView } from "@/hooks/fetchLeagueView";
-import { getLeagueById, type LeagueRow } from "@/lib/leagues";
+import { fetchLeagueView, getCachedLeagueView } from "@/hooks/fetchLeagueView";
+import { type LeagueRow } from "@/lib/leagues";
 
 export default function LeaguePortfolioPage() {
   const { leagueId } = useParams<{ leagueId: string }>();
@@ -26,10 +26,21 @@ export default function LeaguePortfolioPage() {
         return;
       }
 
-      const leagueData = await getLeagueById(numericLeagueId);
-      if (!mounted) return;
-
-      setLeague(leagueData);
+      try {
+        // Use fetchLeagueView to get cached league data
+        const leagueViewResult = await fetchLeagueView(numericLeagueId);
+        if (!mounted) return;
+        
+        // We just need the league info from the result
+        if (leagueViewResult.league) {
+          setLeague(leagueViewResult.league as LeagueRow);
+        }
+      } catch (error) {
+        console.error("Failed to load league:", error);
+        if (mounted) {
+          setLeague(null);
+        }
+      }
     }
 
     loadLeague();
