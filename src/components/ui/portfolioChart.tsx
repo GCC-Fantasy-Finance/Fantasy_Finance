@@ -26,6 +26,7 @@ type Point = {
   date: string;
   timestamp: string;
   close: number;
+  isLive?: boolean;
 };
 
 type SelectedPoint = {
@@ -529,7 +530,6 @@ export default function PortfolioChart({
     setHoveredIndex(null);
   };
 
-  const seenYears = new Set<number>();
   const xAxisTickFormatter = (value: number) => {
     const point = data[Math.round(value)];
     if (!point?.date) return "";
@@ -543,8 +543,13 @@ export default function PortfolioChart({
     });
     const year = parsedDate.getFullYear();
 
-    if (!seenYears.has(year)) {
-      seenYears.add(year);
+    // Check if this point is the first to appear in this year
+    const prevPoint = data[Math.round(value) - 1];
+    const prevYear = prevPoint?.date
+      ? new Date(prevPoint.date).getFullYear()
+      : null;
+
+    if (Math.round(value) === 0 || year !== prevYear) {
       return `${monthDay}, ${year}`;
     }
 
@@ -556,9 +561,23 @@ export default function PortfolioChart({
     if (data.length === 0) return [];
     if (data.length === 1) return [0];
 
-    return Array.from({ length: targetLabelCount }, (_, index) =>
-      (index * (data.length - 1)) / (targetLabelCount - 1),
+    const rawTicks = Array.from({ length: targetLabelCount }, (_, index) =>
+      Math.round((index * (data.length - 1)) / (targetLabelCount - 1)),
     );
+
+    const uniqueIndices: number[] = [];
+    const seenDates = new Set<string>();
+
+    // Process from right to left so the most recent points (like live) take precedence
+    [...rawTicks].reverse().forEach((index) => {
+      const point = data[index];
+      if (point && point.date && !seenDates.has(point.date)) {
+        seenDates.add(point.date);
+        uniqueIndices.push(index);
+      }
+    });
+
+    return uniqueIndices.reverse(); // restore left-to-right order
   }, [data]);
 
   return (
