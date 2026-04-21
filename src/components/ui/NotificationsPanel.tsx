@@ -142,6 +142,11 @@ export default function NotificationsPanel() {
       setUnreadCount((prev) => Math.max(0, prev - 1));
     }
 
+    // Close panel on mobile immediately
+    if (isMobileViewport) {
+      setNotificationsState("closed");
+    }
+
     // Handle League Invite separately - show modal instead of closing
     if (notification.category === "League Invite" && notification.league_id) {
       setLeagueInviteModal({
@@ -154,7 +159,9 @@ export default function NotificationsPanel() {
       return;
     }
 
-    setNotificationsState("closed");
+    if (!isMobileViewport) {
+      setNotificationsState("closed");
+    }
 
     if (notification.category === "League Completed" && notification.league_id) {
       navigate(`/league/${notification.league_id}/results`);
