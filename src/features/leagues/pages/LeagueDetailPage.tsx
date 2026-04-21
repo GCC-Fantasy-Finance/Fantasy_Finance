@@ -24,7 +24,7 @@ export default function LeagueDetailPage() {
 
   const [league, setLeague] = useState<LeagueView | null>(null);
   const [owner, setOwner] = useState<LeagueOwner | null>(null);
-  const [hasActiveDraft, setHasActiveDraft] = useState(false);
+  const [, setHasActiveDraft] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
