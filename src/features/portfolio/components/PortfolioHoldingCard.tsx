@@ -61,7 +61,7 @@ export default function PortfolioHoldingCard({
       }}
     >
       {/* Symbol */}
-      <div className="ff-portfolio-holding-card__symbol relative z-10 text-left flex min-w-0 items-center gap-2 font-medium">
+      <div className="ff-portfolio-holding-card__symbol relative z-10 flex w-full min-w-0 max-w-full items-center gap-2 overflow-hidden text-left font-medium">
         {holding.stock?.logo_url ? (
           <img
             src={holding.stock.logo_url}
@@ -73,9 +73,9 @@ export default function PortfolioHoldingCard({
             {holding.stock?.stock_symbol?.[0]}
           </div>
         )}
-        <div className="flex min-w-0 flex-col">
-          {holding.stock?.stock_symbol}
-          <span className="text-sm font-normal text-gray-500 truncate">
+        <div className="flex w-full min-w-0 max-w-full flex-col overflow-hidden">
+          <span className="truncate">{holding.stock?.stock_symbol}</span>
+          <span className="block max-w-full truncate text-sm font-normal text-gray-500">
             {holding.stock?.name}
           </span>
         </div>

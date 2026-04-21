@@ -24,6 +24,7 @@ export default function LeagueDetailPage() {
 
   const [league, setLeague] = useState<LeagueView | null>(null);
   const [owner, setOwner] = useState<LeagueOwner | null>(null);
+  const [, setHasActiveDraft] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +41,7 @@ export default function LeagueDetailPage() {
         if (mounted) {
           setLeague(null);
           setOwner(null);
+          setHasActiveDraft(false);
           setLoading(false);
         }
         return;
@@ -52,6 +54,7 @@ export default function LeagueDetailPage() {
         if (!mounted) return;
         setLeague(cached.league);
         setOwner(cached.owner);
+        setHasActiveDraft(Boolean(cached.draft && !cached.draft.is_ended));
         setLoading(false);
       } else {
         setLoading(true);
@@ -66,6 +69,7 @@ export default function LeagueDetailPage() {
 
         setLeague(result.league);
         setOwner(result.owner);
+        setHasActiveDraft(Boolean(result.draft && !result.draft.is_ended));
       } catch (err: any) {
         console.error("Error loading league:", err);
         if (mounted) setError(err.message || "Failed to load league");
@@ -122,7 +126,7 @@ export default function LeagueDetailPage() {
 
   return (
     <PageContent>
-      <div className="max-w-3xl">
+      <div className="max-w-3xl flex flex-col">
         <h2 className="text-xl font-semibold mb-4">League Details</h2>
         <p className="text-sm text-gray-500 mb-2">
           Created:{" "}
@@ -159,7 +163,15 @@ export default function LeagueDetailPage() {
 
         <Button
           variant="outline"
-          className="mt-1 text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700"
+          className="mb-4 self-start"
+          onClick={() => navigate(`/draft/${leagueId}`)}
+        >
+          Enter Draft Room
+        </Button>
+
+        <Button
+          variant="outline"
+          className="mt-1 self-start text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700"
           onClick={() => {
             if (window.confirm("Are you sure you want to leave this league?")) {
               supabase

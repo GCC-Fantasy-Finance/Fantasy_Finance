@@ -7,6 +7,9 @@ export default function LeagueLayout() {
   const { leagueId } = useParams<{ leagueId: string }>();
   const [hasDraft, setHasDraft] = useState(false);
 
+  const hasActiveDraft = (draft: { is_ended?: boolean } | null | undefined) =>
+    Boolean(draft && !draft.is_ended);
+
   useEffect(() => {
     let mounted = true;
 
@@ -19,7 +22,7 @@ export default function LeagueLayout() {
 
       const cached = getCachedLeagueView(numericLeagueId);
       if (cached && mounted) {
-        setHasDraft(Boolean(cached.draft));
+        setHasDraft(hasActiveDraft(cached.draft));
       }
 
       try {
@@ -28,9 +31,9 @@ export default function LeagueLayout() {
           forceRefresh: Boolean(cached),
         });
         if (!mounted) return;
-        setHasDraft(Boolean(result.draft));
+        setHasDraft(hasActiveDraft(result.draft));
       } catch {
-        if (mounted) setHasDraft(Boolean(cached?.draft));
+        if (mounted) setHasDraft(hasActiveDraft(cached?.draft));
       }
     }
 
